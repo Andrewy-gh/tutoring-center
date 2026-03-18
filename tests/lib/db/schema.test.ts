@@ -54,4 +54,10 @@ describe('db schema exports', () => {
     expect(getTableName(sessionProgress)).toBe('session_progress');
     expect(getTableName(sessionMetrics)).toBe('session_metrics');
   });
+
+  it('tracks subject parent metadata needed for group-only parent enforcement', () => {
+    expect(subjects.kind.name).toBe('kind');
+    expect(subjects.parentSubjectId.name).toBe('parent_subject_id');
+    expect(subjects.parentSubjectKind.name).toBe('parent_subject_kind');
+  });
 });

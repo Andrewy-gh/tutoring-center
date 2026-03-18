@@ -1,5 +1,17 @@
 import { sql } from 'drizzle-orm';
-import { boolean, check, foreignKey, integer, pgEnum, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  foreignKey,
+  integer,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { parents, students, tutors } from './core';
 
 export const weekDayEnum = pgEnum('week_day', [
@@ -33,6 +45,7 @@ export const subjects = pgTable(
     slug: text('slug').notNull(),
     kind: subjectKindEnum('kind').notNull(),
     parentSubjectId: integer('parent_subject_id'),
+    parentSubjectKind: subjectKindEnum('parent_subject_kind'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
@@ -41,11 +54,24 @@ export const subjects = pgTable(
     unique('subjects_slug_unique').on(table.slug),
     unique('subjects_id_kind_unique').on(table.id, table.kind),
     unique('subjects_parent_name_unique').on(table.parentSubjectId, table.name),
+    uniqueIndex('subjects_root_name_unique')
+      .on(table.name)
+      .where(sql`${table.parentSubjectId} is null`),
     foreignKey({
-      columns: [table.parentSubjectId],
-      foreignColumns: [table.id],
+      columns: [table.parentSubjectId, table.parentSubjectKind],
+      foreignColumns: [table.id, table.kind],
       name: 'subjects_parent_subject_id_fkey',
     }),
+    check(
+      'subjects_parent_must_be_group',
+      sql`(
+        ${table.parentSubjectId} is null
+        and ${table.parentSubjectKind} is null
+      ) or (
+        ${table.parentSubjectId} is not null
+        and ${table.parentSubjectKind} = 'group'
+      )`
+    ),
     check('subjects_not_self_parent', sql`${table.parentSubjectId} is null or ${table.parentSubjectId} <> ${table.id}`),
   ]
 );
