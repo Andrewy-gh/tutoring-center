@@ -1,5 +1,10 @@
 import { boolean, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
+export const roles = pgTable('roles', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+});
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   email: text('email').notNull(),
@@ -7,7 +12,7 @@ export const users = pgTable('users', {
   lastName: text('last_name'),
   phone: text('phone'),
   profilePic: text('profile_pic'),
-  role: integer('role'),
+  role: integer('role').references(() => roles.id),
   timezone: text('timezone').notNull(),
   isActive: boolean('is_active').notNull(),
   lastLogin: timestamp('last_login', { withTimezone: true, mode: 'string' }),
@@ -49,16 +54,6 @@ export const tutors = pgTable('tutors', {
   bio: text('bio'),
   tagline: text('tagline'),
   yearsExperience: integer('years_experience'),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
-
-export const subjects = pgTable('subjects', {
-  id: serial('id').primaryKey(),
-  tutorId: integer('tutor_id')
-    .notNull()
-    .references(() => tutors.id),
-  category: text('category').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
