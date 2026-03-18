@@ -3,13 +3,15 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import {
-  CANCELED_SESSION_STATUS,
-  DEFAULT_SESSION_STATUS,
-  SESSION_SELECT_FIELDS,
-  SESSION_SELECT_WITH_JOINS,
-} from '@/lib/supabase/types';
+  bookSession,
+  CreditBalanceNotFoundError,
+  InsufficientCreditsError,
+  ParentStudentMismatchError,
+  SessionOverlapError,
+} from '@/lib/db/book-session';
+import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { SESSION_SELECT_FIELDS, SESSION_SELECT_WITH_JOINS } from '@/lib/supabase/types';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
   SessionCreateSchema,
@@ -179,41 +181,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'parent_id is required' }, { status: 400 });
   }
 
-  // Overlap protection: existing.start < new.end AND existing.end > new.start
-  // Ignore canceled sessions
-  const { data: overlaps, error: overlapErr } = await supabase
-    .from('sessions')
-    .select('id')
-    .eq('tutor_id', s.tutor_id)
-    .neq('status', CANCELED_SESSION_STATUS)
-    .lt('scheduled_at', s.ends_at)
-    .gt('ends_at', s.scheduled_at)
-    .limit(1);
+  try {
+    const { session } = await bookSession({
+      tutorId: s.tutor_id,
+      studentId: s.student_id,
+      subjectId: s.subject_id,
+      parentId,
+      slotUnits: s.slot_units,
+      scheduledAt: s.scheduled_at,
+      endsAt: s.ends_at,
+      status: s.status,
+    });
 
-  if (overlapErr) return NextResponse.json({ error: overlapErr.message }, { status: 500 });
+    return NextResponse.json({ data: session }, { status: 201 });
+  } catch (error) {
+    if (error instanceof SessionOverlapError) {
+      return NextResponse.json({ error: 'Tutor already has a session in that time range' }, { status: 409 });
+    }
 
-  if (overlaps && overlaps.length > 0) {
-    return NextResponse.json({ error: 'Tutor already has a session in that time range' }, { status: 409 });
+    if (error instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: 'Insufficient credits' }, { status: 409 });
+    }
+
+    if (error instanceof CreditBalanceNotFoundError) {
+      return NextResponse.json({ error: 'No credit balance found for parent' }, { status: 409 });
+    }
+
+    if (error instanceof ParentStudentMismatchError) {
+      return NextResponse.json({ error: 'Student does not belong to parent' }, { status: 403 });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { data, error } = await supabase
-    .from('sessions')
-    .insert({
-      tutor_id: s.tutor_id,
-      student_id: s.student_id,
-      subject_id: s.subject_id,
-      parent_id: parentId,
-      slot_units: s.slot_units,
-      scheduled_at: s.scheduled_at,
-      ends_at: s.ends_at,
-      status: s.status ?? DEFAULT_SESSION_STATUS,
-    })
-    .select(SESSION_SELECT_FIELDS)
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ data }, { status: 201 });
 }
 
 export async function PATCH(req: Request) {
