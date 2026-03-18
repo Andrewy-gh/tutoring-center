@@ -3,12 +3,14 @@ import {
   creditBalances,
   creditTransactions,
   roles,
+  subjectKindEnum,
   sessionMetrics,
   sessionProgress,
   sessions,
   sessionStatusEnum,
   studentGrades,
   subjects,
+  tutorSubjects,
   transactionTypeEnum,
   weekDayEnum,
 } from '@/lib/db/schema';
@@ -25,6 +27,9 @@ describe('db schema exports', () => {
       'No-show',
       'Rescheduled',
     ]);
+    expect(subjectKindEnum.enumValues).toEqual(['group', 'leaf']);
+    expect(transactionTypeEnum.enumValues).toContain('Reservation');
+    expect(transactionTypeEnum.enumValues).toContain('Reservation Release');
     expect(transactionTypeEnum.enumValues).toContain('Session Debit');
     expect(weekDayEnum.enumValues).toEqual([
       'Monday',
@@ -40,6 +45,7 @@ describe('db schema exports', () => {
   it('exports the main domain tables from the consolidated schema index', () => {
     expect(getTableName(roles)).toBe('roles');
     expect(getTableName(subjects)).toBe('subjects');
+    expect(getTableName(tutorSubjects)).toBe('tutor_subjects');
     expect(getTableName(availability)).toBe('availability');
     expect(getTableName(sessions)).toBe('sessions');
     expect(getTableName(creditBalances)).toBe('credit_balances');
