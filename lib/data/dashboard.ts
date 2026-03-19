@@ -1,5 +1,6 @@
 import 'server-only';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
+import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 
@@ -13,6 +14,7 @@ export type PerformanceDataPoint = {
   score: number;
   sessionId: number;
   subject: string;
+  subjectSlug: string;
 };
 
 export type ConfidenceDataPoint = {
@@ -20,6 +22,7 @@ export type ConfidenceDataPoint = {
   score: number;
   sessionId: number;
   subject: string;
+  subjectSlug: string;
 };
 
 export type HomeworkDataPoint = {
@@ -27,6 +30,7 @@ export type HomeworkDataPoint = {
   completed: boolean;
   sessionId: number;
   subject: string;
+  subjectSlug: string;
 };
 
 export type StudentProgressData = {
@@ -43,10 +47,6 @@ type SessionMetricsDB = {
   homework_completed: boolean | null;
 };
 
-type SubjectDB = {
-  category: string;
-};
-
 type UserDB = {
   first_name: string | null;
   last_name: string | null;
@@ -56,9 +56,25 @@ type SessionWithMetricsDB = {
   id: number;
   scheduled_at: string;
   student_id: number;
+  subject_id: number;
   session_metrics: SessionMetricsDB | SessionMetricsDB[] | null;
-  subjects: SubjectDB | SubjectDB[] | null;
 };
+
+type GradeRowDB = {
+  id: number;
+  subject_id: number;
+  grade: string;
+  created_at: string;
+};
+
+type SubjectSummary = {
+  name: string;
+  slug: string;
+};
+
+function getSubjectSummary(subjectMap: Map<number, SubjectSummary>, subjectId: number): SubjectSummary {
+  return subjectMap.get(subjectId) ?? { name: 'Unknown', slug: 'unknown' };
+}
 
 type StudentWithUserDB = {
   id: number;
@@ -79,13 +95,11 @@ export async function getStudentProgressData(
       id,
       scheduled_at,
       student_id,
+      subject_id,
       session_metrics (
         session_performance,
         confidence_score,
         homework_completed
-      ),
-      subjects:subject_id (
-        category
       )
     `
     )
@@ -124,22 +138,22 @@ export async function getStudentProgressData(
   }
 
   const sessions = data as unknown as SessionWithMetricsDB[];
+  const subjectMap = await getSubjectMapByIds(sessions.map(session => session.subject_id));
   const performance: PerformanceDataPoint[] = [];
   const confidence: ConfidenceDataPoint[] = [];
   const homework: HomeworkDataPoint[] = [];
 
   for (const session of sessions) {
     const metrics = Array.isArray(session.session_metrics) ? session.session_metrics[0] : session.session_metrics;
-    const subject = Array.isArray(session.subjects)
-      ? session.subjects[0]?.category
-      : session.subjects?.category || 'Unknown';
+    const subject = getSubjectSummary(subjectMap, session.subject_id);
 
     if (metrics?.session_performance !== null && metrics?.session_performance !== undefined) {
       performance.push({
         date: session.scheduled_at,
         score: metrics.session_performance,
         sessionId: session.id,
-        subject,
+        subject: subject.name,
+        subjectSlug: subject.slug,
       });
     }
 
@@ -148,7 +162,8 @@ export async function getStudentProgressData(
         date: session.scheduled_at,
         score: metrics.confidence_score,
         sessionId: session.id,
-        subject,
+        subject: subject.name,
+        subjectSlug: subject.slug,
       });
     }
 
@@ -157,7 +172,8 @@ export async function getStudentProgressData(
         date: session.scheduled_at,
         completed: metrics.homework_completed,
         sessionId: session.id,
-        subject,
+        subject: subject.name,
+        subjectSlug: subject.slug,
       });
     }
   }
@@ -233,13 +249,11 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
       id,
       scheduled_at,
       student_id,
+      subject_id,
       session_metrics (
         session_performance,
         confidence_score,
         homework_completed
-      ),
-      subjects:subject_id (
-        category
       )
     `
     )
@@ -254,9 +268,6 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
   if (dateRange?.to) {
     sessionsQuery = sessionsQuery.lte('scheduled_at', dateRange.to);
   }
-  if (subject) {
-    sessionsQuery = sessionsQuery.eq('subjects.category', subject);
-  }
 
   const { data: sessionsData, error: sessionsError } = await sessionsQuery;
 
@@ -270,8 +281,17 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
     }));
   }
 
+  const allSessions = (sessionsData || []) as unknown as SessionWithMetricsDB[];
+  const subjectMap = await getSubjectMapByIds(allSessions.map(session => session.subject_id));
   const sessionsByStudent = new Map<number, SessionWithMetricsDB[]>();
-  for (const session of (sessionsData || []) as unknown as SessionWithMetricsDB[]) {
+  for (const session of allSessions) {
+    if (subject) {
+      const sessionSubject = getSubjectSummary(subjectMap, session.subject_id);
+      if (sessionSubject.slug !== subject) {
+        continue;
+      }
+    }
+
     const existing = sessionsByStudent.get(session.student_id) || [];
     existing.push(session);
     sessionsByStudent.set(session.student_id, existing);
@@ -287,16 +307,15 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
 
     for (const session of sessions) {
       const metrics = Array.isArray(session.session_metrics) ? session.session_metrics[0] : session.session_metrics;
-      const subject = Array.isArray(session.subjects)
-        ? session.subjects[0]?.category
-        : session.subjects?.category || 'Unknown';
+      const subject = getSubjectSummary(subjectMap, session.subject_id);
 
       if (metrics?.session_performance !== null && metrics?.session_performance !== undefined) {
         performance.push({
           date: session.scheduled_at,
           score: metrics.session_performance,
           sessionId: session.id,
-          subject,
+          subject: subject.name,
+          subjectSlug: subject.slug,
         });
       }
 
@@ -305,7 +324,8 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
           date: session.scheduled_at,
           score: metrics.confidence_score,
           sessionId: session.id,
-          subject,
+          subject: subject.name,
+          subjectSlug: subject.slug,
         });
       }
 
@@ -314,7 +334,8 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
           date: session.scheduled_at,
           completed: metrics.homework_completed,
           sessionId: session.id,
-          subject,
+          subject: subject.name,
+          subjectSlug: subject.slug,
         });
       }
     }
@@ -343,6 +364,7 @@ export async function getParentDashboardData(dateRange?: DateRange, subject?: st
 export type GradeDataPoint = {
   id: number;
   subject: string;
+  subjectSlug: string;
   grade: string;
   createdAt: string;
 };
@@ -352,7 +374,7 @@ export async function getStudentGrades(studentId: number): Promise<GradeDataPoin
 
   const { data, error } = await supabase
     .from('student_grades')
-    .select('id, subject, grade, created_at')
+    .select('id, subject_id, grade, created_at')
     .eq('student_id', studentId)
     .order('created_at', { ascending: true });
 
@@ -360,51 +382,66 @@ export async function getStudentGrades(studentId: number): Promise<GradeDataPoin
     return [];
   }
 
-  return (data ?? []).map(row => ({
-    id: row.id,
-    subject: row.subject,
-    grade: row.grade,
-    createdAt: row.created_at,
-  }));
+  const rows = (data ?? []) as GradeRowDB[];
+  const subjectMap = await getSubjectMapByIds(rows.map(row => row.subject_id));
+
+  return rows.map(row => {
+    const subject = getSubjectSummary(subjectMap, row.subject_id);
+
+    return {
+      id: row.id,
+      subject: subject.name,
+      subjectSlug: subject.slug,
+      grade: row.grade,
+      createdAt: row.created_at,
+    };
+  });
 }
 
 export async function getAllSubjects(): Promise<string[]> {
   const supabase = createSupabaseServiceClient();
-
-  const { data, error } = await supabase.from('subjects').select('category').order('category', { ascending: true });
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('name')
+    .eq('kind', 'leaf')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
 
   if (error) {
     return [];
   }
 
-  return (data ?? []).map(row => row.category).filter(Boolean);
+  return (data ?? []).map(row => row.name).filter(Boolean);
 }
 
 export type SubjectWithData = {
+  slug: string;
   subject: string;
   hasData: boolean;
 };
 
-export function getUniqueSubjectsFromStudentData(data: StudentProgressData): string[] {
-  const subjects = new Set<string>();
+export function getUniqueSubjectsFromStudentData(data: StudentProgressData): Array<{ slug: string; name: string }> {
+  const subjects = new Map<string, string>();
 
   for (const p of data.performance) {
-    if (p.subject && p.subject !== 'Unknown') {
-      subjects.add(p.subject);
+    if (p.subjectSlug && p.subjectSlug !== 'unknown' && p.subject) {
+      subjects.set(p.subjectSlug, p.subject);
     }
   }
   for (const c of data.confidence) {
-    if (c.subject && c.subject !== 'Unknown') {
-      subjects.add(c.subject);
+    if (c.subjectSlug && c.subjectSlug !== 'unknown' && c.subject) {
+      subjects.set(c.subjectSlug, c.subject);
     }
   }
   for (const h of data.homework) {
-    if (h.subject && h.subject !== 'Unknown') {
-      subjects.add(h.subject);
+    if (h.subjectSlug && h.subjectSlug !== 'unknown' && h.subject) {
+      subjects.set(h.subjectSlug, h.subject);
     }
   }
 
-  return Array.from(subjects).sort();
+  return Array.from(subjects.entries())
+    .map(([slug, name]) => ({ slug, name }))
+    .sort((left, right) => left.name.localeCompare(right.name) || left.slug.localeCompare(right.slug));
 }
 
 export function averagePerformanceByDate(items: PerformanceDataPoint[]): PerformanceDataPoint[] {
@@ -426,7 +463,7 @@ export function averagePerformanceByDate(items: PerformanceDataPoint[]): Perform
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length;
-    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;
@@ -451,7 +488,7 @@ export function averageConfidenceByDate(items: ConfidenceDataPoint[]): Confidenc
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length;
-    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;
@@ -476,7 +513,7 @@ export function averageHomeworkByDate(items: HomeworkDataPoint[]): HomeworkDataP
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.completed.reduce((a, b) => a + b, 0) / entry.completed.length;
-    result.push({ date: entry.original[0].date, completed: avg >= 0.5, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, completed: avg >= 0.5, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;

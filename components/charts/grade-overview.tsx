@@ -10,7 +10,8 @@ import { Line, LineChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis
 
 interface GradeChartProps {
   data: GradeDataPoint[];
-  subject?: string | null;
+  subjectName?: string | null;
+  aggregateByDate?: boolean;
   title?: string;
   description?: string;
 }
@@ -43,6 +44,7 @@ function averageGrades(grades: GradeDataPoint[]): GradeDataPoint {
   return {
     id: 0,
     subject: 'Average',
+    subjectSlug: 'average',
     grade: avgLetter,
     createdAt: grades[grades.length - 1]?.createdAt || new Date().toISOString(),
   };
@@ -50,28 +52,22 @@ function averageGrades(grades: GradeDataPoint[]): GradeDataPoint {
 
 function processGradesData(
   data: GradeDataPoint[],
-  subject?: string | null
+  aggregateByDate: boolean
 ): {
   chartData: Array<{ date: string; numericGrade: number; grade: string; formattedDate: string }>;
   latestGrade: string;
   trend: string;
 } {
-  let filteredData = data;
-
-  if (subject && subject !== 'all') {
-    filteredData = data.filter(g => g.subject.toLowerCase() === subject.toLowerCase());
-  }
-
-  if (filteredData.length === 0) {
+  if (data.length === 0) {
     return { chartData: [], latestGrade: '-', trend: 'stable' };
   }
 
   let chartData: Array<{ date: string; numericGrade: number; grade: string; formattedDate: string }>;
 
-  if (!subject || subject === 'all') {
+  if (aggregateByDate) {
     const byDate = new Map<string, GradeDataPoint[]>();
 
-    for (const grade of filteredData) {
+    for (const grade of data) {
       const dateKey = grade.createdAt.split('T')[0];
       if (!byDate.has(dateKey)) {
         byDate.set(dateKey, []);
@@ -91,7 +87,7 @@ function processGradesData(
         };
       });
   } else {
-    chartData = filteredData.map(grade => ({
+    chartData = data.map(grade => ({
       date: grade.createdAt,
       numericGrade: letterGradeToNumber(grade.grade),
       grade: grade.grade,
@@ -112,7 +108,13 @@ function processGradesData(
   return { chartData, latestGrade, trend };
 }
 
-export function GradeChart({ data, subject, title = 'Grades', description }: GradeChartProps) {
+export function GradeChart({
+  data,
+  subjectName,
+  aggregateByDate = false,
+  title = 'Grades',
+  description,
+}: GradeChartProps) {
   if (data.length === 0) {
     return (
       <Card>
@@ -126,7 +128,7 @@ export function GradeChart({ data, subject, title = 'Grades', description }: Gra
     );
   }
 
-  const { chartData, latestGrade, trend } = processGradesData(data, subject);
+  const { chartData, latestGrade, trend } = processGradesData(data, aggregateByDate);
 
   if (chartData.length === 0) {
     return (
@@ -136,7 +138,7 @@ export function GradeChart({ data, subject, title = 'Grades', description }: Gra
         </CardHeader>
         <CardContent>
           <div className='flex h-[200px] items-center justify-center text-muted-foreground'>
-            No grades found for {subject}
+            No grades found for {subjectName}
           </div>
         </CardContent>
       </Card>

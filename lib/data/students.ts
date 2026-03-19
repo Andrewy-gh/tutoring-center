@@ -1,6 +1,8 @@
 ﻿import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
+import { getSubjectMapByIds } from '@/lib/data/subjects';
+import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import { STUDENT_DETAIL_SELECT_WITH_JOINS, STUDENT_SELECT_WITH_JOINS } from '@/lib/supabase/types';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
@@ -27,7 +29,7 @@ export type StudentSessionRow = {
   ends_at: string;
   status: SessionStatus;
   slot_units: number;
-  subject_category: string;
+  subject_name: string;
   tutor_name: string;
 };
 
@@ -85,19 +87,19 @@ const mapStudentRow = (student: Pick<StudentWithJoins, 'id' | 'user_id' | 'grade
 
 const RECENT_SESSIONS_LIMIT = 5;
 
-const mapSessionRow = (session: StudentDetailSession): StudentSessionRow => {
-  const subject = pickFirstEmbedded(session.subject);
-  const tutor = pickFirstEmbedded(session.tutor);
-  const tutorUser = pickFirstEmbedded(tutor?.users);
-
+const mapSessionRow = (
+  session: StudentDetailSession,
+  subjectMap: Map<number, { name: string }>,
+  tutorMap: Map<number, { name: string }>
+): StudentSessionRow => {
   return {
     id: session.id,
     scheduled_at: session.scheduled_at,
     ends_at: session.ends_at,
     status: session.status,
     slot_units: session.slot_units,
-    subject_category: subject?.category ?? '—',
-    tutor_name: [tutorUser?.first_name, tutorUser?.last_name].filter(Boolean).join(' ') || '—',
+    subject_name: subjectMap.get(session.subject_id)?.name ?? '—',
+    tutor_name: tutorMap.get(session.tutor_id)?.name ?? '—',
   };
 };
 
@@ -182,7 +184,9 @@ export async function getStudent(id: number, role: UserRole) {
   }
 
   const student = parsedStudent.data;
-  const sessions = (student.sessions ?? []).map(mapSessionRow);
+  const subjectMap = await getSubjectMapByIds((student.sessions ?? []).map(session => session.subject_id));
+  const tutorMap = await getTutorProfileMapByIds((student.sessions ?? []).map(session => session.tutor_id));
+  const sessions = (student.sessions ?? []).map(session => mapSessionRow(session, subjectMap, tutorMap));
 
   const user = parseStudentUser(student.users);
 

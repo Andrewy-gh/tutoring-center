@@ -1,9 +1,10 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getSubjectMapByIds } from '@/lib/data/subjects';
+import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import type { Enums, Tables } from '@/lib/supabase/database.types';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
 
 type Embedded<T> = T | T[] | null;
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -14,20 +15,11 @@ type CreditTransactionRecord = Pick<
   Tables<'credit_transactions'>,
   'id' | 'created_at' | 'type' | 'amount' | 'balance_after' | 'session_id'
 >;
-type UserNameRow = Pick<Tables<'users'>, 'first_name' | 'last_name'>;
-type TutorJoin = {
-  users: Embedded<UserNameRow>;
-};
-type SubjectJoin = {
-  category: string;
-};
 type SessionProgressJoin = Pick<
   Tables<'session_progress'>,
   'created_at' | 'updated_at' | 'topics' | 'homework_assigned' | 'public_notes'
 >;
-type ProgressSessionRecord = Pick<Tables<'sessions'>, 'id' | 'scheduled_at' | 'status'> & {
-  subject: Embedded<SubjectJoin>;
-  tutor: Embedded<TutorJoin>;
+type ProgressSessionRecord = Pick<Tables<'sessions'>, 'id' | 'scheduled_at' | 'status' | 'subject_id' | 'tutor_id'> & {
   session_progress: Embedded<SessionProgressJoin>;
 };
 
@@ -74,17 +66,10 @@ const CREDIT_HISTORY_SELECT = `
 
 const PROGRESS_REPORT_SELECT = `
   id,
+  subject_id,
+  tutor_id,
   scheduled_at,
   status,
-  subject:subjects (
-    category
-  ),
-  tutor:tutors (
-    users:user_id (
-      first_name,
-      last_name
-    )
-  ),
   session_progress!inner (
     created_at,
     updated_at,
@@ -106,10 +91,6 @@ async function getScopedParentId(role: AllowedRole) {
   return parent.id;
 }
 
-function getDisplayName(user: UserNameRow | null | undefined) {
-  return [user?.first_name, user?.last_name].filter(Boolean).join(' ') || MISSING_VALUE;
-}
-
 function mapCreditHistoryItem(transaction: CreditTransactionRecord): StudentCreditHistoryItem {
   return {
     id: transaction.id,
@@ -121,20 +102,20 @@ function mapCreditHistoryItem(transaction: CreditTransactionRecord): StudentCred
   };
 }
 
-function mapProgressReportItem(session: ProgressSessionRecord): StudentProgressReportItem | null {
-  const progress = pickFirstEmbedded(session.session_progress);
+function mapProgressReportItem(
+  session: ProgressSessionRecord,
+  subjectMap: Map<number, { name: string }>,
+  tutorMap: Map<number, { name: string }>
+): StudentProgressReportItem | null {
+  const progress = Array.isArray(session.session_progress) ? session.session_progress[0] : session.session_progress;
   if (!progress) return null;
-
-  const tutor = pickFirstEmbedded(session.tutor);
-  const tutorUser = pickFirstEmbedded(tutor?.users);
-  const subject = pickFirstEmbedded(session.subject);
 
   return {
     session_id: session.id,
     scheduled_at: session.scheduled_at,
     status: session.status,
-    subject_name: subject?.category ?? MISSING_VALUE,
-    tutor_name: getDisplayName(tutorUser),
+    subject_name: subjectMap.get(session.subject_id)?.name ?? MISSING_VALUE,
+    tutor_name: tutorMap.get(session.tutor_id)?.name ?? MISSING_VALUE,
     report_created_at: progress.created_at,
     report_updated_at: progress.updated_at,
     topics: progress.topics,
@@ -185,10 +166,14 @@ export async function getStudentDashboardDetails(studentId: number, role: UserRo
     throw new Error('Student progress reports are temporarily unavailable. Please try again.');
   }
 
+  const progressReportRows = (progressReportsData ?? []) as ProgressSessionRecord[];
+  const subjectMap = await getSubjectMapByIds(progressReportRows.map(item => item.subject_id));
+  const tutorMap = await getTutorProfileMapByIds(progressReportRows.map(item => item.tutor_id));
+
   return {
     creditHistory: (creditHistoryData ?? []).map(item => mapCreditHistoryItem(item as CreditTransactionRecord)),
-    progressReports: (progressReportsData ?? [])
-      .map(item => mapProgressReportItem(item as ProgressSessionRecord))
+    progressReports: progressReportRows
+      .map(item => mapProgressReportItem(item, subjectMap, tutorMap))
       .filter((item): item is StudentProgressReportItem => item !== null),
   };
 }

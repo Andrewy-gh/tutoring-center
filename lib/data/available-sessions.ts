@@ -37,10 +37,6 @@ function generateSlots(dateStr: string, startTime: string, endTime: string, time
 type AvailabilityRow = { week_day: WeekDay; start_time: string; end_time: string };
 type BookedRow = { scheduled_at: string; ends_at: string };
 type BookedRowWithStatus = BookedRow & { status?: string | null };
-type EmbeddedTutorRow = {
-  availability: AvailabilityRow[] | null;
-  sessions: BookedRowWithStatus[] | null;
-};
 
 export const AVAILABLE_SLOTS_ERROR_MESSAGES = {
   database: 'Available slots are temporarily unavailable. Please retry in a moment.',
@@ -110,30 +106,36 @@ export async function getAvailableSlots(
   const fromUtc = tzDateToUtcIso(from, timezone);
   const toUtc = tzDateToUtcIso(to, timezone);
 
-  const { data: tutor, error } = await supabase
-    .from('tutors')
-    .select(
-      `
-      subjects!inner(id),
-      availability(week_day, start_time, end_time),
-      sessions(scheduled_at, ends_at, status)
-    `
-    )
-    .eq('id', tutorId)
-    .eq('subjects.id', subjectId)
-    .filter('sessions.status', 'not.in', `(${FREE_SLOT_STATUSES.join(',')})`)
-    .filter('sessions.scheduled_at', 'lt', toUtc)
-    .filter('sessions.ends_at', 'gt', fromUtc)
+  const { data: tutorSubject, error: tutorSubjectError } = await supabase
+    .from('tutor_subjects')
+    .select('id')
+    .eq('tutor_id', tutorId)
+    .eq('subject_id', subjectId)
     .maybeSingle();
 
-  if (error) {
+  if (tutorSubjectError) {
     throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
   }
-  if (!tutor) {
+  if (!tutorSubject) {
     throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject);
   }
 
-  const { availability, sessions } = tutor as EmbeddedTutorRow;
+  const [{ data: availability, error: availabilityError }, { data: sessions, error: sessionsError }] =
+    await Promise.all([
+      supabase.from('availability').select('week_day, start_time, end_time').eq('tutor_id', tutorId),
+      supabase
+        .from('sessions')
+        .select('scheduled_at, ends_at, status')
+        .eq('tutor_id', tutorId)
+        .filter('status', 'not.in', `(${FREE_SLOT_STATUSES.join(',')})`)
+        .filter('scheduled_at', 'lt', toUtc)
+        .filter('ends_at', 'gt', fromUtc),
+    ]);
+
+  if (availabilityError || sessionsError) {
+    throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
+  }
+
   if (!availability?.length) return [];
 
   const booked = filterActiveBookedSessions(sessions, fromUtc, toUtc);

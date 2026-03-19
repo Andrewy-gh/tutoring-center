@@ -81,9 +81,7 @@ export const SessionWithJoinsSchema = z.object({
   ends_at: z.string(),
   status: StatusSchema,
 
-  subjects: EmbeddedOneSchema,
   student: EmbeddedOneSchema,
-  tutor: EmbeddedOneSchema,
   parent: EmbeddedOneSchema,
   session_progress: EmbeddedOneSchema,
   session_metrics: EmbeddedOneSchema,

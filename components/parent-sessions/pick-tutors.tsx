@@ -29,7 +29,7 @@ export function PickTutor({ subject, assignments, tutors, onSelect, onBack }: Pi
             <ChevronLeft className='size-4' />
             Back
           </Button>
-          <CardTitle className='text-2xl font-bold'>Choose a tutor for {subject.category}</CardTitle>
+          <CardTitle className='text-2xl font-bold'>Choose a tutor for {subject.name}</CardTitle>
         </CardHeader>
         <CardContent className='space-y-3'>
           {tutors.length === 0 ? (

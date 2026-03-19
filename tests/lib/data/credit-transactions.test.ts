@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockIsValidRole, mockCreateSupabaseServiceClient, mockPickFirstEmbedded } = vi.hoisted(
-  () => ({
-    mockGetCurrentUserID: vi.fn(),
-    mockIsValidRole: vi.fn(),
-    mockCreateSupabaseServiceClient: vi.fn(),
-    mockPickFirstEmbedded: vi.fn((value: unknown) => (Array.isArray(value) ? value[0] : value)),
-  })
-);
+const {
+  mockGetCurrentUserID,
+  mockIsValidRole,
+  mockCreateSupabaseServiceClient,
+  mockPickFirstEmbedded,
+  mockGetSubjectMapByIds,
+  mockGetTutorProfileMapByIds,
+} = vi.hoisted(() => ({
+  mockGetCurrentUserID: vi.fn(),
+  mockIsValidRole: vi.fn(),
+  mockCreateSupabaseServiceClient: vi.fn(),
+  mockPickFirstEmbedded: vi.fn((value: unknown) => (Array.isArray(value) ? value[0] : value)),
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   forbidden: vi.fn(() => {
@@ -27,6 +34,14 @@ vi.mock('@/lib/supabase/serverClient', () => ({
   createSupabaseServiceClient: mockCreateSupabaseServiceClient,
 }));
 
+vi.mock('@/lib/data/subjects', () => ({
+  getSubjectMapByIds: mockGetSubjectMapByIds,
+}));
+
+vi.mock('@/lib/data/tutors', () => ({
+  getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
+}));
+
 vi.mock('@/lib/utils/normalize', () => ({
   pickFirstEmbedded: mockPickFirstEmbedded,
 }));
@@ -36,6 +51,8 @@ describe('credit transaction data', () => {
     vi.resetAllMocks();
     mockIsValidRole.mockReturnValue(true);
     mockGetCurrentUserID.mockResolvedValue(42);
+    mockGetSubjectMapByIds.mockResolvedValue(new Map([[12, { id: 12, name: 'Mathematics', slug: 'mathematics' }]]));
+    mockGetTutorProfileMapByIds.mockResolvedValue(new Map([[3, { id: 3, name: 'Taylor Tutor' }]]));
   });
 
   it('maps joined list data for admin users', async () => {
@@ -110,11 +127,11 @@ describe('credit transaction data', () => {
         },
         session: {
           id: 500,
+          subject_id: 12,
+          tutor_id: 3,
           scheduled_at: '2026-03-10T15:00:00.000Z',
           ends_at: '2026-03-10T16:00:00.000Z',
           status: 'Completed',
-          subject: { category: 'Mathematics' },
-          tutor: { id: 3, user_id: 62, users: { first_name: 'Taylor', last_name: 'Tutor' } },
         },
       },
       error: null,
@@ -146,6 +163,7 @@ describe('credit transaction data', () => {
     expect(detail.parent.name).toBe('Pat Parent');
     expect(detail.student.name).toBe('Sam Student');
     expect(detail.session?.subject_name).toBe('Mathematics');
+    expect(mockGetTutorProfileMapByIds).toHaveBeenCalledWith([3]);
     expect(detail.session?.tutor_name).toBe('Taylor Tutor');
   });
 });

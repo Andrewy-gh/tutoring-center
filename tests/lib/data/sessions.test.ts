@@ -3,9 +3,22 @@ import { getSession, getSessions } from '@/lib/data/sessions';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockGetSubjectMapByIds, mockGetTutorProfileMapByIds } = vi.hoisted(() => ({
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+}));
+
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: vi.fn(),
   getUserRole: vi.fn(),
+}));
+
+vi.mock('@/lib/data/subjects', () => ({
+  getSubjectMapByIds: mockGetSubjectMapByIds,
+}));
+
+vi.mock('@/lib/data/tutors', () => ({
+  getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
 }));
 
 vi.mock('@/lib/supabase/serverClient', () => ({
@@ -35,7 +48,6 @@ const SESSION_DETAIL = {
   slot_units: 2,
   status: 'Scheduled',
   subject_id: 1,
-  subjects: { category: 'Mathematics' },
   tutor: { id: 101, users: { first_name: 'Jane', last_name: 'Tutor', email: 'jane@example.com', phone: '555-1111' } },
   student: { id: 201, parent_id: 1, users: { first_name: 'John', last_name: 'Student', email: 'john@example.com' } },
   parent: { id: 1, users: { first_name: 'Parent', last_name: 'Name', email: 'parent@test.com' } },
@@ -89,6 +101,10 @@ describe('getSessions', () => {
     vi.clearAllMocks();
     vi.mocked(getUserRole).mockResolvedValue('admin');
     vi.mocked(getCurrentUserID).mockResolvedValue(1);
+    mockGetSubjectMapByIds.mockResolvedValue(new Map([[1, { id: 1, name: 'Mathematics', slug: 'mathematics' }]]));
+    mockGetTutorProfileMapByIds.mockResolvedValue(
+      new Map([[101, { id: 101, name: 'Jane Tutor', email: 'jane@example.com', phone: '555-1111' }]])
+    );
     mockSupabaseClient();
   });
 
@@ -123,6 +139,10 @@ describe('getSession', () => {
     vi.clearAllMocks();
     vi.mocked(getUserRole).mockResolvedValue('admin');
     vi.mocked(getCurrentUserID).mockResolvedValue(1);
+    mockGetSubjectMapByIds.mockResolvedValue(new Map([[1, { id: 1, name: 'Mathematics', slug: 'mathematics' }]]));
+    mockGetTutorProfileMapByIds.mockResolvedValue(
+      new Map([[101, { id: 101, name: 'Jane Tutor', email: 'jane@example.com', phone: '555-1111' }]])
+    );
     mockSupabaseClient();
   });
 

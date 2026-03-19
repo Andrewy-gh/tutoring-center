@@ -21,9 +21,8 @@ import {
   type SessionWithJoins,
 } from '@/lib/validators/sessions';
 
-type SessionApiRow = Omit<SessionWithJoins, 'student' | 'tutor' | 'parent'> & {
+type SessionApiRow = Omit<SessionWithJoins, 'student' | 'parent'> & {
   student: Record<string, unknown> | null;
-  tutor: Record<string, unknown> | null;
   parent: Record<string, unknown> | null;
 };
 
@@ -112,13 +111,11 @@ export async function GET(req: Request) {
 
   const normalized: SessionApiRow[] = joinedParsed.data.map((row: SessionWithJoins) => {
     const student = pickFirstEmbedded(row.student) as Record<string, unknown> | null;
-    const tutor = pickFirstEmbedded(row.tutor) as Record<string, unknown> | null;
     const parent = pickFirstEmbedded(row.parent) as Record<string, unknown> | null;
 
     return {
       ...row,
       student,
-      tutor,
       parent,
     };
   });

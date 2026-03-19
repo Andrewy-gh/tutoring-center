@@ -4,7 +4,7 @@ import type { AvailableSession } from '@/lib/validators/sessions';
 
 export type Reservation = {
   student: StudentOption;
-  subject: { id: number; category: string };
+  subject: { id: number; slug: string; name: string };
   tutor: TutorOption;
   session: AvailableSession;
 };

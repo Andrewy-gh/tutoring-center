@@ -208,7 +208,11 @@ export function BookingScreen({
           ) : null}
           <main className='mx-auto max-w-3xl space-y-6 p-6'>
             <PickDate
-              subject={{ id: bookingState.subjectId, category: bookingState.selection.subject.category }}
+              subject={{
+                id: bookingState.subjectId,
+                slug: bookingState.selection.subject.slug,
+                name: bookingState.selection.subject.name,
+              }}
               tutor={{ id: bookingState.tutor.id, name: bookingState.tutor.name }}
               todayStartMs={todayStartMs}
               onBackAction={() =>
@@ -217,7 +221,11 @@ export function BookingScreen({
               onConfirmAction={session => {
                 const reservation: Reservation = {
                   student: bookingState.student,
-                  subject: { id: bookingState.subjectId, category: bookingState.selection.subject.category },
+                  subject: {
+                    id: bookingState.subjectId,
+                    slug: bookingState.selection.subject.slug,
+                    name: bookingState.selection.subject.name,
+                  },
                   tutor: bookingState.tutor,
                   session,
                 };
@@ -299,7 +307,7 @@ export function BookingScreen({
                 <p className='font-semibold text-foreground'>Pending reservation</p>
                 <p>Student: {bookingState.reservation.student.name}</p>
                 <p>When: {formatSessionDateTime(new Date(bookingState.reservation.session.scheduled_at))}</p>
-                <p>Subject: {bookingState.reservation.subject.category}</p>
+                <p>Subject: {bookingState.reservation.subject.name}</p>
                 <p>Tutor: {bookingState.reservation.tutor.name}</p>
               </CardContent>
             </Card>

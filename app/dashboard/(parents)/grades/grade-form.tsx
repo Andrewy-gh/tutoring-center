@@ -16,11 +16,11 @@ type GradeFormProps = {
 
 export function GradeForm({ students, subjects }: GradeFormProps) {
   const [studentId, setStudentId] = useState<string>('');
-  const [subjectId, setSubjectId] = useState<string>('');
+  const [subjectSlug, setSubjectSlug] = useState<string>('');
   const [grade, setGrade] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const selectedSubject = subjects.find(s => s.id.toString() === subjectId);
+  const selectedSubject = subjects.find(s => s.slug === subjectSlug);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +30,7 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
       return;
     }
 
-    if (!subjectId) {
+    if (!subjectSlug) {
       toast.error('Please select a subject');
       return;
     }
@@ -59,7 +59,7 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: parseInt(studentId, 10),
-          subject: selectedSubject?.category ?? '',
+          subject: selectedSubject?.slug ?? '',
           grade: parsedGrade,
         }),
       });
@@ -73,7 +73,7 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
 
       toast.success('Grade saved successfully!');
       setStudentId('');
-      setSubjectId('');
+      setSubjectSlug('');
       setGrade('');
     } catch {
       toast.error('Something went wrong. Please try again.');
@@ -107,14 +107,14 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
 
           <div className='space-y-2'>
             <Label htmlFor='subject'>Subject</Label>
-            <Select value={subjectId} onValueChange={setSubjectId}>
+            <Select value={subjectSlug} onValueChange={setSubjectSlug}>
               <SelectTrigger id='subject' className='bg-sidebar'>
                 <SelectValue placeholder='Select a subject' />
               </SelectTrigger>
               <SelectContent>
                 {subjects.map(subject => (
-                  <SelectItem key={subject.id} value={subject.id.toString()}>
-                    {subject.category}
+                  <SelectItem key={subject.slug} value={subject.slug}>
+                    {subject.name}
                   </SelectItem>
                 ))}
               </SelectContent>

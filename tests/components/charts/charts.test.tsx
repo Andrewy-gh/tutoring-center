@@ -1,17 +1,21 @@
+import type { ReactNode } from 'react';
 import type { ConfidenceDataPoint, HomeworkDataPoint, PerformanceDataPoint } from '@/lib/data/dashboard';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/ui/card', () => ({
-  Card: ({ children }: { children: React.ReactNode }) => <div data-testid='card'>{children}</div>,
-  CardHeader: ({ children }: { children: React.ReactNode }) => <div data-testid='card-header'>{children}</div>,
-  CardContent: ({ children }: { children: React.ReactNode }) => <div data-testid='card-content'>{children}</div>,
-  CardTitle: ({ children }: { children: React.ReactNode }) => <div data-testid='card-title'>{children}</div>,
+  Card: ({ children }: { children: ReactNode }) => <div data-testid='card'>{children}</div>,
+  CardHeader: ({ children }: { children: ReactNode }) => <div data-testid='card-header'>{children}</div>,
+  CardContent: ({ children }: { children: ReactNode }) => <div data-testid='card-content'>{children}</div>,
+  CardTitle: ({ children }: { children: ReactNode }) => <div data-testid='card-title'>{children}</div>,
 }));
 
 vi.mock('recharts', () => ({
-  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid='line-chart'>{children}</div>,
+  LineChart: ({ children }: { children: ReactNode }) => <div data-testid='line-chart'>{children}</div>,
   Line: vi.fn(),
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+  PieChart: ({ children }: { children: ReactNode }) => <div data-testid='pie-chart'>{children}</div>,
+  Pie: ({ children }: { children: ReactNode }) => <div data-testid='pie'>{children}</div>,
+  Cell: () => <div data-testid='cell' />,
+  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid='responsive-container'>{children}</div>
   ),
   XAxis: vi.fn(),
@@ -24,17 +28,17 @@ vi.mock('date-fns', () => ({
 }));
 
 const mockPerformanceData: PerformanceDataPoint[] = [
-  { date: '2026-01-15T10:00:00Z', score: 3, sessionId: 1, subject: 'Mathematics' },
-  { date: '2026-02-15T10:00:00Z', score: 4, sessionId: 2, subject: 'Mathematics' },
+  { date: '2026-01-15T10:00:00Z', score: 3, sessionId: 1, subject: 'Mathematics', subjectSlug: 'mathematics' },
+  { date: '2026-02-15T10:00:00Z', score: 4, sessionId: 2, subject: 'Mathematics', subjectSlug: 'mathematics' },
 ];
 
 const mockConfidenceData: ConfidenceDataPoint[] = [
-  { date: '2026-01-15T10:00:00Z', score: 2, sessionId: 1, subject: 'Mathematics' },
+  { date: '2026-01-15T10:00:00Z', score: 2, sessionId: 1, subject: 'Mathematics', subjectSlug: 'mathematics' },
 ];
 
 const mockHomeworkData: HomeworkDataPoint[] = [
-  { date: '2026-01-15T10:00:00Z', completed: true, sessionId: 1, subject: 'Mathematics' },
-  { date: '2026-02-15T10:00:00Z', completed: false, sessionId: 2, subject: 'Mathematics' },
+  { date: '2026-01-15T10:00:00Z', completed: true, sessionId: 1, subject: 'Mathematics', subjectSlug: 'mathematics' },
+  { date: '2026-02-15T10:00:00Z', completed: false, sessionId: 2, subject: 'Mathematics', subjectSlug: 'mathematics' },
 ];
 
 describe('Chart Components', () => {
@@ -57,32 +61,32 @@ describe('Chart Components', () => {
   });
 
   it('PerformanceChart renders with data', async () => {
+    (globalThis as { React?: unknown }).React = await import('react');
     const { PerformanceChart } = await import('@/components/charts/performance-chart');
-    const { renderToStaticMarkup } = await import('react');
-    expect(() => renderToStaticMarkup(<PerformanceChart data={mockPerformanceData} />)).not.toThrow();
+    expect(() => PerformanceChart({ data: mockPerformanceData })).not.toThrow();
   });
 
   it('PerformanceChart renders empty state', async () => {
+    (globalThis as { React?: unknown }).React = await import('react');
     const { PerformanceChart } = await import('@/components/charts/performance-chart');
-    const { renderToStaticMarkup } = await import('react');
-    expect(() => renderToStaticMarkup(<PerformanceChart data={[]} />)).not.toThrow();
+    expect(() => PerformanceChart({ data: [] })).not.toThrow();
   });
 
   it('ConfidenceChart renders with data', async () => {
+    (globalThis as { React?: unknown }).React = await import('react');
     const { ConfidenceChart } = await import('@/components/charts/performance-chart');
-    const { renderToStaticMarkup } = await import('react');
-    expect(() => renderToStaticMarkup(<ConfidenceChart data={mockConfidenceData} />)).not.toThrow();
+    expect(() => ConfidenceChart({ data: mockConfidenceData })).not.toThrow();
   });
 
   it('HomeworkChart renders with data', async () => {
+    (globalThis as { React?: unknown }).React = await import('react');
     const { HomeworkChart } = await import('@/components/charts/homework-chart');
-    const { renderToStaticMarkup } = await import('react');
-    expect(() => renderToStaticMarkup(<HomeworkChart data={mockHomeworkData} />)).not.toThrow();
+    expect(() => HomeworkChart({ data: mockHomeworkData })).not.toThrow();
   });
 
   it('HomeworkChart renders empty state', async () => {
+    (globalThis as { React?: unknown }).React = await import('react');
     const { HomeworkChart } = await import('@/components/charts/homework-chart');
-    const { renderToStaticMarkup } = await import('react');
-    expect(() => renderToStaticMarkup(<HomeworkChart data={[]} />)).not.toThrow();
+    expect(() => HomeworkChart({ data: [] })).not.toThrow();
   });
 });
