@@ -44,7 +44,7 @@ export function PaymentForm({ pkg, buttonLabel = 'Add Credits', onPurchase, onBa
       setIsSubmitting(true);
       // TODO(backend):
       // one DB transaction
-      // 1) POST /api/credit-transactions (type: 'Purchase')
+      // 1) POST /api/credit-transactions (type: 'purchase')
       // 2) PUT /api/credit-balances (increment amount_available)
       await onPurchase();
     } finally {

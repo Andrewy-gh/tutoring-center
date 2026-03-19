@@ -567,7 +567,14 @@ export type Database = {
     };
     Enums: {
       session_status: 'Scheduled' | 'Pending-Notes' | 'Completed' | 'Canceled' | 'No-show' | 'Rescheduled';
-      transaction_type: 'Purchase' | 'Session Debit' | 'Refund' | 'Adjustment' | 'Cancellation Fee';
+      transaction_type:
+        | 'purchase'
+        | 'reservation'
+        | 'reservation_release'
+        | 'session_debit'
+        | 'refund'
+        | 'adjustment'
+        | 'cancellation_fee';
       week_day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
     };
     CompositeTypes: {
@@ -689,7 +696,15 @@ export const Constants = {
   public: {
     Enums: {
       session_status: ['Scheduled', 'Pending-Notes', 'Completed', 'Canceled', 'No-show', 'Rescheduled'],
-      transaction_type: ['Purchase', 'Session Debit', 'Refund', 'Adjustment', 'Cancellation Fee'],
+      transaction_type: [
+        'purchase',
+        'reservation',
+        'reservation_release',
+        'session_debit',
+        'refund',
+        'adjustment',
+        'cancellation_fee',
+      ],
       week_day: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
     },
   },

@@ -4,13 +4,13 @@ import { parents } from './core';
 import { sessions } from './scheduling';
 
 export const transactionTypeEnum = pgEnum('transaction_type', [
-  'Purchase',
-  'Reservation',
-  'Reservation Release',
-  'Session Debit',
-  'Refund',
-  'Adjustment',
-  'Cancellation Fee',
+  'purchase',
+  'reservation',
+  'reservation_release',
+  'session_debit',
+  'refund',
+  'adjustment',
+  'cancellation_fee',
 ]);
 
 export const creditBalances = pgTable(
@@ -51,10 +51,7 @@ export const creditTransactions = pgTable(
   },
   table => [
     unique('credit_transactions_idempotency_key_unique').on(table.idempotencyKey),
-    check(
-      'credit_transactions_nonzero_delta',
-      sql`${table.availableDelta} <> 0 or ${table.pendingDelta} <> 0`
-    ),
+    check('credit_transactions_nonzero_delta', sql`${table.availableDelta} <> 0 or ${table.pendingDelta} <> 0`),
     check('credit_transactions_available_after_nonnegative', sql`${table.availableAfter} >= 0`),
     check('credit_transactions_pending_after_nonnegative', sql`${table.pendingAfter} >= 0`),
   ]

@@ -54,7 +54,7 @@ describe('credit mutations', () => {
       student_id: 12,
       amount: 3,
       balance_after: 12,
-      type: 'Purchase',
+      type: 'purchase',
     });
   });
 

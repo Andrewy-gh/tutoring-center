@@ -141,7 +141,7 @@ export async function bookSession(input: BookSessionInput, database = db) {
         pendingDelta: input.slotUnits,
         availableAfter: balance.amountAvailable,
         pendingAfter: balance.amountPending,
-        type: 'Reservation',
+        type: 'reservation',
       });
 
       return {

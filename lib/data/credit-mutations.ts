@@ -11,7 +11,7 @@ type CreditTransactionPayload = {
   parent_id: number;
   session_id?: number;
   student_id: number;
-  type: 'Purchase' | 'Session Debit';
+  type: 'purchase' | 'session_debit';
 };
 
 type CreditBalanceResponse = Partial<CreditBalance> & {
@@ -76,7 +76,7 @@ export async function purchaseParentCredits(
       balance_after: balance.amount_available,
       parent_id: parentId,
       student_id: studentId,
-      type: 'Purchase',
+      type: 'purchase',
     });
   } catch {
     return {

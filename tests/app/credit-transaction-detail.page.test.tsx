@@ -64,7 +64,7 @@ describe('SingleCreditTransactionPage', () => {
     vi.mocked(getCreditTransaction).mockResolvedValue({
       id: 42,
       created_at: '2026-03-10T15:00:00.000Z',
-      type: 'Session Debit',
+      type: 'reservation',
       amount: -1,
       balance_after: 9,
       session_id: 500,
@@ -99,7 +99,7 @@ describe('SingleCreditTransactionPage', () => {
     vi.mocked(getCreditTransaction).mockResolvedValue({
       id: 43,
       created_at: '2026-03-10T15:00:00.000Z',
-      type: 'Purchase',
+      type: 'purchase',
       amount: 10,
       balance_after: 19,
       session_id: null,

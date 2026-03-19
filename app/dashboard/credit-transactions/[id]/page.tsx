@@ -8,23 +8,27 @@ import { getUserRole } from '@/lib/auth';
 import { TIMEZONE } from '@/lib/constants';
 import { getCreditTransaction } from '@/lib/data/credit-transactions';
 import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
+import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
 
 type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary';
 
 const MISSING_VALUE = '—';
 
-function getTypeBadgeVariant(type: string): BadgeVariant {
+function getTypeBadgeVariant(type: TransactionType): BadgeVariant {
   switch (type) {
-    case 'Purchase':
+    case 'purchase':
       return 'default';
-    case 'Session Debit':
+    case 'session_debit':
+    case 'cancellation_fee':
       return 'destructive';
-    case 'Refund':
+    case 'refund':
       return 'outline';
-    case 'Adjustment':
+    case 'adjustment':
       return 'secondary';
-    case 'Cancellation Fee':
-      return 'destructive';
+    case 'reservation':
+      return 'secondary';
+    case 'reservation_release':
+      return 'outline';
     default:
       return 'secondary';
   }
@@ -64,7 +68,9 @@ export default async function SingleCreditTransactionPage({ params }: { params: 
               <div>
                 <div className='flex flex-wrap items-center gap-2'>
                   <CardTitle className='text-2xl font-bold'>Credit Transaction #{transaction.id}</CardTitle>
-                  <Badge variant={getTypeBadgeVariant(transaction.type)}>{transaction.type}</Badge>
+                  <Badge variant={getTypeBadgeVariant(transaction.type)}>
+                    {formatTransactionTypeLabel(transaction.type)}
+                  </Badge>
                 </div>
                 <p className='mt-1 text-sm text-muted-foreground'>Transaction details shown in Eastern Time.</p>
               </div>
@@ -90,7 +96,7 @@ export default async function SingleCreditTransactionPage({ params }: { params: 
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Transaction Type</p>
-                  <p className='font-medium'>{transaction.type}</p>
+                  <p className='font-medium'>{formatTransactionTypeLabel(transaction.type)}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Linked Session ID</p>

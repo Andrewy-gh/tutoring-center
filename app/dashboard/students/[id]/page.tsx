@@ -10,6 +10,7 @@ import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
 import { getStudent } from '@/lib/data/students';
 import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
 import type { SessionStatus } from '@/lib/validators/sessions';
+import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
 import { format, parseISO } from 'date-fns';
 import { CreditCard, TrendingUp } from 'lucide-react';
 
@@ -29,15 +30,19 @@ const STATUS_VARIANTS: Record<SessionStatus, BadgeVariant> = {
 
 const getStatusVariant = (status: SessionStatus): BadgeVariant => STATUS_VARIANTS[status];
 
-function getTransactionVariant(type: string): BadgeVariant {
+function getTransactionVariant(type: TransactionType): BadgeVariant {
   switch (type) {
-    case 'Purchase':
+    case 'purchase':
       return 'default';
-    case 'Refund':
+    case 'refund':
       return 'outline';
-    case 'Session Debit':
-    case 'Cancellation Fee':
+    case 'session_debit':
+    case 'cancellation_fee':
       return 'destructive';
+    case 'reservation':
+      return 'secondary';
+    case 'reservation_release':
+      return 'outline';
     default:
       return 'secondary';
   }
@@ -206,7 +211,9 @@ export default async function SingleStudentPage({ params }: { params: Promise<{ 
                     <div className='flex items-start justify-between gap-3'>
                       <div className='space-y-1'>
                         <div className='flex flex-wrap items-center gap-2'>
-                          <Badge variant={getTransactionVariant(transaction.type)}>{transaction.type}</Badge>
+                          <Badge variant={getTransactionVariant(transaction.type)}>
+                            {formatTransactionTypeLabel(transaction.type)}
+                          </Badge>
                           <p className='text-xs text-muted-foreground'>
                             {format(parseISO(transaction.created_at), 'MMM d, yyyy')}
                           </p>

@@ -6,23 +6,31 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { UserRole } from '@/lib/auth';
 import type { CreditTransactionRow } from '@/lib/data/credit-transactions';
+import {
+  formatTransactionTypeLabel,
+  TRANSACTION_TYPE_FILTER_OPTIONS,
+  type TransactionType,
+} from '@/lib/validators/transactions';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 
 type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary';
 
-function getTypeBadgeVariant(type: string): BadgeVariant {
+function getTypeBadgeVariant(type: TransactionType): BadgeVariant {
   switch (type) {
-    case 'Purchase':
+    case 'purchase':
       return 'default';
-    case 'Session Debit':
+    case 'session_debit':
+    case 'cancellation_fee':
       return 'destructive';
-    case 'Refund':
+    case 'refund':
       return 'outline';
-    case 'Adjustment':
+    case 'adjustment':
       return 'secondary';
-    case 'Cancellation Fee':
-      return 'destructive';
+    case 'reservation':
+      return 'secondary';
+    case 'reservation_release':
+      return 'outline';
     default:
       return 'secondary';
   }
@@ -46,7 +54,9 @@ export function getColumns(role: UserRole): ColumnDef<CreditTransactionRow>[] {
       id: 'type',
       accessorKey: 'type',
       header: () => <div>Type</div>,
-      cell: ({ row }) => <Badge variant={getTypeBadgeVariant(row.original.type)}>{row.original.type}</Badge>,
+      cell: ({ row }) => (
+        <Badge variant={getTypeBadgeVariant(row.original.type)}>{formatTransactionTypeLabel(row.original.type)}</Badge>
+      ),
     },
     {
       id: 'amount',
@@ -97,11 +107,7 @@ export function CreditTransactionsTable({ role, data }: { role: UserRole; data: 
   return (
     <DataTable columns={getColumns(role)} data={data} searchColumns={searchColumns}>
       <DataTableToolbar>
-        <DataTableFilter
-          columnId='type'
-          label='Filter by type'
-          options={['Purchase', 'Session Debit', 'Refund', 'Adjustment', 'Cancellation Fee']}
-        />
+        <DataTableFilter columnId='type' label='Filter by type' options={TRANSACTION_TYPE_FILTER_OPTIONS} />
       </DataTableToolbar>
     </DataTable>
   );
