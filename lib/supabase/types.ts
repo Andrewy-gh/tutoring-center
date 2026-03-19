@@ -6,6 +6,7 @@ import { Constants } from './database.types';
 export type { Database };
 
 export type SessionStatus = Database['public']['Enums']['session_status'];
+export type SubjectKind = Database['public']['Enums']['subject_kind'];
 export type TransactionType = Database['public']['Enums']['transaction_type'];
 export type WeekDay = Database['public']['Enums']['week_day'];
 

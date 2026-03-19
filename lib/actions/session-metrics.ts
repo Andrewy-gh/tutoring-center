@@ -22,7 +22,7 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('tutor_id, student_id')
+    .select('tutor_id')
     .eq('id', formData.sessionId)
     .single();
 
@@ -62,7 +62,6 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
   } else {
     const { error } = await supabase.from('session_metrics').insert({
       session_id: formData.sessionId,
-      student_id: session.student_id,
       confidence_score: formData.confidenceScore,
       session_performance: formData.sessionPerformance,
       homework_completed: formData.homeworkCompleted,
