@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getUserRole } from '@/lib/auth';
+import { formatSignedCredits } from '@/lib/credit-ledger';
 import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
 import { getStudent } from '@/lib/data/students';
 import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
@@ -46,20 +47,6 @@ function getTransactionVariant(type: TransactionType): BadgeVariant {
     default:
       return 'secondary';
   }
-}
-
-function formatSignedCredits(amount: number) {
-  return amount > 0 ? `+${amount}` : `${amount}`;
-}
-
-function getCreditActivityLabel(amount: number) {
-  if (amount > 0) return 'Added';
-  if (amount < 0) return 'Used';
-  return 'Adjusted';
-}
-
-function formatAbsoluteCredits(amount: number) {
-  return Math.abs(amount);
 }
 
 function RecentSessionsTable({ sessions }: { sessions: StudentSession[] }) {
@@ -218,24 +205,20 @@ export default async function SingleStudentPage({ params }: { params: Promise<{ 
                             {format(parseISO(transaction.created_at), 'MMM d, yyyy')}
                           </p>
                         </div>
-                        <p className='font-medium'>
-                          {getCreditActivityLabel(transaction.amount)} {formatAbsoluteCredits(transaction.amount)}{' '}
-                          credit
-                          {formatAbsoluteCredits(transaction.amount) === 1 ? '' : 's'}
-                        </p>
+                        <p className='font-medium'>{transaction.summary}</p>
                         <p className='text-xs text-muted-foreground'>
-                          Balance after transaction: {transaction.balance_after}
+                          Available after: {transaction.available_after}, Pending after: {transaction.pending_after}
                         </p>
                       </div>
                       <div className='text-right'>
                         <p
                           className={
-                            transaction.amount >= 0 ? 'font-semibold text-green-600' : 'font-semibold text-red-600'
+                            transaction.net_amount >= 0 ? 'font-semibold text-green-600' : 'font-semibold text-red-600'
                           }
                         >
-                          {formatSignedCredits(transaction.amount)}
+                          {formatSignedCredits(transaction.net_amount)}
                         </p>
-                        <p className='text-xs text-muted-foreground'>credits</p>
+                        <p className='text-xs text-muted-foreground'>net</p>
                       </div>
                     </div>
                     <div className='mt-3'>

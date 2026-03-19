@@ -18,7 +18,7 @@ import { PickTutor, type TutorOption } from '@/components/parent-sessions/pick-t
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent } from '@/components/ui/card';
 import type { CreditBalance } from '@/lib/credit-balances';
-import { purchaseParentCredits, reserveCreditsForBooking } from '@/lib/data/credit-mutations';
+import { purchaseParentCredits } from '@/lib/data/credit-mutations';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
 
@@ -113,32 +113,20 @@ export function BookingScreen({
     return sessionId;
   }
 
-  async function completeBooking(
-    reservation: Reservation,
-    currentBalance: CreditBalance,
-    purchase?: CreditsPurchase,
-    warning?: string
-  ) {
+  async function completeBooking(reservation: Reservation, purchase?: CreditsPurchase, warning?: string) {
     setCheckoutError(null);
-
     await createSession(reservation);
-    let successWarning = warning;
-
-    try {
-      const reservationResult = await reserveCreditsForBooking(parentId, BOOKING_CREDIT_COST, currentBalance);
-      setBalance(reservationResult.balance);
-    } catch {
-      successWarning = successWarning
-        ? 'Session booked, but some credit updates could not be fully recorded. Refresh before booking another session and review credit history.'
-        : 'Session booked, but credits could not be moved to pending automatically. Refresh before booking another session.';
-    }
+    setBalance(currentBalance => ({
+      amount_available: currentBalance.amount_available - BOOKING_CREDIT_COST,
+      amount_pending: currentBalance.amount_pending + BOOKING_CREDIT_COST,
+    }));
 
     setBookingState({
       step: 'success',
       reservation,
       purchase,
       confirmationCode: generateConfirmationCode(),
-      warning: successWarning,
+      warning,
     });
     router.refresh();
   }
@@ -235,7 +223,7 @@ export function BookingScreen({
                   return;
                 }
 
-                void completeBooking(reservation, balance).catch(error => {
+                void completeBooking(reservation).catch(error => {
                   const message =
                     error instanceof Error ? error.message : 'Could not complete booking right now. Please try again.';
                   setCheckoutError(message);
@@ -273,19 +261,9 @@ export function BookingScreen({
               } | null = null;
 
               try {
-                purchaseResult = await purchaseParentCredits(
-                  parentId,
-                  bookingState.reservation.student.id,
-                  purchase.pkg.credits,
-                  balance
-                );
+                purchaseResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
                 setBalance(purchaseResult.balance);
-                await completeBooking(
-                  bookingState.reservation,
-                  purchaseResult.balance,
-                  purchase,
-                  purchaseResult.warning
-                );
+                await completeBooking(bookingState.reservation, purchase, purchaseResult.warning);
               } catch {
                 setCheckoutError(
                   purchaseResult
@@ -326,8 +304,8 @@ export function BookingScreen({
           >
             <p className='text-muted-foreground'>
               {wasPurchased
-                ? 'Your credits purchase and session reservation both succeeded. We deducted 1 credit for this booking.'
-                : 'Your session reservation succeeded and your booking is now confirmed.'}
+                ? 'Your credits purchase and session reservation both succeeded. We reserved 1 credit for this booking.'
+                : 'Your session reservation succeeded and 1 credit is now reserved for this booking.'}
             </p>
             {bookingState.warning ? (
               <p className='w-full rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800'>

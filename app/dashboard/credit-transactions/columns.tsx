@@ -5,6 +5,7 @@ import { DataTable, DataTableFilter, DataTableToolbar } from '@/components/data-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { UserRole } from '@/lib/auth';
+import { formatSignedCredits } from '@/lib/credit-ledger';
 import type { CreditTransactionRow } from '@/lib/data/credit-transactions';
 import {
   formatTransactionTypeLabel,
@@ -59,24 +60,38 @@ export function getColumns(role: UserRole): ColumnDef<CreditTransactionRow>[] {
       ),
     },
     {
-      id: 'amount',
-      accessorKey: 'amount',
-      header: () => <div>Amount</div>,
+      id: 'net_amount',
+      accessorKey: 'net_amount',
+      header: () => <div>Net</div>,
       cell: ({ row }) => {
-        const amount = row.original.amount;
+        const amount = row.original.net_amount;
         const isPositive = amount >= 0;
-        return (
-          <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
-            {isPositive ? `+${amount}` : `${amount}`}
-          </span>
-        );
+        return <span className={isPositive ? 'text-green-600' : 'text-red-600'}>{formatSignedCredits(amount)}</span>;
       },
     },
     {
-      id: 'balance_after',
-      accessorKey: 'balance_after',
-      header: () => <div>Balance After</div>,
-      cell: ({ row }) => <div>{row.original.balance_after}</div>,
+      id: 'available_delta',
+      accessorKey: 'available_delta',
+      header: () => <div>Available Delta</div>,
+      cell: ({ row }) => <div>{formatSignedCredits(row.original.available_delta)}</div>,
+    },
+    {
+      id: 'pending_delta',
+      accessorKey: 'pending_delta',
+      header: () => <div>Pending Delta</div>,
+      cell: ({ row }) => <div>{formatSignedCredits(row.original.pending_delta)}</div>,
+    },
+    {
+      id: 'available_after',
+      accessorKey: 'available_after',
+      header: () => <div>Available After</div>,
+      cell: ({ row }) => <div>{row.original.available_after}</div>,
+    },
+    {
+      id: 'pending_after',
+      accessorKey: 'pending_after',
+      header: () => <div>Pending After</div>,
+      cell: ({ row }) => <div>{row.original.pending_after}</div>,
     },
     {
       id: 'actions',

@@ -143,66 +143,76 @@ export const SESSION_SELECT_FIELDS =
 
 export const GRADE_SELECT_FIELDS = 'id,student_id,subject_id,subject_kind,grade,created_at' as const;
 
-export const CREDIT_TRANSACTION_SELECT_WITH_JOINS = `
-  id,
-  amount,
-  balance_after,
-  created_at,
-  parent_id,
-  session_id,
-  student_id,
-  type,
-  student:students (
-    users:user_id ( first_name, last_name )
-  )
-` as const;
+type CreditTransactionSessionJoinMode = 'sessions' | 'sessions!inner';
 
-export const CREDIT_TRANSACTION_LIST_SELECT_WITH_JOINS = `
-  id,
-  amount,
-  balance_after,
-  created_at,
-  parent_id,
-  session_id,
-  student_id,
-  type,
-  parent:parents (
-    users:user_id ( first_name, last_name )
-  ),
-  student:students (
-    users:user_id ( first_name, last_name )
-  )
-` as const;
-
-export const CREDIT_TRANSACTION_DETAIL_SELECT_WITH_JOINS = `
-  id,
-  amount,
-  balance_after,
-  created_at,
-  parent_id,
-  session_id,
-  student_id,
-  type,
-  parent:parents (
-    id,
-    user_id,
-    users:user_id ( first_name, last_name, email, phone )
-  ),
-  student:students (
-    id,
-    user_id,
-    grade,
-    users:user_id ( first_name, last_name, email, phone )
-  ),
-  session:sessions (
+function buildCreditTransactionSessionSelect(sessionJoinMode: CreditTransactionSessionJoinMode = 'sessions') {
+  return `
+  session:${sessionJoinMode} (
     id,
     subject_id,
     tutor_id,
     scheduled_at,
     ends_at,
     status
+    student_id,
+    student:students (
+      id,
+      user_id,
+      grade,
+      users:user_id ( first_name, last_name, email, phone )
+    )
   )
+`;
+}
+
+function buildCreditTransactionListSelect(sessionJoinMode: CreditTransactionSessionJoinMode = 'sessions') {
+  return `
+  id,
+  available_delta,
+  pending_delta,
+  available_after,
+  pending_after,
+  created_at,
+  parent_id,
+  session_id,
+  type,
+  idempotency_key,
+  note,
+  parent:parents (
+    users:user_id ( first_name, last_name )
+  ),
+  ${buildCreditTransactionSessionSelect(sessionJoinMode)}
 ` as const;
+}
+
+function buildCreditTransactionDetailSelect(sessionJoinMode: CreditTransactionSessionJoinMode = 'sessions') {
+  return `
+  id,
+  available_delta,
+  pending_delta,
+  available_after,
+  pending_after,
+  created_at,
+  parent_id,
+  session_id,
+  type,
+  idempotency_key,
+  note,
+  parent:parents (
+    id,
+    user_id,
+    users:user_id ( first_name, last_name, email, phone )
+  ),
+  ${buildCreditTransactionSessionSelect(sessionJoinMode)}
+` as const;
+}
+
+export const CREDIT_TRANSACTION_SELECT_WITH_JOINS = buildCreditTransactionListSelect();
+export const CREDIT_TRANSACTION_SELECT_WITH_SESSION_INNER = buildCreditTransactionListSelect('sessions!inner');
+export const CREDIT_TRANSACTION_LIST_SELECT_WITH_JOINS = buildCreditTransactionListSelect();
+export const CREDIT_TRANSACTION_LIST_SELECT_WITH_SESSION_INNER = buildCreditTransactionListSelect('sessions!inner');
+export const CREDIT_TRANSACTION_DETAIL_SELECT_WITH_JOINS = buildCreditTransactionDetailSelect();
+export const CREDIT_TRANSACTION_DETAIL_SELECT_WITH_SESSION_INNER = buildCreditTransactionDetailSelect('sessions!inner');
 
 // Sessions + joined parent/tutor/student user info
 export const SESSION_SELECT_WITH_JOINS = `

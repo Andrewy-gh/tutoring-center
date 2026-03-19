@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getUserRole } from '@/lib/auth';
 import { TIMEZONE } from '@/lib/constants';
+import { formatSignedCredits } from '@/lib/credit-ledger';
 import { getCreditTransaction } from '@/lib/data/credit-transactions';
 import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
 import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
@@ -85,14 +86,28 @@ export default async function SingleCreditTransactionPage({ params }: { params: 
               <h4 className='mb-4 text-lg font-bold text-primary'>Transaction Summary</h4>
               <div className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
                 <div>
-                  <p className='uppercase text-muted-foreground'>Amount</p>
-                  <p className={transaction.amount >= 0 ? 'font-medium text-green-600' : 'font-medium text-red-600'}>
-                    {transaction.amount >= 0 ? `+${transaction.amount}` : transaction.amount}
+                  <p className='uppercase text-muted-foreground'>Net Change</p>
+                  <p
+                    className={transaction.net_amount >= 0 ? 'font-medium text-green-600' : 'font-medium text-red-600'}
+                  >
+                    {formatSignedCredits(transaction.net_amount)}
                   </p>
                 </div>
                 <div>
-                  <p className='uppercase text-muted-foreground'>Balance After</p>
-                  <p className='font-medium'>{transaction.balance_after}</p>
+                  <p className='uppercase text-muted-foreground'>Available Delta</p>
+                  <p className='font-medium'>{formatSignedCredits(transaction.available_delta)}</p>
+                </div>
+                <div>
+                  <p className='uppercase text-muted-foreground'>Pending Delta</p>
+                  <p className='font-medium'>{formatSignedCredits(transaction.pending_delta)}</p>
+                </div>
+                <div>
+                  <p className='uppercase text-muted-foreground'>Available After</p>
+                  <p className='font-medium'>{transaction.available_after}</p>
+                </div>
+                <div>
+                  <p className='uppercase text-muted-foreground'>Pending After</p>
+                  <p className='font-medium'>{transaction.pending_after}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Transaction Type</p>
@@ -113,21 +128,27 @@ export default async function SingleCreditTransactionPage({ params }: { params: 
                   <CardTitle className='text-lg font-bold'>Student</CardTitle>
                 </CardHeader>
                 <CardContent className='space-y-3 text-sm'>
-                  <div>
-                    <p className='uppercase text-muted-foreground'>Name</p>
-                    <p className='font-medium'>{transaction.student.name}</p>
-                  </div>
-                  <div>
-                    <p className='uppercase text-muted-foreground'>Email</p>
-                    <p className='font-medium'>{transaction.student.email}</p>
-                  </div>
-                  <div>
-                    <p className='uppercase text-muted-foreground'>Grade</p>
-                    <p className='font-medium'>{transaction.student.grade}</p>
-                  </div>
-                  <Button asChild size='sm'>
-                    <Link href={`/dashboard/students/${transaction.student.id}`}>View Student</Link>
-                  </Button>
+                  {transaction.student ? (
+                    <>
+                      <div>
+                        <p className='uppercase text-muted-foreground'>Name</p>
+                        <p className='font-medium'>{transaction.student.name}</p>
+                      </div>
+                      <div>
+                        <p className='uppercase text-muted-foreground'>Email</p>
+                        <p className='font-medium'>{transaction.student.email}</p>
+                      </div>
+                      <div>
+                        <p className='uppercase text-muted-foreground'>Grade</p>
+                        <p className='font-medium'>{transaction.student.grade}</p>
+                      </div>
+                      <Button asChild size='sm'>
+                        <Link href={`/dashboard/students/${transaction.student.id}`}>View Student</Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <p className='text-muted-foreground'>No student is linked to this transaction.</p>
+                  )}
                 </CardContent>
               </Card>
 

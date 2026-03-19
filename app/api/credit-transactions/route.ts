@@ -2,7 +2,10 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { CREDIT_TRANSACTION_SELECT_WITH_JOINS } from '@/lib/supabase/types';
+import {
+  CREDIT_TRANSACTION_SELECT_WITH_JOINS,
+  CREDIT_TRANSACTION_SELECT_WITH_SESSION_INNER,
+} from '@/lib/supabase/types';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
   TransactionCreateSchema,
@@ -51,6 +54,18 @@ async function resolveParentId(requestedParentId?: number, options?: { requirePa
   return { parentId: parent.id };
 }
 
+function buildCountSelect(studentId?: number) {
+  if (studentId) {
+    return 'id, session:sessions!inner(student_id)' as const;
+  }
+
+  return 'id' as const;
+}
+
+function buildDataSelect(studentId?: number) {
+  return studentId ? CREDIT_TRANSACTION_SELECT_WITH_SESSION_INNER : CREDIT_TRANSACTION_SELECT_WITH_JOINS;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const parentIdRaw = url.searchParams.get('parent_id');
@@ -83,12 +98,16 @@ export async function GET(req: Request) {
   const supabase = createSupabaseServiceClient();
 
   // Count first to avoid out of range errors
-  let countQuery = supabase.from('credit_transactions').select('id', { count: 'exact', head: true });
+  let countQuery = supabase
+    .from('credit_transactions')
+    .select(buildCountSelect(student_id), { count: 'exact', head: true });
 
   if (parent_id) countQuery = countQuery.eq('parent_id', parent_id);
-  if (student_id) countQuery = countQuery.eq('student_id', student_id);
+  if (student_id) countQuery = countQuery.eq('session.student_id', student_id);
   if (session_id) countQuery = countQuery.eq('session_id', session_id);
   if (type && type !== 'all') countQuery = countQuery.eq('type', type);
+  if (start_date) countQuery = countQuery.gte('created_at', start_date);
+  if (end_date) countQuery = countQuery.lte('created_at', end_date);
 
   const { error: countErr, count } = await countQuery;
   if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
@@ -109,10 +128,10 @@ export async function GET(req: Request) {
     });
   }
 
-  let dataQuery = supabase.from('credit_transactions').select(CREDIT_TRANSACTION_SELECT_WITH_JOINS).range(from, to);
+  let dataQuery = supabase.from('credit_transactions').select(buildDataSelect(student_id));
 
   if (parent_id) dataQuery = dataQuery.eq('parent_id', parent_id);
-  if (student_id) dataQuery = dataQuery.eq('student_id', student_id);
+  if (student_id) dataQuery = dataQuery.eq('session.student_id', student_id);
   if (session_id) dataQuery = dataQuery.eq('session_id', session_id);
   if (type && type !== 'all') dataQuery = dataQuery.eq('type', type);
   if (start_date) dataQuery = dataQuery.gte('created_at', start_date);
@@ -129,8 +148,10 @@ export async function GET(req: Request) {
 
   const normalizedData = joinParsed.data.map((row: TransactionsWithJoins) => {
     const parent = pickFirstEmbedded(row.parent) as Record<string, unknown> | null;
-    const student = pickFirstEmbedded(row.student) as Record<string, unknown> | null;
     const session = pickFirstEmbedded(row.session) as Record<string, unknown> | null;
+    const student = session
+      ? (pickFirstEmbedded((session as { student?: unknown }).student) as Record<string, unknown> | null)
+      : null;
     return { ...row, parent, student, session };
   });
 
@@ -166,16 +187,29 @@ export async function POST(req: Request) {
   }
 
   const supabase = createSupabaseServiceClient();
-  const { parent_id, session_id, student_id, amount, balance_after, type } = parsed.data;
+  const {
+    parent_id,
+    session_id,
+    available_delta,
+    pending_delta,
+    available_after,
+    pending_after,
+    idempotency_key,
+    note,
+    type,
+  } = parsed.data;
 
   const { data, error } = await supabase
     .from('credit_transactions')
     .insert({
       parent_id,
       session_id,
-      student_id,
-      amount,
-      balance_after,
+      available_delta,
+      pending_delta,
+      available_after,
+      pending_after,
+      idempotency_key,
+      note,
       type,
     })
     .select('*')
