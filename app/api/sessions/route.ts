@@ -17,6 +17,10 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unexpected error';
+}
+
 type SessionApiRow = Omit<SessionWithJoins, 'student' | 'parent'> & {
   student: Record<string, unknown> | null;
   parent: Record<string, unknown> | null;
@@ -200,50 +204,54 @@ export async function GET(req: Request) {
     nowIso: new Date().toISOString(),
   });
 
-  const total = await getSessionCount(filters);
-  const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
+  try {
+    const total = await getSessionCount(filters);
+    const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
 
-  if (total === 0 || (page - 1) * page_size >= total) {
+    if (total === 0 || (page - 1) * page_size >= total) {
+      return NextResponse.json({
+        data: [],
+        page,
+        page_size,
+        total,
+        totalPages,
+        hasNextPage: false,
+        hasPrevPage: page > 1,
+        filters: { kind, parent_id, tutor_id, student_id, subject_id, status },
+      });
+    }
+
+    const rows = await getSessionRows(filters, page, page_size, kind);
+    const joinedParsed = SessionWithJoinsListSchema.safeParse(mapSessionJoinRows(rows));
+
+    if (!joinedParsed.success) {
+      return NextResponse.json({ error: 'Unexpected sessions join shape returned from Supabase' }, { status: 500 });
+    }
+
+    const normalized: SessionApiRow[] = joinedParsed.data.map((row: SessionWithJoins) => {
+      const student = row.student && !Array.isArray(row.student) ? row.student : null;
+      const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
+
+      return {
+        ...row,
+        student,
+        parent,
+      };
+    });
+
     return NextResponse.json({
-      data: [],
+      data: normalized,
       page,
       page_size,
       total,
       totalPages,
-      hasNextPage: false,
-      hasPrevPage: page > 1,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1 && totalPages > 0,
       filters: { kind, parent_id, tutor_id, student_id, subject_id, status },
     });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
-
-  const rows = await getSessionRows(filters, page, page_size, kind);
-  const joinedParsed = SessionWithJoinsListSchema.safeParse(mapSessionJoinRows(rows));
-
-  if (!joinedParsed.success) {
-    return NextResponse.json({ error: 'Unexpected sessions join shape returned from Supabase' }, { status: 500 });
-  }
-
-  const normalized: SessionApiRow[] = joinedParsed.data.map((row: SessionWithJoins) => {
-    const student = row.student && !Array.isArray(row.student) ? row.student : null;
-    const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
-
-    return {
-      ...row,
-      student,
-      parent,
-    };
-  });
-
-  return NextResponse.json({
-    data: normalized,
-    page,
-    page_size,
-    total,
-    totalPages,
-    hasNextPage: page < totalPages,
-    hasPrevPage: page > 1 && totalPages > 0,
-    filters: { kind, parent_id, tutor_id, student_id, subject_id, status },
-  });
 }
 
 export async function POST(req: Request) {
@@ -267,26 +275,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let parentId = s.parent_id;
-  if (role === 'parent') {
-    const userId = Number.parseInt(userIdRaw ?? '', 10);
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    parentId = (await getParentIdByUserId(userId)) ?? undefined;
-    if (!parentId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-  }
-
-  if (!parentId) {
-    return NextResponse.json({ error: 'parent_id is required' }, { status: 400 });
-  }
-
   const bookingModule = await import('@/lib/db/book-session');
 
   try {
+    let parentId = s.parent_id;
+    if (role === 'parent') {
+      const userId = Number.parseInt(userIdRaw ?? '', 10);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      parentId = (await getParentIdByUserId(userId)) ?? undefined;
+      if (!parentId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    if (!parentId) {
+      return NextResponse.json({ error: 'parent_id is required' }, { status: 400 });
+    }
+
     const { session } = await bookingModule.bookSession({
       tutorId: s.tutor_id,
       studentId: s.student_id,
@@ -340,28 +348,32 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const db = await getDb();
-  const [session] = await db
-    .update(sessions)
-    .set({ status: parsed.data.status })
-    .where(eq(sessions.id, parsed.data.id))
-    .returning({
-      id: sessions.id,
-      tutor_id: sessions.tutorId,
-      student_id: sessions.studentId,
-      subject_id: sessions.subjectId,
-      parent_id: sessions.parentId,
-      slot_units: sessions.slotUnits,
-      scheduled_at: sessions.scheduledAt,
-      ends_at: sessions.endsAt,
-      status: sessions.status,
-    });
+  try {
+    const db = await getDb();
+    const [session] = await db
+      .update(sessions)
+      .set({ status: parsed.data.status })
+      .where(eq(sessions.id, parsed.data.id))
+      .returning({
+        id: sessions.id,
+        tutor_id: sessions.tutorId,
+        student_id: sessions.studentId,
+        subject_id: sessions.subjectId,
+        parent_id: sessions.parentId,
+        slot_units: sessions.slotUnits,
+        scheduled_at: sessions.scheduledAt,
+        ends_at: sessions.endsAt,
+        status: sessions.status,
+      });
 
-  if (!session) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    revalidatePath('/dashboard');
+
+    return NextResponse.json({ data: session });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
-
-  revalidatePath('/dashboard');
-
-  return NextResponse.json({ data: session });
 }

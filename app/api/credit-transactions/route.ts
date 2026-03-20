@@ -15,6 +15,10 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unexpected error';
+}
+
 async function resolveParentId(requestedParentId?: number, options?: { requireParentIdForAdmin?: boolean }) {
   const cookieStore = await cookies();
   const role = cookieStore.get(USER_ROLE_COOKIE_NAME)?.value;
@@ -41,8 +45,13 @@ async function resolveParentId(requestedParentId?: number, options?: { requirePa
     return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const db = await getDb();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+  let parent;
+  try {
+    const db = await getDb();
+    [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+  } catch (error) {
+    return { response: NextResponse.json({ error: getErrorMessage(error) }, { status: 500 }) };
+  }
 
   if (!parent) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
@@ -242,48 +251,52 @@ export async function GET(req: Request) {
   const from = (page - 1) * page_size;
   const filters = { parent_id, student_id, session_id, type, start_date, end_date };
 
-  const total = await getTransactionCount(filters);
-  const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
+  try {
+    const total = await getTransactionCount(filters);
+    const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
 
-  if (total === 0 || from >= total) {
+    if (total === 0 || from >= total) {
+      return NextResponse.json({
+        data: [],
+        page,
+        page_size,
+        total,
+        totalPages,
+        hasNextPage: false,
+        hasPrevPage: page > 1,
+        filters,
+      });
+    }
+
+    const joinRows = await getTransactionRows(filters, from, page_size);
+    const mappedRows = mapTransactionJoinRows(joinRows);
+    const joinParsed = TransactionsWithJoinsListSchema.safeParse(mappedRows);
+
+    if (!joinParsed.success) {
+      return NextResponse.json({ error: 'Unexpected sessions join shape returned from Supabase' }, { status: 500 });
+    }
+
+    const normalizedData = joinParsed.data.map((row: TransactionsWithJoins) => {
+      const session = row.session && !Array.isArray(row.session) ? row.session : null;
+      const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
+      const student = session?.student && !Array.isArray(session.student) ? session.student : null;
+
+      return { ...row, parent, student, session };
+    });
+
     return NextResponse.json({
-      data: [],
+      data: normalizedData,
       page,
       page_size,
       total,
       totalPages,
-      hasNextPage: false,
+      hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
       filters,
     });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
-
-  const joinRows = await getTransactionRows(filters, from, page_size);
-  const mappedRows = mapTransactionJoinRows(joinRows);
-  const joinParsed = TransactionsWithJoinsListSchema.safeParse(mappedRows);
-
-  if (!joinParsed.success) {
-    return NextResponse.json({ error: 'Unexpected sessions join shape returned from Supabase' }, { status: 500 });
-  }
-
-  const normalizedData = joinParsed.data.map((row: TransactionsWithJoins) => {
-    const session = row.session && !Array.isArray(row.session) ? row.session : null;
-    const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
-    const student = session?.student && !Array.isArray(session.student) ? session.student : null;
-
-    return { ...row, parent, student, session };
-  });
-
-  return NextResponse.json({
-    data: normalizedData,
-    page,
-    page_size,
-    total,
-    totalPages,
-    hasNextPage: page < totalPages,
-    hasPrevPage: page > 1,
-    filters,
-  });
 }
 
 export async function POST(req: Request) {
@@ -317,33 +330,37 @@ export async function POST(req: Request) {
     type,
   } = parsed.data;
 
-  const db = await getDb();
-  const [transaction] = await db
-    .insert(creditTransactions)
-    .values({
-      parentId: parent_id,
-      sessionId: session_id,
-      availableDelta: available_delta,
-      pendingDelta: pending_delta,
-      availableAfter: available_after,
-      pendingAfter: pending_after,
-      idempotencyKey: idempotency_key,
-      note,
-      type,
-    })
-    .returning({
-      id: creditTransactions.id,
-      parent_id: creditTransactions.parentId,
-      session_id: creditTransactions.sessionId,
-      available_delta: creditTransactions.availableDelta,
-      pending_delta: creditTransactions.pendingDelta,
-      available_after: creditTransactions.availableAfter,
-      pending_after: creditTransactions.pendingAfter,
-      idempotency_key: creditTransactions.idempotencyKey,
-      note: creditTransactions.note,
-      type: creditTransactions.type,
-      created_at: creditTransactions.createdAt,
-    });
+  try {
+    const db = await getDb();
+    const [transaction] = await db
+      .insert(creditTransactions)
+      .values({
+        parentId: parent_id,
+        sessionId: session_id,
+        availableDelta: available_delta,
+        pendingDelta: pending_delta,
+        availableAfter: available_after,
+        pendingAfter: pending_after,
+        idempotencyKey: idempotency_key,
+        note,
+        type,
+      })
+      .returning({
+        id: creditTransactions.id,
+        parent_id: creditTransactions.parentId,
+        session_id: creditTransactions.sessionId,
+        available_delta: creditTransactions.availableDelta,
+        pending_delta: creditTransactions.pendingDelta,
+        available_after: creditTransactions.availableAfter,
+        pending_after: creditTransactions.pendingAfter,
+        idempotency_key: creditTransactions.idempotencyKey,
+        note: creditTransactions.note,
+        type: creditTransactions.type,
+        created_at: creditTransactions.createdAt,
+      });
 
-  return NextResponse.json({ data: transaction });
+    return NextResponse.json({ data: transaction });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
 }

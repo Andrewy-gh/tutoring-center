@@ -49,11 +49,27 @@ function createSelectQuery(result: unknown) {
   return query;
 }
 
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
+
 function createInsertQuery(result: unknown) {
   return {
     values: vi.fn(() => ({
       onConflictDoUpdate: vi.fn(() => ({
         returning: vi.fn().mockResolvedValue(result),
+      })),
+    })),
+  };
+}
+
+function createRejectingInsertQuery(message: string) {
+  return {
+    values: vi.fn(() => ({
+      onConflictDoUpdate: vi.fn(() => ({
+        returning: vi.fn().mockRejectedValue(new Error(message)),
       })),
     })),
   };
@@ -108,5 +124,18 @@ describe('credit balances route auth', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ parent_id: 55, amount_available: 6, amount_pending: 1 });
+  });
+
+  it('returns a JSON 500 when the balance upsert fails', async () => {
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
+    mockDbInsert.mockReturnValueOnce(createRejectingInsertQuery('upsert failed'));
+
+    const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'upsert failed' });
   });
 });

@@ -53,6 +53,12 @@ function createSelectQuery(result: unknown) {
   return query;
 }
 
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
+
 function createInsertQuery(result: unknown) {
   return {
     values: vi.fn(() => ({
@@ -134,5 +140,15 @@ describe('credit transactions route auth', () => {
       pending_after: 1,
       type: 'purchase',
     });
+  });
+
+  it('returns a JSON 500 when parent lookup fails during GET', async () => {
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('lookup failed'));
+
+    const response = await GET(new Request('https://example.test/api/credit-transactions?parent_id=9'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'lookup failed' });
   });
 });

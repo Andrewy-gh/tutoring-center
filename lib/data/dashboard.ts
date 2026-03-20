@@ -198,6 +198,8 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
     return [];
   }
 
+  let studentMap: Map<number, string>;
+
   try {
     const db = await getDb();
     const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
@@ -220,11 +222,15 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
       return [];
     }
 
-    const studentMap = new Map<number, string>();
+    studentMap = new Map<number, string>();
     for (const student of studentRows) {
       studentMap.set(student.id, [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student');
     }
+  } catch {
+    return [];
+  }
 
+  try {
     const sessionRows = await getCompletedSessionMetrics(dateRange, Array.from(studentMap.keys()));
     const subjectMap = await getSubjectMapByIds(sessionRows.map(session => session.subject_id));
     const sessionsByStudent = new Map<number, SessionMetricsRow[]>();
@@ -246,7 +252,9 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
       buildStudentProgress(studentId, studentName, sessionsByStudent.get(studentId) ?? [], subjectMap)
     );
   } catch {
-    return [];
+    return Array.from(studentMap.entries()).map(([studentId, studentName]) =>
+      getEmptyStudentProgress(studentId, studentName)
+    );
   }
 }
 

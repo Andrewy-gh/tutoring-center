@@ -1,5 +1,5 @@
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { getSession, getSessions } from '@/lib/data/sessions';
+import { getSession, getSessions, getStudentRecentProgress } from '@/lib/data/sessions';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect, mockNotFound, mockRedirect } = vi.hoisted(
@@ -49,6 +49,12 @@ function createSelectQuery(result: unknown) {
     ),
   };
 
+  return query;
+}
+
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
   return query;
 }
 
@@ -180,5 +186,17 @@ describe('getSession', () => {
     mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
 
     await expect(getSession(999)).rejects.toThrow('notFound');
+  });
+});
+
+describe('getStudentRecentProgress', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns an empty array when the progress query fails', async () => {
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('db failed'));
+
+    await expect(getStudentRecentProgress(201, 1, 5)).resolves.toEqual([]);
   });
 });

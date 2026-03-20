@@ -1,4 +1,4 @@
-import { POST } from '@/app/api/sessions/route';
+import { GET, POST } from '@/app/api/sessions/route';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -99,8 +99,11 @@ function setCookies(role?: string, userId?: string) {
 function createSelectQuery(result: unknown) {
   const query = {
     from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
     where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
     limit: vi.fn(() => query),
+    offset: vi.fn(() => query),
     then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
       Promise.resolve(result).then(resolve, reject)
     ),
@@ -108,6 +111,28 @@ function createSelectQuery(result: unknown) {
 
   return query;
 }
+
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
+
+describe('GET /api/sessions', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns a JSON 500 when the session count query fails', async () => {
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('count failed'));
+
+    const response = await GET(new Request('https://example.test/api/sessions?page=1&page_size=20'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'count failed' });
+  });
+});
 
 describe('POST /api/sessions', () => {
   beforeEach(() => {

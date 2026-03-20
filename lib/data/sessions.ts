@@ -478,32 +478,36 @@ export async function getStudentRecentProgress(
   sessionIdToExclude: number,
   limit: number = 5
 ): Promise<StudentProgressHistory[]> {
-  const db = await getDb();
-  const now = new Date().toISOString();
+  try {
+    const db = await getDb();
+    const now = new Date().toISOString();
 
-  const rows = await db
-    .select({
-      id: sessions.id,
-      scheduled_at: sessions.scheduledAt,
-      tutor_id: sessions.tutorId,
-    })
-    .from(sessions)
-    .where(
-      and(
-        eq(sessions.studentId, studentId),
-        eq(sessions.status, 'Completed'),
-        ne(sessions.id, sessionIdToExclude),
-        lt(sessions.scheduledAt, now)
+    const rows = await db
+      .select({
+        id: sessions.id,
+        scheduled_at: sessions.scheduledAt,
+        tutor_id: sessions.tutorId,
+      })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.studentId, studentId),
+          eq(sessions.status, 'Completed'),
+          ne(sessions.id, sessionIdToExclude),
+          lt(sessions.scheduledAt, now)
+        )
       )
-    )
-    .orderBy(desc(sessions.scheduledAt))
-    .limit(limit);
+      .orderBy(desc(sessions.scheduledAt))
+      .limit(limit);
 
-  const tutorMap = await getTutorProfileMapByIds(rows.map(session => session.tutor_id));
+    const tutorMap = await getTutorProfileMapByIds(rows.map(session => session.tutor_id));
 
-  return rows.map(session => ({
-    sessionId: session.id,
-    date: session.scheduled_at,
-    tutorName: tutorMap.get(session.tutor_id)?.name ?? 'Unknown Tutor',
-  }));
+    return rows.map(session => ({
+      sessionId: session.id,
+      date: session.scheduled_at,
+      tutorName: tutorMap.get(session.tutor_id)?.name ?? 'Unknown Tutor',
+    }));
+  } catch {
+    return [];
+  }
 }
