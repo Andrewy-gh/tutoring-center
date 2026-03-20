@@ -1,8 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { creditBalances, parents } from '@/lib/db/schema';
 import { BalanceQuerySchema, BalanceUpdateSchema } from '@/lib/validators/balances';
+import { eq, sql } from 'drizzle-orm';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 async function resolveParentId(requestedParentId?: number) {
   const cookieStore = await cookies();
@@ -30,14 +35,10 @@ async function resolveParentId(requestedParentId?: number) {
     return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data: parent, error: parentError } = await supabase
-    .from('parents')
-    .select('id')
-    .eq('user_id', userId)
-    .single();
+  const db = await getDb();
+  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
 
-  if (parentError || !parent) {
+  if (!parent) {
     return { response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 
@@ -65,19 +66,23 @@ export async function GET(req: Request) {
   }
 
   const { parent_id } = parsed.data;
+  const db = await getDb();
+  const rows = await db
+    .select({
+      parent_id: creditBalances.parentId,
+      amount_available: creditBalances.amountAvailable,
+      amount_pending: creditBalances.amountPending,
+    })
+    .from(creditBalances)
+    .where(eq(creditBalances.parentId, parent_id))
+    .limit(1);
 
-  const supabase = createSupabaseServiceClient();
-
-  const query = supabase.from('credit_balances').select('*').eq('parent_id', parent_id);
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  if (!data || data.length === 0) {
+  const [balance] = rows;
+  if (!balance) {
     return NextResponse.json({ error: 'No credit balance found for the given parent_id' }, { status: 404 });
   }
 
-  return NextResponse.json(data[0]);
+  return NextResponse.json(balance);
 }
 
 export async function PUT(req: Request) {
@@ -101,28 +106,33 @@ export async function PUT(req: Request) {
   }
 
   const { parent_id, amount_available, amount_pending } = parsed.data;
+  const db = await getDb();
+  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.id, parent_id)).limit(1);
 
-  const supabase = createSupabaseServiceClient();
-
-  const { error: parentError } = await supabase.from('parents').select('id').eq('id', parent_id).single();
-  if (parentError) {
+  if (!parent) {
     return NextResponse.json({ error: 'Parent not found' }, { status: 404 });
   }
 
-  const { data, error } = await supabase
-    .from('credit_balances')
-    .upsert(
-      {
-        parent_id,
-        amount_available,
-        amount_pending,
+  const [balance] = await db
+    .insert(creditBalances)
+    .values({
+      parentId: parent_id,
+      amountAvailable: amount_available,
+      amountPending: amount_pending,
+    })
+    .onConflictDoUpdate({
+      target: creditBalances.parentId,
+      set: {
+        amountAvailable: amount_available,
+        amountPending: amount_pending,
+        updatedAt: sql`now()`,
       },
-      { onConflict: 'parent_id' }
-    )
-    .select('*')
-    .single();
+    })
+    .returning({
+      parent_id: creditBalances.parentId,
+      amount_available: creditBalances.amountAvailable,
+      amount_pending: creditBalances.amountPending,
+    });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json(data);
+  return NextResponse.json(balance);
 }

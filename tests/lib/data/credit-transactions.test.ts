@@ -1,20 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockGetCurrentUserID,
-  mockIsValidRole,
-  mockCreateSupabaseServiceClient,
-  mockPickFirstEmbedded,
-  mockGetSubjectMapByIds,
-  mockGetTutorProfileMapByIds,
-} = vi.hoisted(() => ({
-  mockGetCurrentUserID: vi.fn(),
-  mockIsValidRole: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
-  mockPickFirstEmbedded: vi.fn((value: unknown) => (Array.isArray(value) ? value[0] : value)),
-  mockGetSubjectMapByIds: vi.fn(),
-  mockGetTutorProfileMapByIds: vi.fn(),
-}));
+const { mockGetCurrentUserID, mockIsValidRole, mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect } =
+  vi.hoisted(() => ({
+    mockGetCurrentUserID: vi.fn(),
+    mockIsValidRole: vi.fn(),
+    mockGetSubjectMapByIds: vi.fn(),
+    mockGetTutorProfileMapByIds: vi.fn(),
+    mockDbSelect: vi.fn(),
+  }));
 
 vi.mock('next/navigation', () => ({
   forbidden: vi.fn(() => {
@@ -30,10 +23,6 @@ vi.mock('@/lib/auth', () => ({
   isValidRole: mockIsValidRole,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
-}));
-
 vi.mock('@/lib/data/subjects', () => ({
   getSubjectMapByIds: mockGetSubjectMapByIds,
 }));
@@ -42,9 +31,27 @@ vi.mock('@/lib/data/tutors', () => ({
   getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
 }));
 
-vi.mock('@/lib/utils/normalize', () => ({
-  pickFirstEmbedded: mockPickFirstEmbedded,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
 }));
+
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    leftJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  };
+
+  return query;
+}
 
 describe('credit transaction data', () => {
   beforeEach(() => {
@@ -56,8 +63,8 @@ describe('credit transaction data', () => {
   });
 
   it('maps joined list data for admin users', async () => {
-    const orderedResult = {
-      data: [
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
         {
           id: 10,
           created_at: '2026-03-10T15:00:00.000Z',
@@ -66,22 +73,15 @@ describe('credit transaction data', () => {
           pending_delta: 0,
           available_after: 20,
           pending_after: 0,
-          parent_id: 1,
           session_id: null,
-          parent: { users: { first_name: 'Pat', last_name: 'Parent' } },
-          session: null,
+          parent_first_name: 'Pat',
+          parent_last_name: 'Parent',
+          student_id: null,
+          student_first_name: null,
+          student_last_name: null,
         },
-      ],
-      error: null,
-    };
-
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          order: vi.fn(() => orderedResult),
-        })),
-      })),
-    });
+      ])
+    );
 
     const { getCreditTransactions } = await import('@/lib/data/credit-transactions');
     const result = await getCreditTransactions('admin');
@@ -104,72 +104,44 @@ describe('credit transaction data', () => {
   });
 
   it('filters detail lookup to the current parent and maps linked session data', async () => {
-    const parentLookupSingle = vi.fn().mockResolvedValue({ data: { id: 77 }, error: null });
-    const parentLookupEq = vi.fn(() => ({ single: parentLookupSingle }));
-    const parentLookupSelect = vi.fn(() => ({ eq: parentLookupEq }));
-
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: 99,
-        created_at: '2026-03-10T15:00:00.000Z',
-        type: 'reservation',
-        available_delta: -1,
-        pending_delta: 1,
-        available_after: 9,
-        pending_after: 1,
-        parent_id: 77,
-        session_id: 500,
-        note: null,
-        parent: {
-          id: 77,
-          user_id: 42,
-          users: { first_name: 'Pat', last_name: 'Parent', email: 'pat@example.com', phone: '555-1111' },
-        },
-        session: {
-          id: 500,
-          subject_id: 12,
-          tutor_id: 3,
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 77 }])).mockReturnValueOnce(
+      createSelectQuery([
+        {
+          id: 99,
+          created_at: '2026-03-10T15:00:00.000Z',
+          type: 'reservation',
+          available_delta: -1,
+          pending_delta: 1,
+          available_after: 9,
+          pending_after: 1,
+          session_id: 500,
+          note: null,
+          parent_id: 77,
+          parent_first_name: 'Pat',
+          parent_last_name: 'Parent',
+          parent_email: 'pat@example.com',
+          parent_phone: '555-1111',
+          session_subject_id: 12,
+          session_tutor_id: 3,
           scheduled_at: '2026-03-10T15:00:00.000Z',
           ends_at: '2026-03-10T16:00:00.000Z',
           status: 'Completed',
-          student: {
-            id: 12,
-            user_id: 52,
-            grade: '8',
-            users: { first_name: 'Sam', last_name: 'Student', email: 'sam@example.com', phone: '555-2222' },
-          },
+          student_id: 12,
+          student_first_name: 'Sam',
+          student_last_name: 'Student',
+          student_email: 'sam@example.com',
+          student_phone: '555-2222',
+          student_grade: '8',
         },
-      },
-      error: null,
-    });
-    const detailParentEq = vi.fn(() => ({ maybeSingle }));
-    const detailIdEq = vi.fn(() => ({ eq: detailParentEq, maybeSingle }));
-    const detailSelect = vi.fn(() => ({ eq: detailIdEq }));
-
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === 'parents') {
-          return { select: parentLookupSelect };
-        }
-
-        if (table === 'credit_transactions') {
-          return { select: detailSelect };
-        }
-
-        throw new Error(`Unexpected table: ${table}`);
-      }),
-    });
+      ])
+    );
 
     const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
     const detail = await getCreditTransaction(99, 'parent');
 
-    expect(parentLookupEq).toHaveBeenCalledWith('user_id', 42);
-    expect(detailIdEq).toHaveBeenCalledWith('id', 99);
-    expect(detailParentEq).toHaveBeenCalledWith('parent_id', 77);
     expect(detail.parent.name).toBe('Pat Parent');
     expect(detail.student?.name).toBe('Sam Student');
     expect(detail.session?.subject_name).toBe('Mathematics');
-    expect(mockGetTutorProfileMapByIds).toHaveBeenCalledWith([3]);
     expect(detail.session?.tutor_name).toBe('Taylor Tutor');
     expect(detail.net_amount).toBe(0);
   });

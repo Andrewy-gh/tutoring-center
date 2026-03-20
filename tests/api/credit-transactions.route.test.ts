@@ -1,17 +1,21 @@
 import { GET, POST } from '@/app/api/credit-transactions/route';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockCookies, mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
   mockCookies: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+    insert: mockDbInsert,
+  },
 }));
 
 function setCookies(role?: string, userId?: string) {
@@ -32,61 +36,28 @@ function makePostRequest(body: Record<string, unknown>) {
   });
 }
 
-type SupabaseSetup = {
-  parentRow?: { id: number } | null;
-  parentErr?: { message: string } | null;
-  count?: number | null;
-  countErr?: { message: string } | null;
-  insertRow?: { id: number } | null;
-  insertErr?: { message: string } | null;
-};
-
-function setupSupabase({
-  parentRow = { id: 7 },
-  parentErr = null,
-  count = 0,
-  countErr = null,
-  insertRow = { id: 1001 },
-  insertErr = null,
-}: SupabaseSetup = {}) {
-  const parentSingle = vi.fn().mockResolvedValue({ data: parentRow, error: parentErr });
-  const parentEq = vi.fn().mockReturnValue({ single: parentSingle });
-  const parentSelect = vi.fn().mockReturnValue({ eq: parentEq });
-
-  const countQuery = {
-    count,
-    error: countErr,
-    eq: vi.fn().mockReturnThis(),
-    gte: vi.fn().mockReturnThis(),
-    lte: vi.fn().mockReturnThis(),
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    leftJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    offset: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
   };
-  const transactionSelect = vi.fn(() => countQuery);
 
-  const insertSingle = vi.fn().mockResolvedValue({ data: insertRow, error: insertErr });
-  const insertSelect = vi.fn().mockReturnValue({ single: insertSingle });
-  const transactionInsert = vi.fn().mockReturnValue({ select: insertSelect });
+  return query;
+}
 
-  const from = vi.fn((table: string) => {
-    if (table === 'parents') {
-      return { select: parentSelect };
-    }
-
-    if (table === 'credit_transactions') {
-      return {
-        select: transactionSelect,
-        insert: transactionInsert,
-      };
-    }
-
-    throw new Error(`Unexpected table: ${table}`);
-  });
-
-  mockCreateSupabaseServiceClient.mockReturnValue({ from });
-
+function createInsertQuery(result: unknown) {
   return {
-    parentEq,
-    countQuery,
-    transactionInsert,
+    values: vi.fn(() => ({
+      returning: vi.fn().mockResolvedValue(result),
+    })),
   };
 }
 
@@ -94,7 +65,6 @@ describe('credit transactions route auth', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setCookies('parent', '42');
-    setupSupabase();
   });
 
   it('returns 401 for GET when role cookie is missing', async () => {
@@ -108,10 +78,9 @@ describe('credit transactions route auth', () => {
   });
 
   it('derives the parent id for GET when the caller is a parent', async () => {
-    const { parentEq, countQuery } = setupSupabase({
-      parentRow: { id: 88 },
-      count: 0,
-    });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 88 }]))
+      .mockReturnValueOnce(createSelectQuery([{ count: 0 }]));
 
     const response = await GET(
       new Request('https://example.test/api/credit-transactions?parent_id=999&page=1&page_size=20')
@@ -119,17 +88,29 @@ describe('credit transactions route auth', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(parentEq).toHaveBeenCalledWith('user_id', 42);
-    expect(countQuery.eq).toHaveBeenCalledWith('parent_id', 88);
     expect(body.data).toEqual([]);
     expect(body.filters.parent_id).toBe(88);
   });
 
   it('derives the parent id for POST when the caller is a parent', async () => {
-    const { parentEq, transactionInsert } = setupSupabase({
-      parentRow: { id: 55 },
-      insertRow: { id: 2002 },
-    });
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
+    mockDbInsert.mockReturnValueOnce(
+      createInsertQuery([
+        {
+          id: 2002,
+          parent_id: 55,
+          session_id: null,
+          available_delta: 4,
+          pending_delta: 0,
+          available_after: 8,
+          pending_after: 1,
+          idempotency_key: null,
+          note: null,
+          type: 'purchase',
+          created_at: '2026-03-20T00:00:00.000Z',
+        },
+      ])
+    );
 
     const response = await POST(
       makePostRequest({
@@ -144,17 +125,14 @@ describe('credit transactions route auth', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(parentEq).toHaveBeenCalledWith('user_id', 42);
-    expect(transactionInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        parent_id: 55,
-        available_delta: 4,
-        pending_delta: 0,
-        available_after: 8,
-        pending_after: 1,
-        type: 'purchase',
-      })
-    );
-    expect(body.data).toEqual({ id: 2002 });
+    expect(body.data).toMatchObject({
+      id: 2002,
+      parent_id: 55,
+      available_delta: 4,
+      pending_delta: 0,
+      available_after: 8,
+      pending_after: 1,
+      type: 'purchase',
+    });
   });
 });

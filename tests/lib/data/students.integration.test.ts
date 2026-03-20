@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { getStudents } from '@/lib/data/students';
 import type { Database } from '@/lib/supabase/types';
 import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +11,10 @@ vi.mock('@/lib/mock-api', () => ({
   getCurrentUserID: mockGetCurrentUserID,
   getUserRole: vi.fn(),
 }));
+
+const HAS_DB_ENV = Boolean(process.env.DATABASE_URL);
+const HAS_SUPABASE_ENV = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+const describeIfConfigured = HAS_DB_ENV && HAS_SUPABASE_ENV ? describe : describe.skip;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -31,12 +34,13 @@ function createSupabaseServiceTestClient() {
   });
 }
 
-describe('getStudents integration', () => {
+describeIfConfigured('getStudents integration', () => {
   beforeEach(() => {
     mockGetCurrentUserID.mockReset();
   });
 
   it('returns data from the real database for a newly inserted student', async () => {
+    const { getStudents } = await import('@/lib/data/students');
     const supabase = createSupabaseServiceTestClient();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const email = `students-int-${unique}@example.com`;
@@ -106,6 +110,7 @@ describe('getStudents integration', () => {
   });
 
   it('scopes parent role to only the current parent students', async () => {
+    const { getStudents } = await import('@/lib/data/students');
     const supabase = createSupabaseServiceTestClient();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 

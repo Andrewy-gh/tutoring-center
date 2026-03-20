@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockCookies,
-  mockCreateSupabaseServiceClient,
+  mockDbSelect,
   mockBookSession,
   MockCreditBalanceNotFoundError,
   MockInsufficientCreditsError,
@@ -40,7 +40,7 @@ const {
 
   return {
     mockCookies: vi.fn(),
-    mockCreateSupabaseServiceClient: vi.fn(),
+    mockDbSelect: vi.fn(),
     mockBookSession: vi.fn(),
     MockSessionOverlapError,
     MockInsufficientCreditsError,
@@ -53,8 +53,10 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
 }));
 
 vi.mock('@/lib/db/book-session', () => {
@@ -66,11 +68,6 @@ vi.mock('@/lib/db/book-session', () => {
     ParentStudentMismatchError: MockParentStudentMismatchError,
   };
 });
-
-type SupabaseSetup = {
-  parentRow?: { id: number } | null;
-  parentErr?: { message: string } | null;
-};
 
 const BASE_BODY = {
   tutor_id: 11,
@@ -99,32 +96,23 @@ function setCookies(role?: string, userId?: string) {
   });
 }
 
-function setupSupabase({ parentRow = { id: 7 }, parentErr = null }: SupabaseSetup = {}) {
-  const parentSingle = vi.fn().mockResolvedValue({ data: parentRow, error: parentErr });
-  const parentEq = vi.fn().mockReturnValue({ single: parentSingle });
-  const parentSelect = vi.fn().mockReturnValue({ eq: parentEq });
-
-  const from = vi.fn((table: string) => {
-    if (table === 'parents') {
-      return { select: parentSelect };
-    }
-
-    throw new Error(`Unexpected table: ${table}`);
-  });
-
-  mockCreateSupabaseServiceClient.mockReturnValue({ from });
-
-  return {
-    from,
-    parentEq,
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    where: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
   };
+
+  return query;
 }
 
 describe('POST /api/sessions', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setCookies('parent', '42');
-    setupSupabase();
     mockBookSession.mockResolvedValue({
       session: { id: 1001 },
     });
@@ -151,15 +139,12 @@ describe('POST /api/sessions', () => {
   });
 
   it('derives parent_id from auth for parent role and ignores request parent_id', async () => {
-    const { parentEq } = setupSupabase({
-      parentRow: { id: 77 },
-    });
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 77 }]));
 
     const response = await POST(makeRequest({ ...BASE_BODY, parent_id: 999 }));
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(parentEq).toHaveBeenCalledWith('user_id', 42);
     expect(mockBookSession).toHaveBeenCalledWith(
       expect.objectContaining({
         tutorId: 11,

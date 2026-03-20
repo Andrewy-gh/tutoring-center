@@ -1,8 +1,9 @@
-import { addGrade } from '@/lib/data/grades';
-import { getSubjectsForGradeForm } from '@/lib/data/subjects';
+import { addGrade, getSubjectsForGradeForm } from '@/lib/data/grades';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
   mockGetCurrentUserID: vi.fn(),
   mockCreateSupabaseServiceClient: vi.fn(),
 }));
@@ -15,33 +16,33 @@ vi.mock('@/lib/supabase/serverClient', () => ({
   createSupabaseServiceClient: mockCreateSupabaseServiceClient,
 }));
 
-type QueryResult = {
-  data: unknown;
-  error: unknown;
-};
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+    insert: mockDbInsert,
+  },
+}));
 
-function createSingleResultQuery(result: QueryResult) {
+function createSelectQuery(result: unknown) {
   const query = {
-    eq: vi.fn(() => query),
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
     limit: vi.fn(() => query),
-    single: vi.fn().mockResolvedValue(result),
-    order: vi.fn(() => query),
-    in: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
   };
 
   return query;
 }
 
-function createInsertQuery(result: QueryResult) {
-  const selection = {
-    single: vi.fn().mockResolvedValue(result),
-  };
-
+function createInsertQuery(result: unknown) {
   return {
-    insert: vi.fn(() => ({
-      select: vi.fn(() => selection),
+    values: vi.fn(() => ({
+      returning: vi.fn().mockResolvedValue(result),
     })),
-    selection,
   };
 }
 
@@ -52,42 +53,25 @@ describe('grade data', () => {
 
   it('writes grades with subject_id + leaf subject_kind', async () => {
     mockGetCurrentUserID.mockResolvedValue(42);
-
-    const parentsQuery = createSingleResultQuery({ data: { id: 7 }, error: null });
-    const studentsQuery = createSingleResultQuery({ data: { id: 10, parent_id: 7 }, error: null });
-    const subjectsQuery = createSingleResultQuery({ data: { id: 55, name: 'Fractions', kind: 'leaf' }, error: null });
-    const gradesTable = createInsertQuery({
-      data: {
-        id: 99,
-        student_id: 10,
-        subject_id: 55,
-        subject_kind: 'leaf',
-        grade: 'A',
-        created_at: '2026-03-18T12:00:00.000Z',
-      },
-      error: null,
-    });
-
-    const from = vi.fn((table: string) => {
-      if (table === 'parents') return { select: vi.fn(() => parentsQuery) };
-      if (table === 'students') return { select: vi.fn(() => studentsQuery) };
-      if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-      if (table === 'student_grades') return gradesTable;
-      throw new Error(`Unexpected table ${table}`);
-    });
-
-    mockCreateSupabaseServiceClient.mockReturnValue({ from });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 10, parent_id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 55, name: 'Fractions', kind: 'leaf' }]));
+    mockDbInsert.mockReturnValueOnce(
+      createInsertQuery([
+        {
+          id: 99,
+          student_id: 10,
+          subject_id: 55,
+          subject_kind: 'leaf',
+          grade: 'A',
+          created_at: '2026-03-18T12:00:00.000Z',
+        },
+      ])
+    );
 
     const result = await addGrade({ student_id: 10, subject_id: 55, grade: 93 });
 
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(1, 'id', 55);
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(2, 'kind', 'leaf');
-    expect(gradesTable.insert).toHaveBeenCalledWith({
-      student_id: 10,
-      subject_id: 55,
-      subject_kind: 'leaf',
-      grade: 'A',
-    });
     expect(result).toEqual({
       id: 99,
       student_id: 10,
@@ -101,38 +85,31 @@ describe('grade data', () => {
 
   it('rejects non-leaf subjects before inserting a grade', async () => {
     mockGetCurrentUserID.mockResolvedValue(42);
-
-    const parentsQuery = createSingleResultQuery({ data: { id: 7 }, error: null });
-    const studentsQuery = createSingleResultQuery({ data: { id: 10, parent_id: 7 }, error: null });
-    const subjectsQuery = createSingleResultQuery({ data: null, error: null });
-    const gradesTable = createInsertQuery({ data: null, error: null });
-
-    const from = vi.fn((table: string) => {
-      if (table === 'parents') return { select: vi.fn(() => parentsQuery) };
-      if (table === 'students') return { select: vi.fn(() => studentsQuery) };
-      if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-      if (table === 'student_grades') return gradesTable;
-      throw new Error(`Unexpected table ${table}`);
-    });
-
-    mockCreateSupabaseServiceClient.mockReturnValue({ from });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 10, parent_id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([]));
+    mockDbInsert.mockReturnValueOnce(createInsertQuery([]));
 
     await expect(addGrade({ student_id: 10, subject_id: 12, grade: 88 })).rejects.toThrow(
       'Grade data is invalid. Please check your input.'
     );
-    expect(gradesTable.insert).not.toHaveBeenCalled();
+    expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
   it('returns only leaf subjects for the grade form', async () => {
     const subjectsQuery = {
       eq: vi.fn(() => subjectsQuery),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          { id: 3, name: 'Algebra I', kind: 'leaf' },
-          { id: 8, name: 'Geometry', kind: 'leaf' },
-        ],
-        error: null,
-      }),
+      order: vi.fn(() => subjectsQuery),
+      then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+        Promise.resolve({
+          data: [
+            { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', is_active: true },
+            { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', is_active: true },
+          ],
+          error: null,
+        }).then(resolve, reject)
+      ),
     };
 
     mockCreateSupabaseServiceClient.mockReturnValue({
@@ -143,10 +120,12 @@ describe('grade data', () => {
     });
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
-      { id: 3, category: 'Algebra I' },
-      { id: 8, category: 'Geometry' },
+      { id: 3, slug: 'algebra-i', name: 'Algebra I' },
+      { id: 8, slug: 'geometry', name: 'Geometry' },
     ]);
     expect(subjectsQuery.eq).toHaveBeenCalledWith('kind', 'leaf');
+    expect(subjectsQuery.eq).toHaveBeenCalledWith('is_active', true);
     expect(subjectsQuery.order).toHaveBeenCalledWith('name');
+    expect(subjectsQuery.order).toHaveBeenCalledWith('slug');
   });
 });

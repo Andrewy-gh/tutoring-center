@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/lib/data/available-sessions';
 import { CANCELED_SESSION_STATUS } from '@/lib/db/schema';
 import type { Database } from '@/lib/supabase/types';
 import { createClient } from '@supabase/supabase-js';
@@ -24,6 +23,13 @@ const RANGE_FROM = '2026-03-02';
 const RANGE_TO = '2026-03-03';
 const RANGE_START_UTC = '2026-03-02T05:00:00.000Z';
 const RANGE_END_UTC = '2026-03-03T05:00:00.000Z';
+const HAS_DB_ENV = Boolean(process.env.DATABASE_URL);
+const HAS_SUPABASE_ENV = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+const describeIfConfigured = HAS_DB_ENV && HAS_SUPABASE_ENV ? describe : describe.skip;
+const AVAILABLE_SLOTS_ERROR_MESSAGES = {
+  database: 'Available slots are temporarily unavailable. Please retry in a moment.',
+  tutorSubject: 'Tutor does not teach this subject',
+} as const;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -204,8 +210,9 @@ async function cleanupFixture(supabase: ReturnType<typeof createSupabaseServiceT
   await supabase.from('users').delete().eq('id', fixture.tutorUserId);
 }
 
-describe('getAvailableSlots integration', () => {
+describeIfConfigured('getAvailableSlots integration', () => {
   it('returns expected slots when canceled and boundary-touching sessions exist', async () => {
+    const { getAvailableSlots } = await import('@/lib/data/available-sessions');
     const supabase = createSupabaseServiceTestClient();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const fixture = await createFixture({ supabase, unique, withAvailability: true });
@@ -238,6 +245,7 @@ describe('getAvailableSlots integration', () => {
   });
 
   it('throws tutor-subject error when subject does not belong to tutor', async () => {
+    const { getAvailableSlots } = await import('@/lib/data/available-sessions');
     const supabase = createSupabaseServiceTestClient();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const fixture = await createFixture({ supabase, unique, withAvailability: true });

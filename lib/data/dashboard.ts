@@ -1,8 +1,8 @@
 import 'server-only';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
+import { parents, sessionMetrics, sessions, studentGrades, students, subjects, users } from '@/lib/db/schema';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 export type DateRange = {
   from: string | undefined;
@@ -41,30 +41,14 @@ export type StudentProgressData = {
   homework: HomeworkDataPoint[];
 };
 
-type SessionMetricsDB = {
-  session_performance: number | null;
-  confidence_score: number | null;
-  homework_completed: boolean | null;
-};
-
-type UserDB = {
-  first_name: string | null;
-  last_name: string | null;
-};
-
-type SessionWithMetricsDB = {
+type SessionMetricsRow = {
   id: number;
   scheduled_at: string;
   student_id: number;
   subject_id: number;
-  session_metrics: SessionMetricsDB | SessionMetricsDB[] | null;
-};
-
-type GradeRowDB = {
-  id: number;
-  subject_id: number;
-  grade: string;
-  created_at: string;
+  session_performance: number | null;
+  confidence_score: number | null;
+  homework_completed: boolean;
 };
 
 type SubjectSummary = {
@@ -72,105 +56,103 @@ type SubjectSummary = {
   slug: string;
 };
 
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
+
 function getSubjectSummary(subjectMap: Map<number, SubjectSummary>, subjectId: number): SubjectSummary {
   return subjectMap.get(subjectId) ?? { name: 'Unknown', slug: 'unknown' };
 }
 
-type StudentWithUserDB = {
-  id: number;
-  users: UserDB[] | UserDB;
-};
+function buildSessionMetricFilters(dateRange: DateRange | undefined, studentIds?: number[]) {
+  const filters = [eq(sessions.status, 'Completed')];
 
-export async function getStudentProgressData(
-  studentId: number,
-  studentName: string,
-  dateRange?: DateRange
-): Promise<StudentProgressData> {
-  const supabase = createSupabaseServiceClient();
-
-  let query = supabase
-    .from('sessions')
-    .select(
-      `
-      id,
-      scheduled_at,
-      student_id,
-      subject_id,
-      session_metrics (
-        session_performance,
-        confidence_score,
-        homework_completed
-      )
-    `
-    )
-    .eq('student_id', studentId)
-    .eq('status', 'Completed')
-    .not('session_metrics', 'is', null)
-    .order('scheduled_at', { ascending: true });
+  if (studentIds && studentIds.length > 0) {
+    filters.push(inArray(sessions.studentId, studentIds));
+  }
 
   if (dateRange?.from) {
-    query = query.gte('scheduled_at', dateRange.from);
+    filters.push(gte(sessions.scheduledAt, dateRange.from));
   }
+
   if (dateRange?.to) {
-    query = query.lte('scheduled_at', dateRange.to);
+    filters.push(lte(sessions.scheduledAt, dateRange.to));
   }
 
-  const { data, error } = await query;
+  return filters;
+}
 
-  if (error) {
-    return {
-      studentId,
-      studentName,
-      performance: [],
-      confidence: [],
-      homework: [],
-    };
+async function getCompletedSessionMetrics(dateRange?: DateRange, studentIds?: number[]) {
+  if (studentIds && studentIds.length === 0) {
+    return [] as SessionMetricsRow[];
   }
 
-  if (!data || data.length === 0) {
-    return {
-      studentId,
-      studentName,
-      performance: [],
-      confidence: [],
-      homework: [],
-    };
-  }
+  const db = await getDb();
+  const rows = await db
+    .select({
+      id: sessions.id,
+      scheduled_at: sessions.scheduledAt,
+      student_id: sessions.studentId,
+      subject_id: sessions.subjectId,
+      session_performance: sessionMetrics.sessionPerformance,
+      confidence_score: sessionMetrics.confidenceScore,
+      homework_completed: sessionMetrics.homeworkCompleted,
+    })
+    .from(sessions)
+    .innerJoin(sessionMetrics, eq(sessionMetrics.sessionId, sessions.id))
+    .where(and(...buildSessionMetricFilters(dateRange, studentIds)))
+    .orderBy(asc(sessions.scheduledAt));
 
-  const sessions = data as unknown as SessionWithMetricsDB[];
-  const subjectMap = await getSubjectMapByIds(sessions.map(session => session.subject_id));
+  return rows;
+}
+
+function getEmptyStudentProgress(studentId: number, studentName: string): StudentProgressData {
+  return {
+    studentId,
+    studentName,
+    performance: [],
+    confidence: [],
+    homework: [],
+  };
+}
+
+function buildStudentProgress(
+  studentId: number,
+  studentName: string,
+  sessionRows: SessionMetricsRow[],
+  subjectMap: Map<number, SubjectSummary>
+): StudentProgressData {
   const performance: PerformanceDataPoint[] = [];
   const confidence: ConfidenceDataPoint[] = [];
   const homework: HomeworkDataPoint[] = [];
 
-  for (const session of sessions) {
-    const metrics = Array.isArray(session.session_metrics) ? session.session_metrics[0] : session.session_metrics;
+  for (const session of sessionRows) {
     const subject = getSubjectSummary(subjectMap, session.subject_id);
 
-    if (metrics?.session_performance !== null && metrics?.session_performance !== undefined) {
+    if (session.session_performance !== null && session.session_performance !== undefined) {
       performance.push({
         date: session.scheduled_at,
-        score: metrics.session_performance,
+        score: session.session_performance,
         sessionId: session.id,
         subject: subject.name,
         subjectSlug: subject.slug,
       });
     }
 
-    if (metrics?.confidence_score !== null && metrics?.confidence_score !== undefined) {
+    if (session.confidence_score !== null && session.confidence_score !== undefined) {
       confidence.push({
         date: session.scheduled_at,
-        score: metrics.confidence_score,
+        score: session.confidence_score,
         sessionId: session.id,
         subject: subject.name,
         subjectSlug: subject.slug,
       });
     }
 
-    if (metrics?.homework_completed !== null && metrics?.homework_completed !== undefined) {
+    if (session.homework_completed !== null && session.homework_completed !== undefined) {
       homework.push({
         date: session.scheduled_at,
-        completed: metrics.homework_completed,
+        completed: session.homework_completed,
         sessionId: session.id,
         subject: subject.name,
         subjectSlug: subject.slug,
@@ -187,6 +169,24 @@ export async function getStudentProgressData(
   };
 }
 
+export async function getStudentProgressData(
+  studentId: number,
+  studentName: string,
+  dateRange?: DateRange
+): Promise<StudentProgressData> {
+  try {
+    const sessionRows = await getCompletedSessionMetrics(dateRange, [studentId]);
+    if (sessionRows.length === 0) {
+      return getEmptyStudentProgress(studentId, studentName);
+    }
+
+    const subjectMap = await getSubjectMapByIds(sessionRows.map(session => session.subject_id));
+    return buildStudentProgress(studentId, studentName, sessionRows, subjectMap);
+  } catch {
+    return getEmptyStudentProgress(studentId, studentName);
+  }
+}
+
 export async function getStudentsWithProgress(dateRange?: DateRange, subject?: string): Promise<StudentProgressData[]> {
   const role = await getUserRole();
   if (role !== 'parent') {
@@ -198,158 +198,56 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
     return [];
   }
 
-  const supabase = createSupabaseServiceClient();
+  try {
+    const db = await getDb();
+    const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
 
-  const { data: parentData, error: parentError } = await supabase
-    .from('parents')
-    .select('id')
-    .eq('user_id', userID)
-    .single();
-
-  if (parentError || !parentData) {
-    return [];
-  }
-
-  const parentId = parentData.id;
-
-  const { data: studentsData, error: studentsError } = await supabase
-    .from('students')
-    .select(
-      `
-      id,
-      users:user_id (
-        first_name,
-        last_name
-      )
-    `
-    )
-    .eq('parent_id', parentId);
-
-  if (studentsError) {
-    return [];
-  }
-
-  if (!studentsData || studentsData.length === 0) {
-    return [];
-  }
-
-  const studentMap = new Map<number, string>();
-  for (const student of studentsData as StudentWithUserDB[]) {
-    const user = pickFirstEmbedded(student.users);
-    const studentName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Student';
-    studentMap.set(student.id, studentName);
-  }
-
-  const studentIds = Array.from(studentMap.keys());
-
-  let sessionsQuery = supabase
-    .from('sessions')
-    .select(
-      `
-      id,
-      scheduled_at,
-      student_id,
-      subject_id,
-      session_metrics (
-        session_performance,
-        confidence_score,
-        homework_completed
-      )
-    `
-    )
-    .in('student_id', studentIds)
-    .eq('status', 'Completed')
-    .not('session_metrics', 'is', null)
-    .order('scheduled_at', { ascending: true });
-
-  if (dateRange?.from) {
-    sessionsQuery = sessionsQuery.gte('scheduled_at', dateRange.from);
-  }
-  if (dateRange?.to) {
-    sessionsQuery = sessionsQuery.lte('scheduled_at', dateRange.to);
-  }
-
-  const { data: sessionsData, error: sessionsError } = await sessionsQuery;
-
-  if (sessionsError) {
-    return studentIds.map(id => ({
-      studentId: id,
-      studentName: studentMap.get(id) || 'Student',
-      performance: [],
-      confidence: [],
-      homework: [],
-    }));
-  }
-
-  const allSessions = (sessionsData || []) as unknown as SessionWithMetricsDB[];
-  const subjectMap = await getSubjectMapByIds(allSessions.map(session => session.subject_id));
-  const sessionsByStudent = new Map<number, SessionWithMetricsDB[]>();
-  for (const session of allSessions) {
-    if (subject) {
-      const sessionSubject = getSubjectSummary(subjectMap, session.subject_id);
-      if (sessionSubject.slug !== subject) {
-        continue;
-      }
+    if (!parent) {
+      return [];
     }
 
-    const existing = sessionsByStudent.get(session.student_id) || [];
-    existing.push(session);
-    sessionsByStudent.set(session.student_id, existing);
-  }
+    const studentRows = await db
+      .select({
+        id: students.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(eq(students.parentId, parent.id));
 
-  const studentsWithProgress: StudentProgressData[] = [];
-
-  for (const [studentId, studentName] of studentMap) {
-    const sessions = sessionsByStudent.get(studentId) || [];
-    const performance: PerformanceDataPoint[] = [];
-    const confidence: ConfidenceDataPoint[] = [];
-    const homework: HomeworkDataPoint[] = [];
-
-    for (const session of sessions) {
-      const metrics = Array.isArray(session.session_metrics) ? session.session_metrics[0] : session.session_metrics;
-      const subject = getSubjectSummary(subjectMap, session.subject_id);
-
-      if (metrics?.session_performance !== null && metrics?.session_performance !== undefined) {
-        performance.push({
-          date: session.scheduled_at,
-          score: metrics.session_performance,
-          sessionId: session.id,
-          subject: subject.name,
-          subjectSlug: subject.slug,
-        });
-      }
-
-      if (metrics?.confidence_score !== null && metrics?.confidence_score !== undefined) {
-        confidence.push({
-          date: session.scheduled_at,
-          score: metrics.confidence_score,
-          sessionId: session.id,
-          subject: subject.name,
-          subjectSlug: subject.slug,
-        });
-      }
-
-      if (metrics?.homework_completed !== null && metrics?.homework_completed !== undefined) {
-        homework.push({
-          date: session.scheduled_at,
-          completed: metrics.homework_completed,
-          sessionId: session.id,
-          subject: subject.name,
-          subjectSlug: subject.slug,
-        });
-      }
+    if (studentRows.length === 0) {
+      return [];
     }
 
-    studentsWithProgress.push({
-      studentId,
-      studentName,
-      performance,
-      confidence,
-      homework,
-    });
-  }
+    const studentMap = new Map<number, string>();
+    for (const student of studentRows) {
+      studentMap.set(student.id, [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student');
+    }
 
-  return studentsWithProgress;
+    const sessionRows = await getCompletedSessionMetrics(dateRange, Array.from(studentMap.keys()));
+    const subjectMap = await getSubjectMapByIds(sessionRows.map(session => session.subject_id));
+    const sessionsByStudent = new Map<number, SessionMetricsRow[]>();
+
+    for (const session of sessionRows) {
+      if (subject) {
+        const sessionSubject = getSubjectSummary(subjectMap, session.subject_id);
+        if (sessionSubject.slug !== subject) {
+          continue;
+        }
+      }
+
+      const existing = sessionsByStudent.get(session.student_id) ?? [];
+      existing.push(session);
+      sessionsByStudent.set(session.student_id, existing);
+    }
+
+    return Array.from(studentMap.entries()).map(([studentId, studentName]) =>
+      buildStudentProgress(studentId, studentName, sessionsByStudent.get(studentId) ?? [], subjectMap)
+    );
+  } catch {
+    return [];
+  }
 }
 
 export async function getParentDashboardData(dateRange?: DateRange, subject?: string) {
@@ -370,48 +268,50 @@ export type GradeDataPoint = {
 };
 
 export async function getStudentGrades(studentId: number): Promise<GradeDataPoint[]> {
-  const supabase = createSupabaseServiceClient();
+  try {
+    const db = await getDb();
+    const rows = await db
+      .select({
+        id: studentGrades.id,
+        subject_id: studentGrades.subjectId,
+        grade: studentGrades.grade,
+        created_at: studentGrades.createdAt,
+      })
+      .from(studentGrades)
+      .where(eq(studentGrades.studentId, studentId))
+      .orderBy(asc(studentGrades.createdAt));
 
-  const { data, error } = await supabase
-    .from('student_grades')
-    .select('id, subject_id, grade, created_at')
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: true });
+    const subjectMap = await getSubjectMapByIds(rows.map(row => row.subject_id));
 
-  if (error) {
+    return rows.map(row => {
+      const subject = getSubjectSummary(subjectMap, row.subject_id);
+
+      return {
+        id: row.id,
+        subject: subject.name,
+        subjectSlug: subject.slug,
+        grade: row.grade,
+        createdAt: row.created_at,
+      };
+    });
+  } catch {
     return [];
   }
-
-  const rows = (data ?? []) as GradeRowDB[];
-  const subjectMap = await getSubjectMapByIds(rows.map(row => row.subject_id));
-
-  return rows.map(row => {
-    const subject = getSubjectSummary(subjectMap, row.subject_id);
-
-    return {
-      id: row.id,
-      subject: subject.name,
-      subjectSlug: subject.slug,
-      grade: row.grade,
-      createdAt: row.created_at,
-    };
-  });
 }
 
 export async function getAllSubjects(): Promise<string[]> {
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('subjects')
-    .select('name')
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
-    .order('name', { ascending: true });
+  try {
+    const db = await getDb();
+    const rows = await db
+      .select({ name: subjects.name })
+      .from(subjects)
+      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
+      .orderBy(asc(subjects.name));
 
-  if (error) {
+    return rows.map(row => row.name).filter(Boolean);
+  } catch {
     return [];
   }
-
-  return (data ?? []).map(row => row.name).filter(Boolean);
 }
 
 export type SubjectWithData = {
