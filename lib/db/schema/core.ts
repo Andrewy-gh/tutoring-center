@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
@@ -31,18 +31,22 @@ export const parents = pgTable('parents', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
-export const students = pgTable('students', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id')
-    .notNull()
-    .references(() => users.id),
-  parentId: integer('parent_id').references(() => parents.id),
-  birthDate: timestamp('birth_date', { mode: 'string' }),
-  grade: text('grade'),
-  learningGoals: text('learning_goals'),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
+export const students = pgTable(
+  'students',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    parentId: integer('parent_id').references(() => parents.id),
+    birthDate: timestamp('birth_date', { mode: 'string' }),
+    grade: text('grade'),
+    learningGoals: text('learning_goals'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  table => [unique('students_id_parent_id_unique').on(table.id, table.parentId)]
+);
 
 export const tutors = pgTable('tutors', {
   id: serial('id').primaryKey(),

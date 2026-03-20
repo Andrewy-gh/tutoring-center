@@ -137,10 +137,11 @@ export async function bookSession(input: BookSessionInput, database = db) {
       await tx.insert(creditTransactions).values({
         parentId: input.parentId,
         sessionId: session.id,
-        studentId: input.studentId,
-        amount: input.slotUnits * -1,
-        balanceAfter: balance.amountAvailable,
-        type: 'Session Debit',
+        availableDelta: input.slotUnits * -1,
+        pendingDelta: input.slotUnits,
+        availableAfter: balance.amountAvailable,
+        pendingAfter: balance.amountPending,
+        type: 'Reservation',
       });
 
       return {
