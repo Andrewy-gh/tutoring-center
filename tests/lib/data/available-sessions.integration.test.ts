@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/lib/data/available-sessions';
-import { CANCELED_SESSION_STATUS, type Database } from '@/lib/supabase/types';
+import { CANCELED_SESSION_STATUS } from '@/lib/db/schema';
+import type { Database } from '@/lib/supabase/types';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 

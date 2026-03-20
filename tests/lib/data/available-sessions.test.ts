@@ -1,5 +1,5 @@
 import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/lib/data/available-sessions';
-import { FREE_SLOT_STATUSES } from '@/lib/supabase/types';
+import { FREE_SLOT_STATUSES } from '@/lib/db/schema';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCreateSupabaseServiceClient } = vi.hoisted(() => ({

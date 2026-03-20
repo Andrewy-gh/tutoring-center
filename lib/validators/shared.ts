@@ -1,5 +1,7 @@
-import type { Database } from '@/lib/supabase/types';
+import type { EmbeddedUser } from '@/lib/db/types';
 import { z } from 'zod';
+
+export type { EmbeddedUser };
 
 export const id = z.coerce.number().int().positive();
 export const page = z.coerce.number().int().min(1).default(1);
@@ -19,10 +21,5 @@ export const EmbeddedUserSchema = z.object({
   email: z.string(),
   phone: z.string().nullable(),
 });
-
-export type EmbeddedUser = Pick<
-  Database['public']['Tables']['users']['Row'],
-  'first_name' | 'last_name' | 'email' | 'phone'
->;
 
 export const EmbeddedOneUserSchema = z.union([EmbeddedUserSchema, z.array(EmbeddedUserSchema), z.null()]).optional();

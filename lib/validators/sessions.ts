@@ -1,16 +1,9 @@
+import { SESSION_STATUS_OPTIONS, type SessionStatus } from '@/lib/db/schema';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize, units1to100 } from './shared';
 
-export const SESSION_STATUS_OPTIONS = [
-  'Pending-Notes',
-  'Scheduled',
-  'Completed',
-  'Canceled',
-  'No-show',
-  'Rescheduled',
-] as const;
-
-export type SessionStatus = (typeof SESSION_STATUS_OPTIONS)[number];
+export { SESSION_STATUS_OPTIONS };
+export type { SessionStatus };
 
 export const StatusSchema = z.enum(SESSION_STATUS_OPTIONS);
 

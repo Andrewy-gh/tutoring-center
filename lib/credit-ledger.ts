@@ -1,4 +1,4 @@
-import type { TransactionType } from '@/lib/supabase/types';
+import type { TransactionType } from '@/lib/db/schema';
 
 export type CreditLedgerSnapshot = {
   available_after: number;

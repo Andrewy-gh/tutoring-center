@@ -1,6 +1,6 @@
 import 'server-only';
 import { TIMEZONE } from '@/lib/constants';
-import type { WeekDay } from '@/lib/supabase/types';
+import type { WeekDay } from '@/lib/db/schema';
 
 const WEEKDAY_NAME_BY_INDEX: WeekDay[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
