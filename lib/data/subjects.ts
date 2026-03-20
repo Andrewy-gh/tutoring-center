@@ -1,6 +1,7 @@
 import { forbidden } from 'next/navigation';
 import { isUserRole, type UserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { db } from '@/lib/db/client';
+import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
   SubjectOptionRowListSchema,
@@ -8,6 +9,7 @@ import {
   type SubjectOptionRow,
   type SubjectRecord,
 } from '@/lib/validators/subjects';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 type SubjectLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -43,21 +45,65 @@ const SUBJECT_ERROR_MESSAGES = {
   },
 } as const satisfies Record<AllowedRole, Record<SubjectLoadErrorReason, string>>;
 
-const ACTIVE_SUBJECT_SELECT = 'id,name,slug,kind,is_active' as const;
-
-const SUBJECT_OPTIONS_SELECT = `
-  id,
-  name,
-  slug,
-  kind,
-  is_active,
-  tutor_subjects!inner (
-    tutor_id,
-    subject_id
-  )
-` as const;
-
 const sortNumberAsc = (a: number, b: number) => a - b;
+
+type SubjectRecordRow = {
+  id: unknown;
+  name: unknown;
+  slug: unknown;
+  kind: unknown;
+  isActive: unknown;
+};
+
+type SubjectOptionJoinRow = SubjectRecordRow & {
+  tutorId: unknown;
+  subjectId: unknown;
+};
+
+type SubjectOptionRowCandidate = ReturnType<typeof mapSubjectRecordRow> & {
+  tutor_subjects: Array<{
+    tutor_id: unknown;
+    subject_id: unknown;
+  }>;
+};
+
+const mapSubjectRecordRow = (row: SubjectRecordRow) => ({
+  id: row.id,
+  name: row.name,
+  slug: row.slug,
+  kind: row.kind,
+  is_active: row.isActive,
+});
+
+const mapSubjectOptionRows = (rows: SubjectOptionJoinRow[]) => {
+  const subjectsById = new Map<number, SubjectOptionRowCandidate>();
+
+  for (const row of rows) {
+    const subjectId = Number(row.id);
+    const existingSubject = subjectsById.get(subjectId);
+
+    if (existingSubject) {
+      existingSubject.tutor_subjects ??= [];
+      existingSubject.tutor_subjects.push({
+        tutor_id: row.tutorId as number,
+        subject_id: row.subjectId as number,
+      });
+      continue;
+    }
+
+    subjectsById.set(subjectId, {
+      ...mapSubjectRecordRow(row),
+      tutor_subjects: [
+        {
+          tutor_id: row.tutorId as number,
+          subject_id: row.subjectId as number,
+        },
+      ],
+    });
+  }
+
+  return Array.from(subjectsById.values());
+};
 
 export const mapSubjectOptions = (subjects: SubjectOptionRow[]) => {
   return subjects
@@ -92,14 +138,24 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
     return new Map<number, SubjectRecord>();
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from('subjects').select(ACTIVE_SUBJECT_SELECT).in('id', uniqueSubjectIds);
-
-  if (error) {
+  let rows: SubjectRecordRow[];
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        isActive: subjects.isActive,
+      })
+      .from(subjects)
+      .where(inArray(subjects.id, uniqueSubjectIds))
+      .orderBy(asc(subjects.id));
+  } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
 
-  const parsedSubjects = SubjectRecordListSchema.safeParse(data ?? []);
+  const parsedSubjects = SubjectRecordListSchema.safeParse(rows.map(mapSubjectRecordRow));
   if (!parsedSubjects.success) {
     throw new Error('Subject data format is invalid. Please try again later.');
   }
@@ -115,20 +171,30 @@ export async function getSubjects(role: UserRole) {
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('subjects')
-    .select(SUBJECT_OPTIONS_SELECT)
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
-    .order('name')
-    .order('slug');
-
-  if (error) {
+  let rows: SubjectOptionJoinRow[];
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        isActive: subjects.isActive,
+        tutorId: tutorSubjects.tutorId,
+        subjectId: tutorSubjects.subjectId,
+      })
+      .from(subjects)
+      .innerJoin(
+        tutorSubjects,
+        and(eq(tutorSubjects.subjectId, subjects.id), eq(tutorSubjects.subjectKind, subjects.kind))
+      )
+      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
+      .orderBy(asc(subjects.name), asc(subjects.slug), asc(tutorSubjects.tutorId), asc(tutorSubjects.subjectId));
+  } catch {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['database']);
   }
 
-  const parsedSubjects = SubjectOptionRowListSchema.safeParse(data ?? []);
+  const parsedSubjects = SubjectOptionRowListSchema.safeParse(mapSubjectOptionRows(rows));
   if (!parsedSubjects.success) {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['validation']);
   }
@@ -143,20 +209,24 @@ export type SubjectForGradeForm = {
 };
 
 export async function getSubjectsForGradeForm() {
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('subjects')
-    .select(ACTIVE_SUBJECT_SELECT)
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
-    .order('name')
-    .order('slug');
-
-  if (error) {
+  let rows: SubjectRecordRow[];
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        isActive: subjects.isActive,
+      })
+      .from(subjects)
+      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
+      .orderBy(asc(subjects.name), asc(subjects.slug));
+  } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
 
-  const parsedSubjects = ActiveLeafSubjectListSchema.safeParse(data ?? []);
+  const parsedSubjects = ActiveLeafSubjectListSchema.safeParse(rows.map(mapSubjectRecordRow));
   if (!parsedSubjects.success) {
     throw new Error('There was a problem preparing subjects. Please try again.');
   }

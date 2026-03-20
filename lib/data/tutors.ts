@@ -2,10 +2,11 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { TUTOR_SELECT_WITH_JOINS } from '@/lib/supabase/types';
+import { db } from '@/lib/db/client';
+import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsListSchema, type TutorWithJoins } from '@/lib/validators/tutors';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 export { getUserRole } from '@/lib/auth';
 
@@ -33,6 +34,36 @@ const TUTOR_ERROR_MESSAGES = {
     validation: 'Tutor data format is invalid. Please try again later.',
   },
 } as const;
+
+type TutorJoinRow = {
+  id: unknown;
+  userId: unknown;
+  verified: unknown;
+  education: unknown;
+  bio: unknown;
+  tagline: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+};
+
+const mapTutorJoinRow = (row: TutorJoinRow): TutorWithJoins => ({
+  id: row.id as number,
+  user_id: row.userId as number,
+  verified: row.verified as boolean,
+  education: row.education as string | null,
+  bio: row.bio as string | null,
+  tagline: row.tagline as string | null,
+  years_experience: row.yearsExperience as number | null,
+  users: {
+    first_name: row.firstName as string | null,
+    last_name: row.lastName as string | null,
+    email: row.email as string,
+    phone: row.phone as string | null,
+  },
+});
 
 const parseTutorUser = (users: TutorWithJoins['users']) => {
   const user = pickFirstEmbedded(users);
@@ -67,34 +98,37 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
     return new Map<number, TutorProfile>();
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('tutors')
-    .select(
-      `
-      id,
-      users:user_id (
-        first_name,
-        last_name,
-        email,
-        phone
-      )
-    `
-    )
-    .in('id', uniqueTutorIds);
-
-  if (error) {
+  let rows: Array<Pick<TutorJoinRow, 'id' | 'firstName' | 'lastName' | 'email' | 'phone'>>;
+  try {
+    rows = await db
+      .select({
+        id: tutors.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+      })
+      .from(tutors)
+      .innerJoin(users, eq(tutors.userId, users.id))
+      .where(inArray(tutors.id, uniqueTutorIds))
+      .orderBy(asc(tutors.id));
+  } catch {
     throw new Error('Tutor data is temporarily unavailable. Please retry in a moment.');
   }
 
   return new Map(
-    (data ?? []).map(tutor => {
-      const user = pickFirstEmbedded(tutor.users);
+    rows.map(tutor => {
+      const user = pickFirstEmbedded({
+        first_name: tutor.firstName as string | null,
+        last_name: tutor.lastName as string | null,
+        email: tutor.email as string,
+        phone: tutor.phone as string | null,
+      });
 
       return [
-        tutor.id,
+        tutor.id as number,
         {
-          id: tutor.id,
+          id: tutor.id as number,
           name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',
           email: user?.email ?? '',
           phone: user?.phone ?? '—',
@@ -113,14 +147,30 @@ export async function getTutors(role: UserRole) {
     forbidden();
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from('tutors').select(TUTOR_SELECT_WITH_JOINS);
-
-  if (error) {
+  let rows: TutorJoinRow[];
+  try {
+    rows = await db
+      .select({
+        id: tutors.id,
+        userId: tutors.userId,
+        verified: tutors.verified,
+        education: tutors.education,
+        bio: tutors.bio,
+        tagline: tutors.tagline,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+      })
+      .from(tutors)
+      .innerJoin(users, eq(tutors.userId, users.id))
+      .orderBy(asc(tutors.id));
+  } catch {
     throw new Error(TUTOR_ERROR_MESSAGES.admin.database);
   }
 
-  const parsedTutors = TutorWithJoinsListSchema.safeParse(data ?? []);
+  const parsedTutors = TutorWithJoinsListSchema.safeParse(rows.map(mapTutorJoinRow));
   if (!parsedTutors.success) {
     throw new Error(TUTOR_ERROR_MESSAGES.admin.validation);
   }

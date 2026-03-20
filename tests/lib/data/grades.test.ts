@@ -2,7 +2,8 @@ import { addGrade } from '@/lib/data/grades';
 import { getSubjectsForGradeForm } from '@/lib/data/subjects';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockDbSelect, mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
   mockGetCurrentUserID: vi.fn(),
   mockCreateSupabaseServiceClient: vi.fn(),
 }));
@@ -13,6 +14,12 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/supabase/serverClient', () => ({
   createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+}));
+
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
 }));
 
 type QueryResult = {
@@ -43,6 +50,19 @@ function createInsertQuery(result: QueryResult) {
     })),
     selection,
   };
+}
+
+function createDrizzleSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  };
+
+  return query;
 }
 
 describe('grade data', () => {
@@ -124,29 +144,17 @@ describe('grade data', () => {
   });
 
   it('returns only leaf subjects for the grade form', async () => {
-    const subjectsQuery = {
-      eq: vi.fn(() => subjectsQuery),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          { id: 3, name: 'Algebra I', kind: 'leaf' },
-          { id: 8, name: 'Geometry', kind: 'leaf' },
-        ],
-        error: null,
-      }),
-    };
-
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    });
+    const query = createDrizzleSelectQuery([
+      { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
+      { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
+    ]);
+    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
-      { id: 3, category: 'Algebra I' },
-      { id: 8, category: 'Geometry' },
+      { id: 3, slug: 'algebra-i', name: 'Algebra I' },
+      { id: 8, slug: 'geometry', name: 'Geometry' },
     ]);
-    expect(subjectsQuery.eq).toHaveBeenCalledWith('kind', 'leaf');
-    expect(subjectsQuery.order).toHaveBeenCalledWith('name');
+    expect(query.where).toHaveBeenCalledTimes(1);
+    expect(query.orderBy).toHaveBeenCalledTimes(1);
   });
 });
