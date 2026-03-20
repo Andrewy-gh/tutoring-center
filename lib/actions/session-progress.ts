@@ -1,9 +1,9 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { sessionProgress, sessions, tutors } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export type ProgressReportFormData = {
   sessionId: number;
@@ -14,7 +14,11 @@ export type ProgressReportFormData = {
 };
 
 async function assertTutorCanSubmitProgressReport(sessionId: number, userId: number) {
-  const [session] = await db.select({ tutorId: sessions.tutorId }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  const [session] = await db
+    .select({ tutorId: sessions.tutorId })
+    .from(sessions)
+    .where(eq(sessions.id, sessionId))
+    .limit(1);
 
   if (!session) {
     throw new Error('Session not found');

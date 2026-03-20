@@ -1,9 +1,9 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
 import { db } from '@/lib/db/client';
 import { sessionMetrics, sessions, tutors } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export type SessionMetricsFormData = {
   sessionId: number;
@@ -14,7 +14,11 @@ export type SessionMetricsFormData = {
 };
 
 async function assertTutorCanSubmitSessionMetrics(sessionId: number, userId: number) {
-  const [session] = await db.select({ tutorId: sessions.tutorId }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+  const [session] = await db
+    .select({ tutorId: sessions.tutorId })
+    .from(sessions)
+    .where(eq(sessions.id, sessionId))
+    .limit(1);
 
   if (!session) {
     throw new Error('Session not found');
@@ -51,17 +55,20 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
     updatedAt: now,
   };
 
-  await db.insert(sessionMetrics).values(values).onConflictDoUpdate({
-    target: sessionMetrics.sessionId,
-    set: {
-      confidenceScore: values.confidenceScore,
-      sessionPerformance: values.sessionPerformance,
-      homeworkCompleted: values.homeworkCompleted,
-      tutorComments: values.tutorComments,
-      recordedAt: values.recordedAt,
-      updatedAt: values.updatedAt,
-    },
-  });
+  await db
+    .insert(sessionMetrics)
+    .values(values)
+    .onConflictDoUpdate({
+      target: sessionMetrics.sessionId,
+      set: {
+        confidenceScore: values.confidenceScore,
+        sessionPerformance: values.sessionPerformance,
+        homeworkCompleted: values.homeworkCompleted,
+        tutorComments: values.tutorComments,
+        recordedAt: values.recordedAt,
+        updatedAt: values.updatedAt,
+      },
+    });
 
   return { success: true };
 }

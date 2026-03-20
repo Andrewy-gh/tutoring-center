@@ -1,3 +1,4 @@
+import { getCurrentUserName, getUserIdByRole } from '@/lib/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCookies, mockDbSelect, mockRedirect } = vi.hoisted(() => ({
@@ -26,8 +27,6 @@ vi.mock('@/lib/db/client', () => ({
     select: mockDbSelect,
   },
 }));
-
-import { getCurrentUserName, getUserIdByRole } from '@/lib/auth';
 
 function createSelectQuery(result: unknown) {
   const query = {

@@ -2,8 +2,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { asc, eq, ilike } from 'drizzle-orm';
 import { parents, roles, tutors, users } from '@/lib/db/schema';
+import { asc, eq, ilike } from 'drizzle-orm';
 
 export type UserRole = 'admin' | 'parent' | 'tutor';
 
