@@ -2,6 +2,8 @@ import type { UserRole } from '@/lib/auth';
 import { getStudent, getStudents } from '@/lib/data/students';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
+
 const {
   mockGetCurrentUserID,
   mockForbidden,
@@ -57,6 +59,12 @@ function createSelectQuery(result: unknown) {
   return query;
 }
 
+function createNextNotFoundError() {
+  const error = new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string };
+  error.digest = NEXT_NOT_FOUND_DIGEST;
+  return error;
+}
+
 describe('getStudents', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -64,7 +72,7 @@ describe('getStudents', () => {
       throw new Error('forbidden');
     });
     mockNotFound.mockImplementation(() => {
-      throw new Error('notFound');
+      throw createNextNotFoundError();
     });
     mockGetSubjectMapByIds.mockResolvedValue(new Map());
     mockGetTutorProfileMapByIds.mockResolvedValue(new Map());
@@ -110,7 +118,7 @@ describe('getStudents', () => {
     mockGetCurrentUserID.mockResolvedValue(12);
     mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
 
-    await expect(getStudents('parent')).rejects.toThrow('notFound');
+    await expect(getStudents('parent')).rejects.toMatchObject({ digest: NEXT_NOT_FOUND_DIGEST });
   });
 
   it('throws forbidden for tutors', async () => {
@@ -161,7 +169,7 @@ describe('getStudent', () => {
       throw new Error('forbidden');
     });
     mockNotFound.mockImplementation(() => {
-      throw new Error('notFound');
+      throw createNextNotFoundError();
     });
     mockGetSubjectMapByIds.mockResolvedValue(new Map([[7, { id: 7, name: 'Algebra', slug: 'algebra' }]]));
     mockGetTutorProfileMapByIds.mockResolvedValue(new Map([[11, { id: 11, name: 'Alan Turing' }]]));
@@ -254,7 +262,7 @@ describe('getStudent', () => {
     mockGetCurrentUserID.mockResolvedValue(99);
     mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 55 }])).mockReturnValueOnce(createSelectQuery([]));
 
-    await expect(getStudent(999, 'parent')).rejects.toThrow('notFound');
+    await expect(getStudent(999, 'parent')).rejects.toMatchObject({ digest: NEXT_NOT_FOUND_DIGEST });
   });
 
   it('throws role-specific db message when the joined student query errors', async () => {

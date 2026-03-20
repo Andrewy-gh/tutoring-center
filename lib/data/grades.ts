@@ -22,6 +22,16 @@ const GRADE_ERROR_MESSAGES = {
 } as const satisfies Record<GradeErrorReason, string>;
 const GRADE_KNOWN_ERRORS = new Set(Object.values(GRADE_ERROR_MESSAGES));
 
+function isNextControlFlowError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const digest = 'digest' in error && typeof error.digest === 'string' ? error.digest : error.message;
+
+  return digest.startsWith('NEXT_HTTP_ERROR_FALLBACK;') || digest.startsWith('NEXT_REDIRECT;');
+}
+
 async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
@@ -70,7 +80,11 @@ export async function getStudentsForGradeForm(role: UserRole) {
 
       if (!parent) notFound();
       parentId = parent.id;
-    } catch {
+    } catch (error) {
+      if (isNextControlFlowError(error)) {
+        throw error;
+      }
+
       throw new Error(GRADE_ERROR_MESSAGES.database);
     }
   }

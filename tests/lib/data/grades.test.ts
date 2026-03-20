@@ -1,15 +1,25 @@
-import { addGrade, getSubjectsForGradeForm } from '@/lib/data/grades';
+import { addGrade, getStudentsForGradeForm, getSubjectsForGradeForm } from '@/lib/data/grades';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
-  mockGetCurrentUserID: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
-}));
+const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
+
+const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockCreateSupabaseServiceClient, mockNotFound } = vi.hoisted(
+  () => ({
+    mockDbSelect: vi.fn(),
+    mockDbInsert: vi.fn(),
+    mockGetCurrentUserID: vi.fn(),
+    mockCreateSupabaseServiceClient: vi.fn(),
+    mockNotFound: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
+}));
+
+vi.mock('next/navigation', () => ({
+  notFound: mockNotFound,
+  forbidden: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/serverClient', () => ({
@@ -46,9 +56,18 @@ function createInsertQuery(result: unknown) {
   };
 }
 
+function createNextNotFoundError() {
+  const error = new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string };
+  error.digest = NEXT_NOT_FOUND_DIGEST;
+  return error;
+}
+
 describe('grade data', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockNotFound.mockImplementation(() => {
+      throw createNextNotFoundError();
+    });
   });
 
   it('writes grades with subject_id + leaf subject_kind', async () => {
@@ -95,6 +114,13 @@ describe('grade data', () => {
       'Grade data is invalid. Please check your input.'
     );
     expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
+  it('preserves notFound when the current parent row is missing', async () => {
+    mockGetCurrentUserID.mockResolvedValue(42);
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
+
+    await expect(getStudentsForGradeForm('parent')).rejects.toMatchObject({ digest: NEXT_NOT_FOUND_DIGEST });
   });
 
   it('returns only leaf subjects for the grade form', async () => {

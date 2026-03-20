@@ -60,7 +60,16 @@ const STUDENT_ERROR_MESSAGES = {
     validation: 'There was a problem preparing your students list. Please try again.',
   },
 } as const satisfies Record<AllowedRole, Record<StudentLoadErrorReason, string>>;
-const STUDENT_CONTROL_FLOW_ERRORS = new Set(['notFound', 'forbidden']);
+
+function isNextControlFlowError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const digest = 'digest' in error && typeof error.digest === 'string' ? error.digest : error.message;
+
+  return digest.startsWith('NEXT_HTTP_ERROR_FALLBACK;') || digest.startsWith('NEXT_REDIRECT;');
+}
 
 const RECENT_SESSIONS_LIMIT = 5;
 async function getDb() {
@@ -183,11 +192,11 @@ export async function getStudents(role: UserRole) {
 
     return parsedStudents.data.map(mapStudentRow);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message === STUDENT_ERROR_MESSAGES[allowedRole]['validation'] ||
-        STUDENT_CONTROL_FLOW_ERRORS.has(error.message))
-    ) {
+    if (error instanceof Error && error.message === STUDENT_ERROR_MESSAGES[allowedRole]['validation']) {
+      throw error;
+    }
+
+    if (isNextControlFlowError(error)) {
       throw error;
     }
 
@@ -278,11 +287,11 @@ export async function getStudent(id: number, role: UserRole) {
       sessions: mappedSessions,
     };
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message === STUDENT_ERROR_MESSAGES[allowedRole]['validation'] ||
-        STUDENT_CONTROL_FLOW_ERRORS.has(error.message))
-    ) {
+    if (error instanceof Error && error.message === STUDENT_ERROR_MESSAGES[allowedRole]['validation']) {
+      throw error;
+    }
+
+    if (isNextControlFlowError(error)) {
       throw error;
     }
 
