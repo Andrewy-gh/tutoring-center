@@ -21,7 +21,6 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const selectedSubject = subjects.find(s => s.slug === subjectSlug);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -31,6 +30,11 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
     }
 
     if (!subjectSlug) {
+      toast.error('Please select a subject');
+      return;
+    }
+
+    if (!selectedSubject) {
       toast.error('Please select a subject');
       return;
     }
@@ -59,7 +63,7 @@ export function GradeForm({ students, subjects }: GradeFormProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: parseInt(studentId, 10),
-          subject: selectedSubject?.slug ?? '',
+          subject_id: selectedSubject.id,
           grade: parsedGrade,
         }),
       });

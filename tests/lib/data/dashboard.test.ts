@@ -1,142 +1,52 @@
-import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { getParentDashboardData, getStudentProgressData, getStudentsWithProgress } from '@/lib/data/dashboard';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getStudentGrades } from '@/lib/data/dashboard';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const createMockQuery = (returnData: unknown = []) => ({
-  select: vi.fn(() => ({
-    eq: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        not: vi.fn(() => ({
-          order: vi.fn(() => Promise.resolve({ data: returnData, error: null })),
-        })),
-      })),
-      gte: vi.fn(() => ({
-        lte: vi.fn(() => Promise.resolve({ data: returnData, error: null })),
-      })),
-      single: vi.fn(() => Promise.resolve({ data: returnData, error: null })),
-    })),
-    in: vi.fn(() => ({
-      order: vi.fn(() => Promise.resolve({ data: returnData, error: null })),
-    })),
-    single: vi.fn(() => Promise.resolve({ data: returnData, error: null })),
-  })),
-});
-
-vi.mock('@/lib/auth', () => ({
-  getCurrentUserID: vi.fn(),
-  getUserRole: vi.fn(),
+const { mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+  mockCreateSupabaseServiceClient: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: vi.fn(() => ({
-    from: vi.fn(() => createMockQuery()),
-  })),
+  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
 }));
 
-vi.mock('@/lib/utils/normalize', () => ({
-  pickFirstEmbedded: vi.fn(user => (Array.isArray(user) ? user[0] : user)),
-}));
-
-describe('getStudentProgressData', () => {
+describe('getStudentGrades', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
     vi.resetAllMocks();
   });
 
-  it('returns student with provided name', async () => {
-    const result = await getStudentProgressData(1, 'Test Student');
-
-    expect(result.studentId).toBe(1);
-    expect(result.studentName).toBe('Test Student');
-    expect(result.performance).toEqual([]);
-    expect(result.confidence).toEqual([]);
-    expect(result.homework).toEqual([]);
-  });
-
-  it.skip('accepts date range parameters', async () => {
-    const dateRange = {
-      from: '2026-01-01T00:00:00Z',
-      to: '2026-03-01T00:00:00Z',
+  it('resolves subject names from subject ids in the redesigned grade schema', async () => {
+    const gradesQuery = {
+      eq: vi.fn(() => gradesQuery),
+      order: vi.fn().mockResolvedValue({
+        data: [
+          { id: 1, subject_id: 12, grade: 'A-', created_at: '2026-03-01T12:00:00.000Z' },
+          { id: 2, subject_id: 19, grade: 'B+', created_at: '2026-03-10T12:00:00.000Z' },
+        ],
+        error: null,
+      }),
+    };
+    const subjectsQuery = {
+      in: vi.fn().mockResolvedValue({
+        data: [
+          { id: 12, name: 'Algebra II' },
+          { id: 19, name: 'Biology' },
+        ],
+        error: null,
+      }),
     };
 
-    const result = await getStudentProgressData(1, 'Test', dateRange);
+    mockCreateSupabaseServiceClient.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'student_grades') return { select: vi.fn(() => gradesQuery) };
+        if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
 
-    expect(result).toBeDefined();
-    expect(result.studentName).toBe('Test');
-  });
-});
-
-describe('getStudentsWithProgress', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(getUserRole).mockResolvedValue('parent');
-    vi.mocked(getCurrentUserID).mockResolvedValue(1);
-  });
-
-  afterEach(() => {
-    vi.resetAllMocks();
-  });
-
-  it('returns empty array for non-parent users', async () => {
-    vi.mocked(getUserRole).mockResolvedValue('tutor');
-
-    const result = await getStudentsWithProgress();
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array when no user ID', async () => {
-    vi.mocked(getCurrentUserID).mockResolvedValue(null as unknown as number);
-
-    const result = await getStudentsWithProgress();
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns students with progress data', async () => {
-    const result = await getStudentsWithProgress();
-
-    expect(Array.isArray(result)).toBe(true);
-  });
-});
-
-describe('getParentDashboardData', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(getUserRole).mockResolvedValue('parent');
-    vi.mocked(getCurrentUserID).mockResolvedValue(1);
-  });
-
-  afterEach(() => {
-    vi.resetAllMocks();
-  });
-
-  it('returns students and default student ID', async () => {
-    const result = await getParentDashboardData();
-
-    expect(result).toHaveProperty('students');
-    expect(result).toHaveProperty('defaultStudentId');
-  });
-
-  it('returns null as default student ID when no students', async () => {
-    vi.mocked(getCurrentUserID).mockResolvedValue(null as unknown as number);
-
-    const result = await getParentDashboardData();
-
-    expect(result.defaultStudentId).toBeNull();
-  });
-
-  it('accepts date range and passes to getStudentsWithProgress', async () => {
-    const dateRange = {
-      from: '2026-01-01T00:00:00Z',
-      to: '2026-03-01T00:00:00Z',
-    };
-
-    const result = await getParentDashboardData(dateRange);
-
-    expect(result).toBeDefined();
+    await expect(getStudentGrades(77)).resolves.toEqual([
+      { id: 1, subject: 'Algebra II', grade: 'A-', createdAt: '2026-03-01T12:00:00.000Z' },
+      { id: 2, subject: 'Biology', grade: 'B+', createdAt: '2026-03-10T12:00:00.000Z' },
+    ]);
+    expect(subjectsQuery.in).toHaveBeenCalledWith('id', [12, 19]);
   });
 });

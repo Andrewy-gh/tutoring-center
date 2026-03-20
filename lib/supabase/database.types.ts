@@ -192,9 +192,8 @@ export type Database = {
           homework_completed: boolean;
           id: number;
           recorded_at: string;
-          session_id: number | null;
+          session_id: number;
           session_performance: number | null;
-          student_id: number | null;
           tutor_comments: string | null;
           updated_at: string;
         };
@@ -203,9 +202,8 @@ export type Database = {
           homework_completed?: boolean;
           id?: number;
           recorded_at?: string;
-          session_id?: number | null;
+          session_id: number;
           session_performance?: number | null;
-          student_id?: number | null;
           tutor_comments?: string | null;
           updated_at?: string;
         };
@@ -214,9 +212,8 @@ export type Database = {
           homework_completed?: boolean;
           id?: number;
           recorded_at?: string;
-          session_id?: number | null;
+          session_id?: number;
           session_performance?: number | null;
-          student_id?: number | null;
           tutor_comments?: string | null;
           updated_at?: string;
         };
@@ -224,15 +221,8 @@ export type Database = {
           {
             foreignKeyName: 'session_metrics_session_id_fkey';
             columns: ['session_id'];
-            isOneToOne: false;
+            isOneToOne: true;
             referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'session_metrics_student_id_fkey';
-            columns: ['student_id'];
-            isOneToOne: false;
-            referencedRelation: 'students';
             referencedColumns: ['id'];
           },
         ];
@@ -513,8 +503,8 @@ export type Database = {
             foreignKeyName: 'tutor_subjects_tutor_id_fkey';
             columns: ['tutor_id'];
             isOneToOne: false;
-            referencedRelation: 'tutors';
-            referencedColumns: ['id'];
+            referencedRelation: 'subjects';
+            referencedColumns: ['id', 'kind'];
           },
         ];
       };

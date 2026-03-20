@@ -175,7 +175,6 @@ async function seedSessionMetrics(
 
       const { error } = await supabase.from('session_metrics').insert({
         session_id: session.id,
-        student_id: session.student_id,
         session_performance: metrics.performance,
         confidence_score: metrics.confidence,
         homework_completed: metrics.completed,

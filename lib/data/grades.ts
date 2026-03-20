@@ -13,6 +13,7 @@ export type StudentForGradeForm = {
 export { SubjectForGradeForm };
 
 type GradeErrorReason = 'database' | 'validation' | 'forbidden';
+const GRADE_SUBJECT_KIND = 'leaf' as const;
 
 const GRADE_ERROR_MESSAGES = {
   database: 'Failed to save grade. Please try again.',
@@ -89,7 +90,7 @@ export async function addGrade(input: GradeInput) {
     throw new Error(GRADE_ERROR_MESSAGES.validation);
   }
 
-  const { student_id, subject, grade } = parsed.data;
+  const { student_id, subject_id, grade } = parsed.data;
 
   const supabase = createSupabaseServiceClient();
 
@@ -116,10 +117,10 @@ export async function addGrade(input: GradeInput) {
 
   const { data: subjectData, error: subjectErr } = await supabase
     .from('subjects')
-    .select('id')
-    .eq('slug', subject.trim())
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
+    .select('id,name,kind')
+    .eq('id', subject_id)
+    .eq('kind', GRADE_SUBJECT_KIND)
+    .limit(1)
     .single();
 
   if (subjectErr || !subjectData) {
@@ -132,8 +133,8 @@ export async function addGrade(input: GradeInput) {
     .from('student_grades')
     .insert({
       student_id,
-      subject_id: subjectData.id,
-      subject_kind: 'leaf',
+      subject_id,
+      subject_kind: GRADE_SUBJECT_KIND,
       grade: letterGrade,
     })
     .select(GRADE_SELECT_FIELDS)
@@ -143,7 +144,10 @@ export async function addGrade(input: GradeInput) {
     throw new Error(GRADE_ERROR_MESSAGES.database);
   }
 
-  return data;
+  return {
+    ...data,
+    subject: subjectData.name,
+  };
 }
 
 export { getSubjectsForGradeForm };
