@@ -9,6 +9,7 @@ type SessionStatus = Database['public']['Enums']['session_status'];
 type Fixture = {
   tutorId: number;
   subjectId: number;
+  tutorSubjectId: number;
   parentId: number;
   studentId: number;
   tutorUserId: number;
@@ -116,16 +117,26 @@ async function createFixture({
 
   const { data: subject, error: subjectErr } = await supabase
     .from('subjects')
-    .insert({ tutor_id: tutor.id, category: 'Math' })
+    .insert({ name: 'Math', slug: `math-${unique}`, kind: 'leaf', is_active: true })
     .select('id')
     .single();
   expect(subjectErr).toBeNull();
   expect(subject).not.toBeNull();
   if (!subject) throw new Error('Failed to insert subject');
 
+  const { data: tutorSubject, error: tutorSubjectErr } = await supabase
+    .from('tutor_subjects')
+    .insert({ tutor_id: tutor.id, subject_id: subject.id, subject_kind: 'leaf' })
+    .select('id')
+    .single();
+  expect(tutorSubjectErr).toBeNull();
+  expect(tutorSubject).not.toBeNull();
+  if (!tutorSubject) throw new Error('Failed to insert tutor subject');
+
   const fixture: Fixture = {
     tutorId: tutor.id,
     subjectId: subject.id,
+    tutorSubjectId: tutorSubject.id,
     parentId: parent.id,
     studentId: student.id,
     tutorUserId,
@@ -182,6 +193,7 @@ async function cleanupFixture(supabase: ReturnType<typeof createSupabaseServiceT
   for (const id of fixture.availabilityIds) {
     await supabase.from('availability').delete().eq('id', id);
   }
+  await supabase.from('tutor_subjects').delete().eq('id', fixture.tutorSubjectId);
   await supabase.from('subjects').delete().eq('id', fixture.subjectId);
   await supabase.from('students').delete().eq('id', fixture.studentId);
   await supabase.from('parents').delete().eq('id', fixture.parentId);

@@ -20,6 +20,13 @@ export type TutorRow = {
   years_experience: number;
 };
 
+export type TutorProfile = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+};
+
 const TUTOR_ERROR_MESSAGES = {
   admin: {
     database: 'Tutor data is temporarily unavailable. Please retry in a moment.',
@@ -53,6 +60,49 @@ const mapTutorRow = (
     years_experience: tutor.years_experience ?? 0,
   };
 };
+
+export async function getTutorProfileMapByIds(tutorIds: number[]) {
+  const uniqueTutorIds = [...new Set(tutorIds.filter(id => Number.isInteger(id) && id > 0))];
+  if (uniqueTutorIds.length === 0) {
+    return new Map<number, TutorProfile>();
+  }
+
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from('tutors')
+    .select(
+      `
+      id,
+      users:user_id (
+        first_name,
+        last_name,
+        email,
+        phone
+      )
+    `
+    )
+    .in('id', uniqueTutorIds);
+
+  if (error) {
+    throw new Error('Tutor data is temporarily unavailable. Please retry in a moment.');
+  }
+
+  return new Map(
+    (data ?? []).map(tutor => {
+      const user = pickFirstEmbedded(tutor.users);
+
+      return [
+        tutor.id,
+        {
+          id: tutor.id,
+          name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',
+          email: user?.email ?? '',
+          phone: user?.phone ?? '—',
+        },
+      ] satisfies [number, TutorProfile];
+    })
+  );
+}
 
 export async function getTutors(role: UserRole) {
   if (!isValidRole(role)) {

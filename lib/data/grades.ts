@@ -117,8 +117,9 @@ export async function addGrade(input: GradeInput) {
   const { data: subjectData, error: subjectErr } = await supabase
     .from('subjects')
     .select('id')
-    .eq('category', subject.trim())
-    .limit(1)
+    .eq('slug', subject.trim())
+    .eq('kind', 'leaf')
+    .eq('is_active', true)
     .single();
 
   if (subjectErr || !subjectData) {
@@ -131,7 +132,8 @@ export async function addGrade(input: GradeInput) {
     .from('student_grades')
     .insert({
       student_id,
-      subject: subject.trim(),
+      subject_id: subjectData.id,
+      subject_kind: 'leaf',
       grade: letterGrade,
     })
     .select(GRADE_SELECT_FIELDS)

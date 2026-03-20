@@ -89,7 +89,7 @@ function RecentSessionsTable({ sessions }: { sessions: StudentSession[] }) {
               <TableCell className='whitespace-nowrap'>
                 {formatSessionTime(start)} - {formatSessionTime(end)}
               </TableCell>
-              <TableCell>{session.subject_category}</TableCell>
+              <TableCell>{session.subject_name}</TableCell>
               <TableCell>{session.tutor_name}</TableCell>
               <TableCell>
                 <Badge variant={getStatusVariant(session.status)}>{session.status}</Badge>

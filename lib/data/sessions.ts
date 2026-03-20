@@ -1,6 +1,8 @@
 import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
+import { getSubjectMapByIds } from '@/lib/data/subjects';
+import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import { SESSION_SELECT_WITH_JOINS } from '@/lib/supabase/types';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
@@ -61,39 +63,14 @@ const parseStudentUser = (student: SessionWithJoins['student']) => {
   };
 };
 
-const parseTutorUser = (tutor: SessionWithJoins['tutor']) => {
-  if (!tutor) return { name: '—', email: '' };
-
-  const tutorData = Array.isArray(tutor) ? tutor[0] : tutor;
-  const usersData = tutorData?.users;
-  const user = usersData ? pickFirstEmbedded(usersData) : null;
-
-  const firstName =
-    user && typeof user === 'object' ? ((user as Record<string, unknown>).first_name as string | null) : null;
-  const lastName =
-    user && typeof user === 'object' ? ((user as Record<string, unknown>).last_name as string | null) : null;
-  const email = user && typeof user === 'object' ? ((user as Record<string, unknown>).email as string | null) : null;
-
-  return {
-    name: [firstName, lastName].filter(Boolean).join(' ') || '—',
-    email: email ?? '',
-  };
-};
-
-const parseSubjectCategory = (subject: SessionWithJoins['subjects']) => {
-  const subjectData = subject ? pickFirstEmbedded(subject) : null;
-  const category =
-    subjectData && typeof subjectData === 'object'
-      ? ((subjectData as Record<string, unknown>).category as string | null)
-      : null;
-
-  return category ?? 'Mathematics';
-};
-
-const mapSessionRow = (session: SessionWithJoins): SessionRow => {
+const mapSessionRow = (
+  session: SessionWithJoins,
+  subjectMap: Map<number, { name: string }>,
+  tutorMap: Map<number, { name: string; email: string }>
+): SessionRow => {
   const student = parseStudentUser(session.student);
-  const tutor = parseTutorUser(session.tutor);
-  const subjectName = parseSubjectCategory(session.subjects);
+  const tutor = tutorMap.get(session.tutor_id) ?? { name: '—', email: '' };
+  const subjectName = subjectMap.get(session.subject_id)?.name ?? 'Unknown';
 
   return {
     id: session.id,
@@ -175,7 +152,9 @@ export async function getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
     throw new Error(SESSION_ERROR_MESSAGES[role]['validation']);
   }
 
-  return parsedSessions.data.map(mapSessionRow).sort(compareSessionRows);
+  const subjectMap = await getSubjectMapByIds(parsedSessions.data.map(session => session.subject_id));
+  const tutorMap = await getTutorProfileMapByIds(parsedSessions.data.map(session => session.tutor_id));
+  return parsedSessions.data.map(session => mapSessionRow(session, subjectMap, tutorMap)).sort(compareSessionRows);
 }
 
 export type SessionDetailType = {
@@ -222,20 +201,6 @@ const SESSION_DETAIL_SELECT = `
   slot_units,
   status,
   subject_id,
-  subjects:subject_id (
-    category
-  ),
-  tutor:tutors (
-    id,
-    verified,
-    years_experience,
-    users:user_id (
-      first_name,
-      last_name,
-      email,
-      phone
-    )
-  ),
   student:students (
     id,
     parent_id,
@@ -294,10 +259,6 @@ export async function getSession(id: number): Promise<SessionDetailType> {
     }
   }
 
-  const tutorData = Array.isArray(data.tutor) ? data.tutor[0] : data.tutor;
-  const tutorUsersData = tutorData?.users;
-  const tutorUser = tutorUsersData ? pickFirstEmbedded(tutorUsersData) : null;
-
   const studentData = Array.isArray(data.student) ? data.student[0] : data.student;
   const studentUsersData = studentData?.users;
   const studentUser = studentUsersData ? pickFirstEmbedded(studentUsersData) : null;
@@ -305,8 +266,9 @@ export async function getSession(id: number): Promise<SessionDetailType> {
   const parentData = Array.isArray(data.parent) ? data.parent[0] : data.parent;
   const parentUsersData = parentData?.users;
   const parentUser = parentUsersData ? pickFirstEmbedded(parentUsersData) : null;
-
-  const subjectData = Array.isArray(data.subjects) ? data.subjects[0] : data.subjects;
+  const subjectMap = await getSubjectMapByIds([data.subject_id]);
+  const tutorMap = await getTutorProfileMapByIds([data.tutor_id]);
+  const tutorProfile = tutorMap.get(data.tutor_id);
 
   const progressRaw = data.session_progress as
     | {
@@ -377,12 +339,12 @@ export async function getSession(id: number): Promise<SessionDetailType> {
     slot_units: data.slot_units,
     status: data.status,
     subject_id: data.subject_id,
-    subject_name: subjectData?.category || 'Unknown',
+    subject_name: subjectMap.get(data.subject_id)?.name ?? 'Unknown',
     tutor: {
-      id: tutorData?.id || 0,
-      name: tutorUser ? [tutorUser.first_name, tutorUser.last_name].filter(Boolean).join(' ') : '—',
-      email: tutorUser?.email || '—',
-      phone: tutorUser?.phone || '—',
+      id: data.tutor_id,
+      name: tutorProfile?.name ?? '—',
+      email: tutorProfile?.email || '—',
+      phone: tutorProfile?.phone || '—',
     },
     student: {
       id: studentData?.id || 0,
@@ -447,9 +409,6 @@ export async function getTutorAssignedSessions(): Promise<TutorAssignedSession[]
         first_name,
         last_name
       )
-    ),
-    subjects (
-      category
     )
   ` as const;
 
@@ -458,6 +417,8 @@ export async function getTutorAssignedSessions(): Promise<TutorAssignedSession[]
   if (error || !data || data.length === 0) {
     return [];
   }
+
+  const subjectMap = await getSubjectMapByIds(data.map(session => session.subject_id));
 
   const sessionsWithStatus = data.map(
     (session): TutorAssignedSession & { hasProgress: boolean; hasMetrics: boolean } => {
@@ -475,9 +436,7 @@ export async function getTutorAssignedSessions(): Promise<TutorAssignedSession[]
       const studentName = studentUser
         ? `${studentUser.first_name || ''} ${studentUser.last_name || ''}`.trim()
         : 'Student';
-
-      const subjectData = Array.isArray(session.subjects) ? session.subjects[0] : session.subjects;
-      const subjectName = subjectData?.category || 'Subject';
+      const subjectName = subjectMap.get(session.subject_id)?.name ?? 'Subject';
 
       return {
         id: session.id,
@@ -521,12 +480,7 @@ export async function getStudentRecentProgress(
   const PROGRESS_HISTORY_SELECT = `
     id,
     scheduled_at,
-    tutor:tutors (
-      users:user_id (
-        first_name,
-        last_name
-      )
-    )
+    tutor_id
   ` as const;
 
   const { data, error } = await supabase
@@ -543,19 +497,15 @@ export async function getStudentRecentProgress(
     return [];
   }
 
+  const tutorMap = await getTutorProfileMapByIds(data.map(session => session.tutor_id));
+
   const progressHistory: StudentProgressHistory[] = data
     .filter(session => session.id !== sessionIdToExclude)
-    .map(session => {
-      const tutorData = Array.isArray(session.tutor) ? session.tutor[0] : session.tutor;
-      const tutorUsersData = tutorData?.users;
-      const tutorUser = tutorUsersData ? pickFirstEmbedded(tutorUsersData) : null;
-
-      return {
-        sessionId: session.id,
-        date: session.scheduled_at,
-        tutorName: tutorUser ? [tutorUser.first_name, tutorUser.last_name].filter(Boolean).join(' ') : 'Unknown Tutor',
-      };
-    });
+    .map(session => ({
+      sessionId: session.id,
+      date: session.scheduled_at,
+      tutorName: tutorMap.get(session.tutor_id)?.name ?? 'Unknown Tutor',
+    }));
 
   return progressHistory;
 }

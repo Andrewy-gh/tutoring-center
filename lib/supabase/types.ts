@@ -46,14 +46,12 @@ export const STUDENT_SELECT_WITH_JOINS = `
 
 export const STUDENT_DETAIL_SESSION_SELECT = `
   id,
+  subject_id,
+  tutor_id,
   scheduled_at,
   ends_at,
   status,
-  slot_units,
-  subject:subjects ( category ),
-  tutor:tutors (
-    users:user_id ( first_name, last_name )
-  )
+  slot_units
 ` as const;
 
 export const STUDENT_DETAIL_SELECT_WITH_JOINS = `
@@ -142,7 +140,7 @@ export const TUTOR_SELECT_WITH_JOINS = `
 export const SESSION_SELECT_FIELDS =
   'id,tutor_id,student_id,subject_id,parent_id,slot_units,scheduled_at,ends_at,status' as const;
 
-export const GRADE_SELECT_FIELDS = 'id,student_id,subject,grade,created_at' as const;
+export const GRADE_SELECT_FIELDS = 'id,student_id,subject_id,subject_kind,grade,created_at' as const;
 
 export const CREDIT_TRANSACTION_SELECT_WITH_JOINS = `
   id,
@@ -197,15 +195,11 @@ export const CREDIT_TRANSACTION_DETAIL_SELECT_WITH_JOINS = `
   ),
   session:sessions (
     id,
+    subject_id,
+    tutor_id,
     scheduled_at,
     ends_at,
-    status,
-    subject:subjects ( category ),
-    tutor:tutors (
-      id,
-      user_id,
-      users:user_id ( first_name, last_name )
-    )
+    status
   )
 ` as const;
 
@@ -221,26 +215,10 @@ export const SESSION_SELECT_WITH_JOINS = `
   ends_at,
   status,
 
-  subjects:subject_id (
-    category
-  ),
-
   student:students (
     id,
     parent_id,
     learning_goals,
-    users:user_id (
-      first_name,
-      last_name,
-      email
-    )
-  ),
-
-  tutor:tutors (
-    id,
-    verified,
-    years_experience,
-    tagline,
     users:user_id (
       first_name,
       last_name,

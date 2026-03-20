@@ -14,7 +14,7 @@ import { ReservationDialog } from './reservation-dialog';
 import { SelectionBadges } from './selection-badges';
 
 export type PickDateProps = {
-  subject: { id: number; category: string };
+  subject: { id: number; slug: string; name: string };
   tutor: { id: number; name: string };
   todayStartMs: number;
   onBackAction?: () => void;
@@ -111,7 +111,7 @@ export function PickDate({ subject, tutor, todayStartMs, onBackAction, onConfirm
           <CardTitle className='text-2xl font-bold'>When works best?</CardTitle>
         </CardHeader>
         <CardContent className='space-y-6'>
-          <SelectionBadges subject={subject.category} tutor={tutor.name} />
+          <SelectionBadges subject={subject.name} tutor={tutor.name} />
           <div className='space-y-4'>
             <p className='font-semibold'>Choose week:</p>
             <ChooseDateButtons
@@ -154,7 +154,7 @@ export function PickDate({ subject, tutor, todayStartMs, onBackAction, onConfirm
         onOpenChange={open => {
           if (!open) setSelectedSession(null);
         }}
-        subject={subject.category}
+        subject={subject.name}
         tutor={tutor.name}
         session={selectedSession}
         onConfirm={handleConfirm}

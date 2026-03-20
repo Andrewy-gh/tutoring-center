@@ -1,7 +1,13 @@
 import { forbidden } from 'next/navigation';
 import { isUserRole, type UserRole } from '@/lib/auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { SubjectRowListSchema, type SubjectRow } from '@/lib/validators/subjects';
+import {
+  ActiveLeafSubjectListSchema,
+  SubjectOptionRowListSchema,
+  SubjectRecordListSchema,
+  type SubjectOptionRow,
+  type SubjectRecord,
+} from '@/lib/validators/subjects';
 
 type SubjectLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -9,16 +15,17 @@ type AllowedRole = Exclude<UserRole, 'tutor'>;
 export type SubjectTutorAssignment = {
   tutorId: number;
   subjectId: number;
+  subjectSlug: string;
 };
 
 export type SubjectOption = {
-  key: string; // normalized subject category for subject rows with same category
-  category: string;
+  slug: string;
+  name: string;
   tutorCount: number;
   assignments: SubjectTutorAssignment[];
 };
 
-export type SelectedSubject = Pick<SubjectOption, 'key' | 'category'>;
+export type SelectedSubject = Pick<SubjectOption, 'slug' | 'name'>;
 
 export type SubjectSelection = {
   subject: SelectedSubject;
@@ -36,50 +43,69 @@ const SUBJECT_ERROR_MESSAGES = {
   },
 } as const satisfies Record<AllowedRole, Record<SubjectLoadErrorReason, string>>;
 
-const normalizeSubjectCategory = (category: string) => category.trim().toLowerCase().replace(/\s+/g, ' ');
+const ACTIVE_SUBJECT_SELECT = 'id,name,slug,kind,is_active' as const;
+
+const SUBJECT_OPTIONS_SELECT = `
+  id,
+  name,
+  slug,
+  kind,
+  is_active,
+  tutor_subjects!inner (
+    tutor_id,
+    subject_id
+  )
+` as const;
 
 const sortNumberAsc = (a: number, b: number) => a - b;
 
-export const groupSubjectsByCategory = (subjects: SubjectRow[]) => {
-  const grouped = new Map<
-    string,
-    {
-      category: string;
-      tutorToSubjectId: Map<number, number>;
-    }
-  >();
+export const mapSubjectOptions = (subjects: SubjectOptionRow[]) => {
+  return subjects
+    .map(subject => {
+      const slug = subject.slug.trim();
+      const name = subject.name.trim();
+      const tutorToSubjectId = new Map<number, number>();
 
-  for (const subject of subjects) {
-    const normalizedCategory = normalizeSubjectCategory(subject.category);
-    if (normalizedCategory === '') continue;
+      for (const assignment of subject.tutor_subjects ?? []) {
+        const assignedSubjectId = tutorToSubjectId.get(assignment.tutor_id);
+        if (assignedSubjectId === undefined || assignment.subject_id < assignedSubjectId) {
+          tutorToSubjectId.set(assignment.tutor_id, assignment.subject_id);
+        }
+      }
 
-    const existing = grouped.get(normalizedCategory);
+      return {
+        slug,
+        name,
+        tutorCount: tutorToSubjectId.size,
+        assignments: Array.from(tutorToSubjectId.entries())
+          .sort(([leftTutorId], [rightTutorId]) => sortNumberAsc(leftTutorId, rightTutorId))
+          .map(([tutorId, subjectId]) => ({ tutorId, subjectId, subjectSlug: slug })),
+      };
+    })
+    .filter(subject => subject.slug !== '' && subject.name !== '' && subject.tutorCount > 0)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug));
+};
 
-    if (!existing) {
-      grouped.set(normalizedCategory, {
-        category: subject.category.trim(),
-        tutorToSubjectId: new Map([[subject.tutor_id, subject.id]]),
-      });
-      continue;
-    }
-
-    const assignedSubjectId = existing.tutorToSubjectId.get(subject.tutor_id);
-    if (assignedSubjectId === undefined || subject.id < assignedSubjectId) {
-      existing.tutorToSubjectId.set(subject.tutor_id, subject.id);
-    }
+export async function getSubjectMapByIds(subjectIds: number[]) {
+  const uniqueSubjectIds = [...new Set(subjectIds.filter(id => Number.isInteger(id) && id > 0))];
+  if (uniqueSubjectIds.length === 0) {
+    return new Map<number, SubjectRecord>();
   }
 
-  return Array.from(grouped.entries())
-    .map(([key, value]) => ({
-      key,
-      category: value.category,
-      tutorCount: value.tutorToSubjectId.size,
-      assignments: Array.from(value.tutorToSubjectId.entries())
-        .sort(([leftTutorId], [rightTutorId]) => sortNumberAsc(leftTutorId, rightTutorId))
-        .map(([tutorId, subjectId]) => ({ tutorId, subjectId })),
-    }))
-    .sort((a, b) => a.category.localeCompare(b.category));
-};
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase.from('subjects').select(ACTIVE_SUBJECT_SELECT).in('id', uniqueSubjectIds);
+
+  if (error) {
+    throw new Error('Subjects are temporarily unavailable. Please try again.');
+  }
+
+  const parsedSubjects = SubjectRecordListSchema.safeParse(data ?? []);
+  if (!parsedSubjects.success) {
+    throw new Error('Subject data format is invalid. Please try again later.');
+  }
+
+  return new Map(parsedSubjects.data.map(subject => [subject.id, subject]));
+}
 
 export async function getSubjects(role: UserRole) {
   if (!isUserRole(role)) {
@@ -92,43 +118,52 @@ export async function getSubjects(role: UserRole) {
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from('subjects')
-    .select('id,category,tutor_id')
-    .not('category', 'is', null)
-    .not('tutor_id', 'is', null)
-    .order('category');
+    .select(SUBJECT_OPTIONS_SELECT)
+    .eq('kind', 'leaf')
+    .eq('is_active', true)
+    .order('name')
+    .order('slug');
 
   if (error) {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['database']);
   }
 
-  const parsedSubjects = SubjectRowListSchema.safeParse(data ?? []);
+  const parsedSubjects = SubjectOptionRowListSchema.safeParse(data ?? []);
   if (!parsedSubjects.success) {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['validation']);
   }
 
-  return groupSubjectsByCategory(parsedSubjects.data);
+  return mapSubjectOptions(parsedSubjects.data);
 }
 
 export type SubjectForGradeForm = {
   id: number;
-  category: string;
+  slug: string;
+  name: string;
 };
 
 export async function getSubjectsForGradeForm() {
   const supabase = createSupabaseServiceClient();
-
-  const { data, error } = await supabase.from('subjects').select('id,category').order('category');
+  const { data, error } = await supabase
+    .from('subjects')
+    .select(ACTIVE_SUBJECT_SELECT)
+    .eq('kind', 'leaf')
+    .eq('is_active', true)
+    .order('name')
+    .order('slug');
 
   if (error) {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
 
-  const uniqueSubjects = new Map<string, SubjectForGradeForm>();
-  for (const subject of data ?? []) {
-    if (!uniqueSubjects.has(subject.category)) {
-      uniqueSubjects.set(subject.category, { id: subject.id, category: subject.category });
-    }
+  const parsedSubjects = ActiveLeafSubjectListSchema.safeParse(data ?? []);
+  if (!parsedSubjects.success) {
+    throw new Error('There was a problem preparing subjects. Please try again.');
   }
 
-  return Array.from(uniqueSubjects.values());
+  return parsedSubjects.data.map(subject => ({
+    id: subject.id,
+    slug: subject.slug.trim(),
+    name: subject.name.trim(),
+  }));
 }

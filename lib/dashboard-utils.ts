@@ -34,26 +34,28 @@ export function parseDateRange(range: string): DateRange {
   return getDateRange(range as DateRangeOption);
 }
 
-export function getUniqueSubjectsFromStudentData(data: StudentProgressData): string[] {
-  const subjects = new Set<string>();
+export function getUniqueSubjectsFromStudentData(data: StudentProgressData): Array<{ slug: string; name: string }> {
+  const subjects = new Map<string, string>();
 
   for (const p of data.performance) {
-    if (p.subject && p.subject !== 'Unknown') {
-      subjects.add(p.subject);
+    if (p.subjectSlug && p.subjectSlug !== 'unknown' && p.subject) {
+      subjects.set(p.subjectSlug, p.subject);
     }
   }
   for (const c of data.confidence) {
-    if (c.subject && c.subject !== 'Unknown') {
-      subjects.add(c.subject);
+    if (c.subjectSlug && c.subjectSlug !== 'unknown' && c.subject) {
+      subjects.set(c.subjectSlug, c.subject);
     }
   }
   for (const h of data.homework) {
-    if (h.subject && h.subject !== 'Unknown') {
-      subjects.add(h.subject);
+    if (h.subjectSlug && h.subjectSlug !== 'unknown' && h.subject) {
+      subjects.set(h.subjectSlug, h.subject);
     }
   }
 
-  return Array.from(subjects).sort();
+  return Array.from(subjects.entries())
+    .map(([slug, name]) => ({ slug, name }))
+    .sort((left, right) => left.name.localeCompare(right.name) || left.slug.localeCompare(right.slug));
 }
 
 export function averagePerformanceByDate(items: PerformanceDataPoint[]): PerformanceDataPoint[] {
@@ -75,7 +77,7 @@ export function averagePerformanceByDate(items: PerformanceDataPoint[]): Perform
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length;
-    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;
@@ -100,7 +102,7 @@ export function averageConfidenceByDate(items: ConfidenceDataPoint[]): Confidenc
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length;
-    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, score: avg, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;
@@ -125,7 +127,7 @@ export function averageHomeworkByDate(items: HomeworkDataPoint[]): HomeworkDataP
   for (const dateKey of sortedDates) {
     const entry = byDate.get(dateKey)!;
     const avg = entry.completed.reduce((a, b) => a + b, 0) / entry.completed.length;
-    result.push({ date: entry.original[0].date, completed: avg >= 0.5, sessionId: 0, subject: '' });
+    result.push({ date: entry.original[0].date, completed: avg >= 0.5, sessionId: 0, subject: '', subjectSlug: '' });
   }
 
   return result;

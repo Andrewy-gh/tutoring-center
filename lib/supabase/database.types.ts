@@ -327,25 +327,18 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'sessions_student_id_fkey';
-            columns: ['student_id'];
+            foreignKeyName: 'sessions_student_id_parent_id_fkey';
+            columns: ['student_id', 'parent_id'];
             isOneToOne: false;
             referencedRelation: 'students';
-            referencedColumns: ['id'];
+            referencedColumns: ['id', 'parent_id'];
           },
           {
-            foreignKeyName: 'sessions_subject_id_fkey';
-            columns: ['subject_id'];
+            foreignKeyName: 'sessions_tutor_id_subject_id_fkey';
+            columns: ['tutor_id', 'subject_id'];
             isOneToOne: false;
-            referencedRelation: 'subjects';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'sessions_tutor_id_fkey';
-            columns: ['tutor_id'];
-            isOneToOne: false;
-            referencedRelation: 'tutors';
-            referencedColumns: ['id'];
+            referencedRelation: 'tutor_subjects';
+            referencedColumns: ['tutor_id', 'subject_id'];
           },
         ];
       };
@@ -355,21 +348,24 @@ export type Database = {
           grade: string;
           id: number;
           student_id: number;
-          subject: string;
+          subject_id: number;
+          subject_kind: Database['public']['Enums']['subject_kind'];
         };
         Insert: {
           created_at?: string;
           grade: string;
           id?: number;
           student_id: number;
-          subject: string;
+          subject_id: number;
+          subject_kind?: Database['public']['Enums']['subject_kind'];
         };
         Update: {
           created_at?: string;
           grade?: string;
           id?: number;
           student_id?: number;
-          subject?: string;
+          subject_id?: number;
+          subject_kind?: Database['public']['Enums']['subject_kind'];
         };
         Relationships: [
           {
@@ -378,6 +374,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'students';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'student_grades_subject_id_subject_kind_fkey';
+            columns: ['subject_id', 'subject_kind'];
+            isOneToOne: false;
+            referencedRelation: 'subjects';
+            referencedColumns: ['id', 'kind'];
           },
         ];
       };
@@ -431,29 +434,83 @@ export type Database = {
       };
       subjects: {
         Row: {
-          category: string;
           created_at: string;
           id: number;
+          is_active: boolean;
+          kind: Database['public']['Enums']['subject_kind'];
+          name: string;
+          parent_subject_id: number | null;
+          parent_subject_kind: Database['public']['Enums']['subject_kind'] | null;
+          slug: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: number;
+          is_active?: boolean;
+          kind: Database['public']['Enums']['subject_kind'];
+          name: string;
+          parent_subject_id?: number | null;
+          parent_subject_kind?: Database['public']['Enums']['subject_kind'] | null;
+          slug: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: number;
+          is_active?: boolean;
+          kind?: Database['public']['Enums']['subject_kind'];
+          name?: string;
+          parent_subject_id?: number | null;
+          parent_subject_kind?: Database['public']['Enums']['subject_kind'] | null;
+          slug?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'subjects_parent_subject_id_fkey';
+            columns: ['parent_subject_id', 'parent_subject_kind'];
+            isOneToOne: false;
+            referencedRelation: 'subjects';
+            referencedColumns: ['id', 'kind'];
+          },
+        ];
+      };
+      tutor_subjects: {
+        Row: {
+          created_at: string;
+          id: number;
+          subject_id: number;
+          subject_kind: Database['public']['Enums']['subject_kind'];
           tutor_id: number;
           updated_at: string;
         };
         Insert: {
-          category: string;
           created_at?: string;
           id?: number;
+          subject_id: number;
+          subject_kind?: Database['public']['Enums']['subject_kind'];
           tutor_id: number;
           updated_at?: string;
         };
         Update: {
-          category?: string;
           created_at?: string;
           id?: number;
+          subject_id?: number;
+          subject_kind?: Database['public']['Enums']['subject_kind'];
           tutor_id?: number;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'subjects_tutor_id_fkey';
+            foreignKeyName: 'tutor_subjects_subject_id_subject_kind_fkey';
+            columns: ['subject_id', 'subject_kind'];
+            isOneToOne: false;
+            referencedRelation: 'subjects';
+            referencedColumns: ['id', 'kind'];
+          },
+          {
+            foreignKeyName: 'tutor_subjects_tutor_id_fkey';
             columns: ['tutor_id'];
             isOneToOne: false;
             referencedRelation: 'tutors';
@@ -567,6 +624,7 @@ export type Database = {
     };
     Enums: {
       session_status: 'Scheduled' | 'Pending-Notes' | 'Completed' | 'Canceled' | 'No-show' | 'Rescheduled';
+      subject_kind: 'group' | 'leaf';
       transaction_type:
         | 'purchase'
         | 'reservation'
@@ -696,6 +754,7 @@ export const Constants = {
   public: {
     Enums: {
       session_status: ['Scheduled', 'Pending-Notes', 'Completed', 'Canceled', 'No-show', 'Rescheduled'],
+      subject_kind: ['group', 'leaf'],
       transaction_type: [
         'purchase',
         'reservation',

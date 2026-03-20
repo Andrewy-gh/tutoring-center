@@ -34,18 +34,18 @@ export function PickSubject({ subjects, studentFirstName, onSelectAction, onBack
         <CardContent className='space-y-3'>
           {subjects.map(subject => (
             <Button
-              key={subject.key}
+              key={subject.slug}
               variant='outline'
               className={subjectButtonClassName}
               onClick={() =>
                 onSelectAction({
-                  subject: { key: subject.key, category: subject.category },
+                  subject: { slug: subject.slug, name: subject.name },
                   assignments: subject.assignments,
                 })
               }
               type='button'
             >
-              <span className='text-primary font-semibold'>{subject.category}</span>
+              <span className='text-primary font-semibold'>{subject.name}</span>
               <span className='flex items-center gap-2'>
                 <Badge>
                   {subject.tutorCount} {subject.tutorCount === 1 ? 'tutor' : 'tutors'}

@@ -83,9 +83,9 @@ export function ParentProgressDashboard({
     let homework = selectedStudent.homework;
 
     if (!isAllSubjects) {
-      performance = performance.filter((p: PerformanceDataPoint) => p.subject === selectedSubject);
-      confidence = confidence.filter((c: ConfidenceDataPoint) => c.subject === selectedSubject);
-      homework = homework.filter((h: HomeworkDataPoint) => h.subject === selectedSubject);
+      performance = performance.filter((p: PerformanceDataPoint) => p.subjectSlug === selectedSubject);
+      confidence = confidence.filter((c: ConfidenceDataPoint) => c.subjectSlug === selectedSubject);
+      homework = homework.filter((h: HomeworkDataPoint) => h.subjectSlug === selectedSubject);
     }
 
     if (dateRange !== 'all') {
@@ -96,7 +96,7 @@ export function ParentProgressDashboard({
 
     const filteredGrades = isAllSubjects
       ? initialGrades
-      : initialGrades.filter((g: GradeDataPoint) => g.subject.toLowerCase() === selectedSubject.toLowerCase());
+      : initialGrades.filter((g: GradeDataPoint) => g.subjectSlug === selectedSubject);
 
     return {
       performance: isAllSubjects ? averagePerformanceByDate(performance) : performance,
@@ -119,6 +119,8 @@ export function ParentProgressDashboard({
   const handleDateRangeChange = (newRange: DateRangeOption) => {
     setDateRange(newRange);
   };
+
+  const selectedSubjectName = availableSubjects.find(subject => subject.slug === selectedSubject)?.name ?? null;
 
   if (initialStudents.length === 0) {
     return (
@@ -160,9 +162,9 @@ export function ParentProgressDashboard({
                 </SelectTrigger>
                 <SelectContent side='bottom'>
                   <SelectItem value='all'>All subjects (avg)</SelectItem>
-                  {availableSubjects.map((subject: string) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
+                  {availableSubjects.map(subject => (
+                    <SelectItem key={subject.slug} value={subject.slug}>
+                      {subject.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -197,7 +199,8 @@ export function ParentProgressDashboard({
           {filteredData.grades.length > 0 ? (
             <GradeChart
               data={filteredData.grades}
-              subject={selectedSubject === 'all' ? null : selectedSubject}
+              subjectName={selectedSubject === 'all' ? null : selectedSubjectName}
+              aggregateByDate={selectedSubject === 'all'}
               description='Academic grades over time. Shows letter grade trends by subject or overall average across all subjects.'
             />
           ) : (

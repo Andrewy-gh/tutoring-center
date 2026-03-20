@@ -2,23 +2,40 @@ import type { UserRole } from '@/lib/auth';
 import { getStudent, getStudents } from '@/lib/data/students';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockForbidden, mockNotFound, mockFrom, mockCreateSupabaseServiceClient } = vi.hoisted(
-  () => ({
-    mockGetCurrentUserID: vi.fn(),
-    mockForbidden: vi.fn(),
-    mockNotFound: vi.fn(),
-    mockFrom: vi.fn(),
-    mockCreateSupabaseServiceClient: vi.fn(),
-  })
-);
+const {
+  mockGetCurrentUserID,
+  mockForbidden,
+  mockNotFound,
+  mockFrom,
+  mockCreateSupabaseServiceClient,
+  mockGetSubjectMapByIds,
+  mockGetTutorProfileMapByIds,
+} = vi.hoisted(() => ({
+  mockGetCurrentUserID: vi.fn(),
+  mockForbidden: vi.fn(),
+  mockNotFound: vi.fn(),
+  mockFrom: vi.fn(),
+  mockCreateSupabaseServiceClient: vi.fn(),
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   forbidden: mockForbidden,
   notFound: mockNotFound,
 }));
 
-vi.mock('@/lib/mock-api', () => ({
+vi.mock('@/lib/auth', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/auth')>()),
   getCurrentUserID: mockGetCurrentUserID,
+}));
+
+vi.mock('@/lib/data/subjects', () => ({
+  getSubjectMapByIds: mockGetSubjectMapByIds,
+}));
+
+vi.mock('@/lib/data/tutors', () => ({
+  getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
 }));
 
 vi.mock('@/lib/supabase/serverClient', () => ({
@@ -73,6 +90,8 @@ describe('getStudents', () => {
     mockNotFound.mockImplementation(() => {
       throw new Error('notFound');
     });
+    mockGetSubjectMapByIds.mockResolvedValue(new Map());
+    mockGetTutorProfileMapByIds.mockResolvedValue(new Map());
   });
 
   it('maps admin rows with name + fallback grade', async () => {
@@ -183,6 +202,8 @@ describe('getStudent', () => {
     mockNotFound.mockImplementation(() => {
       throw new Error('notFound');
     });
+    mockGetSubjectMapByIds.mockResolvedValue(new Map([[7, { id: 7, name: 'Algebra', slug: 'algebra' }]]));
+    mockGetTutorProfileMapByIds.mockResolvedValue(new Map([[11, { id: 11, name: 'Alan Turing' }]]));
   });
 
   it('uses one joined students query and maps profile + recent sessions', async () => {
@@ -198,12 +219,12 @@ describe('getStudent', () => {
         sessions: [
           {
             id: 50,
+            subject_id: 7,
+            tutor_id: 11,
             scheduled_at: '2026-03-01T15:00:00.000Z',
             ends_at: '2026-03-01T16:00:00.000Z',
             status: 'Completed',
             slot_units: 1,
-            subject: [{ category: 'Algebra' }],
-            tutor: [{ users: [{ first_name: 'Alan', last_name: 'Turing' }] }],
           },
         ],
       },
@@ -230,7 +251,7 @@ describe('getStudent', () => {
           ends_at: '2026-03-01T16:00:00.000Z',
           status: 'Completed',
           slot_units: 1,
-          subject_category: 'Algebra',
+          subject_name: 'Algebra',
           tutor_name: 'Alan Turing',
         },
       ],

@@ -23,7 +23,7 @@ export function BookingSuccessDetails({ reservation, confirmationCode, purchased
           {formatSessionDateTime(new Date(reservation.session.scheduled_at))}
         </li>
         <li>
-          <span className='font-semibold text-foreground'>Subject:</span> {reservation.subject.category}
+          <span className='font-semibold text-foreground'>Subject:</span> {reservation.subject.name}
         </li>
         <li>
           <span className='font-semibold text-foreground'>Tutor:</span> {reservation.tutor.name}

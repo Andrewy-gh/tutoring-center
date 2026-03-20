@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const { mockGetSubjectMapByIds, mockGetTutorProfileMapByIds } = vi.hoisted(() => ({
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+}));
+
 const sessionsQuery = {
   data: [
     {
@@ -13,7 +18,6 @@ const sessionsQuery = {
       ends_at: '2026-03-01T11:00:00.000Z',
       status: 'Completed',
       student: null,
-      tutor: null,
       parent: null,
       session_progress: null,
       session_metrics: null,
@@ -29,7 +33,6 @@ const sessionsQuery = {
       ends_at: '2026-03-02T11:00:00.000Z',
       status: 'Scheduled',
       student: null,
-      tutor: null,
       parent: null,
       session_progress: null,
       session_metrics: null,
@@ -45,7 +48,6 @@ const sessionsQuery = {
       ends_at: '2026-03-04T11:00:00.000Z',
       status: 'Pending-Notes',
       student: null,
-      tutor: null,
       parent: null,
       session_progress: null,
       session_metrics: null,
@@ -61,7 +63,6 @@ const sessionsQuery = {
       ends_at: '2026-03-03T11:00:00.000Z',
       status: 'Scheduled',
       student: null,
-      tutor: null,
       parent: null,
       session_progress: null,
       session_metrics: null,
@@ -77,7 +78,6 @@ const sessionsQuery = {
       ends_at: '2026-03-05T11:00:00.000Z',
       status: 'Rescheduled',
       student: null,
-      tutor: null,
       parent: null,
       session_progress: null,
       session_metrics: null,
@@ -100,6 +100,14 @@ vi.mock('@/lib/auth', () => ({
   getUserRole: vi.fn(async () => 'admin'),
 }));
 
+vi.mock('@/lib/data/subjects', () => ({
+  getSubjectMapByIds: mockGetSubjectMapByIds,
+}));
+
+vi.mock('@/lib/data/tutors', () => ({
+  getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
+}));
+
 vi.mock('@/lib/supabase/serverClient', () => ({
   createSupabaseServiceClient: vi.fn(() => ({
     from: vi.fn(() => ({
@@ -118,6 +126,25 @@ describe('getSessions ordering', () => {
   });
 
   it('puts Scheduled sessions first and sorts both groups by latest date first', async () => {
+    mockGetSubjectMapByIds.mockResolvedValue(
+      new Map([
+        [1000, { id: 1000, name: 'Subject 1', slug: 'subject-1' }],
+        [2000, { id: 2000, name: 'Subject 2', slug: 'subject-2' }],
+        [3000, { id: 3000, name: 'Subject 3', slug: 'subject-3' }],
+        [4000, { id: 4000, name: 'Subject 4', slug: 'subject-4' }],
+        [5000, { id: 5000, name: 'Subject 5', slug: 'subject-5' }],
+      ])
+    );
+    mockGetTutorProfileMapByIds.mockResolvedValue(
+      new Map([
+        [10, { id: 10, name: 'Tutor 1', email: '', phone: '—' }],
+        [20, { id: 20, name: 'Tutor 2', email: '', phone: '—' }],
+        [30, { id: 30, name: 'Tutor 3', email: '', phone: '—' }],
+        [40, { id: 40, name: 'Tutor 4', email: '', phone: '—' }],
+        [50, { id: 50, name: 'Tutor 5', email: '', phone: '—' }],
+      ])
+    );
+
     const { getSessions } = await import('@/lib/data/sessions');
 
     const sessions = await getSessions();

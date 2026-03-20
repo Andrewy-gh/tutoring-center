@@ -1,6 +1,8 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getSubjectMapByIds } from '@/lib/data/subjects';
+import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import type { Enums, Tables } from '@/lib/supabase/database.types';
 import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
 import {
@@ -29,15 +31,7 @@ type StudentListJoin = {
 type StudentDetailJoin = Pick<Tables<'students'>, 'id' | 'user_id' | 'grade'> & {
   users: Embedded<UserContactRow>;
 };
-type TutorJoin = Pick<Tables<'tutors'>, 'id' | 'user_id'> & {
-  users: Embedded<UserNameRow>;
-};
-type SessionJoin = Pick<Tables<'sessions'>, 'id' | 'scheduled_at' | 'ends_at' | 'status'> & {
-  subject: Embedded<{
-    category: string;
-  }>;
-  tutor: Embedded<TutorJoin>;
-};
+type SessionJoin = Pick<Tables<'sessions'>, 'id' | 'scheduled_at' | 'ends_at' | 'status' | 'subject_id' | 'tutor_id'>;
 type CreditTransactionListWithJoins = CreditTransactionRecord & {
   parent: Embedded<ParentListJoin>;
   student: Embedded<StudentListJoin>;
@@ -105,10 +99,6 @@ function getPhone(user: Pick<UserContactRow, 'phone'> | null | undefined) {
   return user?.phone ?? MISSING_VALUE;
 }
 
-function getSubjectName(subject: Embedded<{ category: string }>) {
-  return pickFirstEmbedded(subject)?.category ?? MISSING_VALUE;
-}
-
 async function getCurrentParentId() {
   const userID = await getCurrentUserID();
   const supabase = createSupabaseServiceClient();
@@ -138,25 +128,30 @@ function mapTransactionRow(transaction: CreditTransactionListWithJoins): CreditT
   };
 }
 
-function mapTransactionSession(transaction: CreditTransactionDetailWithJoins): CreditTransactionSession | null {
+function mapTransactionSession(
+  transaction: CreditTransactionDetailWithJoins,
+  subjectMap: Map<number, { name: string }>,
+  tutorMap: Map<number, { name: string }>
+): CreditTransactionSession | null {
   const session = pickFirstEmbedded(transaction.session);
 
   if (!session) return null;
-
-  const tutor = pickFirstEmbedded(session.tutor);
-  const tutorUser = pickFirstEmbedded(tutor?.users);
 
   return {
     id: session.id,
     scheduled_at: session.scheduled_at,
     ends_at: session.ends_at,
     status: session.status,
-    subject_name: getSubjectName(session.subject),
-    tutor_name: getDisplayName(tutorUser),
+    subject_name: subjectMap.get(session.subject_id)?.name ?? MISSING_VALUE,
+    tutor_name: tutorMap.get(session.tutor_id)?.name ?? MISSING_VALUE,
   };
 }
 
-function mapTransactionDetail(transaction: CreditTransactionDetailWithJoins): CreditTransactionDetail {
+function mapTransactionDetail(
+  transaction: CreditTransactionDetailWithJoins,
+  subjectMap: Map<number, { name: string }>,
+  tutorMap: Map<number, { name: string }>
+): CreditTransactionDetail {
   const parent = pickFirstEmbedded(transaction.parent);
   const student = pickFirstEmbedded(transaction.student);
   const parentUser = pickFirstEmbedded(parent?.users);
@@ -182,7 +177,7 @@ function mapTransactionDetail(transaction: CreditTransactionDetailWithJoins): Cr
       phone: getPhone(studentUser),
       grade: student?.grade ?? MISSING_VALUE,
     },
-    session: mapTransactionSession(transaction),
+    session: mapTransactionSession(transaction, subjectMap, tutorMap),
   };
 }
 
@@ -240,5 +235,10 @@ export async function getCreditTransaction(id: number, role: UserRole): Promise<
 
   if (!data) notFound();
 
-  return mapTransactionDetail(data as CreditTransactionDetailWithJoins);
+  const transaction = data as CreditTransactionDetailWithJoins;
+  const session = pickFirstEmbedded(transaction.session);
+  const subjectMap = await getSubjectMapByIds(session ? [session.subject_id] : []);
+  const tutorMap = await getTutorProfileMapByIds(session ? [session.tutor_id] : []);
+
+  return mapTransactionDetail(transaction, subjectMap, tutorMap);
 }
