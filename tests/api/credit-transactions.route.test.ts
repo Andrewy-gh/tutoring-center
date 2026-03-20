@@ -84,7 +84,6 @@ function setupSupabase({
   mockCreateSupabaseServiceClient.mockReturnValue({ from });
 
   return {
-    from,
     parentEq,
     countQuery,
     transactionInsert,
@@ -135,9 +134,10 @@ describe('credit transactions route auth', () => {
     const response = await POST(
       makePostRequest({
         parent_id: 999,
-        student_id: 22,
-        amount: 4,
-        balance_after: 8,
+        available_delta: 4,
+        pending_delta: 0,
+        available_after: 8,
+        pending_after: 1,
         type: 'purchase',
       })
     );
@@ -148,9 +148,10 @@ describe('credit transactions route auth', () => {
     expect(transactionInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         parent_id: 55,
-        student_id: 22,
-        amount: 4,
-        balance_after: 8,
+        available_delta: 4,
+        pending_delta: 0,
+        available_after: 8,
+        pending_after: 1,
         type: 'purchase',
       })
     );

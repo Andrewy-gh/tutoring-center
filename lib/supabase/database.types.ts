@@ -83,33 +83,42 @@ export type Database = {
       };
       credit_transactions: {
         Row: {
-          amount: number;
-          balance_after: number;
+          available_after: number;
+          available_delta: number;
           created_at: string;
           id: number;
+          idempotency_key: string | null;
+          note: string | null;
           parent_id: number;
+          pending_after: number;
+          pending_delta: number;
           session_id: number | null;
-          student_id: number;
           type: Database['public']['Enums']['transaction_type'];
         };
         Insert: {
-          amount: number;
-          balance_after: number;
+          available_after: number;
+          available_delta?: number;
           created_at?: string;
           id?: number;
+          idempotency_key?: string | null;
+          note?: string | null;
           parent_id: number;
+          pending_after: number;
+          pending_delta?: number;
           session_id?: number | null;
-          student_id: number;
           type: Database['public']['Enums']['transaction_type'];
         };
         Update: {
-          amount?: number;
-          balance_after?: number;
+          available_after?: number;
+          available_delta?: number;
           created_at?: string;
           id?: number;
+          idempotency_key?: string | null;
+          note?: string | null;
           parent_id?: number;
+          pending_after?: number;
+          pending_delta?: number;
           session_id?: number | null;
-          student_id?: number;
           type?: Database['public']['Enums']['transaction_type'];
         };
         Relationships: [
@@ -125,13 +134,6 @@ export type Database = {
             columns: ['session_id'];
             isOneToOne: false;
             referencedRelation: 'sessions';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'credit_transactions_student_id_fkey';
-            columns: ['student_id'];
-            isOneToOne: false;
-            referencedRelation: 'students';
             referencedColumns: ['id'];
           },
         ];

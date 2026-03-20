@@ -6,12 +6,15 @@ export type CreditMutationResult = {
 };
 
 type CreditTransactionPayload = {
-  amount: number;
-  balance_after: number;
+  available_delta: number;
+  pending_delta: number;
+  available_after: number;
+  pending_after: number;
   parent_id: number;
   session_id?: number;
-  student_id: number;
-  type: 'purchase' | 'session_debit';
+  idempotency_key?: string;
+  note?: string;
+  type: 'purchase';
 };
 
 type CreditBalanceResponse = Partial<CreditBalance> & {
@@ -57,12 +60,7 @@ async function saveCreditTransaction(input: CreditTransactionPayload) {
   }
 }
 
-export async function purchaseParentCredits(
-  parentId: number,
-  studentId: number,
-  credits: number,
-  currentBalance: CreditBalance
-) {
+export async function purchaseParentCredits(parentId: number, credits: number, currentBalance: CreditBalance) {
   const nextBalance = {
     amount_available: currentBalance.amount_available + credits,
     amount_pending: currentBalance.amount_pending,
@@ -72,10 +70,11 @@ export async function purchaseParentCredits(
 
   try {
     await saveCreditTransaction({
-      amount: credits,
-      balance_after: balance.amount_available,
+      available_delta: credits,
+      pending_delta: 0,
+      available_after: balance.amount_available,
+      pending_after: balance.amount_pending,
       parent_id: parentId,
-      student_id: studentId,
       type: 'purchase',
     });
   } catch {
@@ -84,21 +83,6 @@ export async function purchaseParentCredits(
       warning: 'Credits were added, but the purchase entry could not be recorded in credit history.',
     };
   }
-
-  return { balance };
-}
-
-export async function reserveCreditsForBooking(parentId: number, credits: number, currentBalance: CreditBalance) {
-  if (currentBalance.amount_available < credits) {
-    throw new Error('Not enough available credits to book this session.');
-  }
-
-  const nextBalance = {
-    amount_available: currentBalance.amount_available - credits,
-    amount_pending: currentBalance.amount_pending + credits,
-  };
-
-  const balance = await saveCreditBalance(parentId, nextBalance);
 
   return { balance };
 }

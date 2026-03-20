@@ -39,8 +39,12 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
         .gte('scheduled_at', startOfToday.toISOString())
         .lte('scheduled_at', endOfToday.toISOString()),
       supabase.from('sessions').select('id, slot_units').eq('status', 'Pending-Notes'),
-      supabase.from('credit_transactions').select('amount').lt('amount', 0).not('session_id', 'is', null),
-      supabase.from('sessions').select('id, slot_units, credit_transactions(id, amount)').eq('status', 'Completed'),
+      supabase
+        .from('credit_transactions')
+        .select('pending_delta')
+        .eq('type', 'session_debit')
+        .not('session_id', 'is', null),
+      supabase.from('sessions').select('id, slot_units, credit_transactions(id, type)').eq('status', 'Completed'),
       supabase
         .from('credit_balances')
         .select('id', { count: 'exact', head: true })
@@ -49,17 +53,17 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
 
   const pendingNotes = pendingNotesResult.data ?? [];
   const pendingNotesCreditsAtRisk = pendingNotes.reduce((sum, session) => sum + session.slot_units, 0);
-  const creditsCaptured = (debitTransactionsResult.data ?? []).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+  const creditsCaptured = (debitTransactionsResult.data ?? []).reduce((sum, tx) => sum + Math.abs(tx.pending_delta), 0);
 
   type CompletedRow = {
     id: number;
     slot_units: number;
-    credit_transactions: Array<{ amount: number; id: number }> | null;
+    credit_transactions: Array<{ id: number; type: string }> | null;
   };
 
   const completedSessions = (completedSessionsResult.data ?? []) as CompletedRow[];
   const creditsLeaked = completedSessions
-    .filter(session => !(session.credit_transactions ?? []).some(tx => tx.amount < 0))
+    .filter(session => !(session.credit_transactions ?? []).some(tx => tx.type === 'session_debit'))
     .reduce((sum, session) => sum + session.slot_units, 0);
   const leakageRate = creditsCaptured + creditsLeaked > 0 ? creditsLeaked / (creditsCaptured + creditsLeaked) : 0;
 
@@ -115,7 +119,7 @@ export async function getDebitSessionIds(): Promise<Set<number>> {
   const { data } = await supabase
     .from('credit_transactions')
     .select('session_id')
-    .lt('amount', 0)
+    .eq('type', 'session_debit')
     .not('session_id', 'is', null);
 
   return new Set((data ?? []).map(tx => tx.session_id).filter((id): id is number => id !== null));

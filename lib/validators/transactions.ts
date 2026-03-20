@@ -31,14 +31,22 @@ export function formatTransactionTypeLabel(type: TransactionType) {
   return TRANSACTION_TYPE_LABELS[type];
 }
 
-export const TransactionCreateSchema = z.object({
-  parent_id: id,
-  session_id: id.optional(),
-  student_id: id,
-  amount: z.number().int(),
-  balance_after: z.number().nonnegative().int(),
-  type: TransactionTypeSchema,
-});
+export const TransactionCreateSchema = z
+  .object({
+    parent_id: id,
+    session_id: id.optional(),
+    available_delta: z.number().int(),
+    pending_delta: z.number().int(),
+    available_after: z.number().nonnegative().int(),
+    pending_after: z.number().nonnegative().int(),
+    idempotency_key: z.string().min(1).optional(),
+    note: z.string().min(1).optional(),
+    type: TransactionTypeSchema,
+  })
+  .refine(input => input.available_delta !== 0 || input.pending_delta !== 0, {
+    message: 'At least one ledger delta must be non-zero',
+    path: ['available_delta'],
+  });
 
 export const TransactionListQuerySchema = z.object({
   parent_id: id.optional(),
@@ -58,15 +66,17 @@ const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordS
 export const TransactionsWithJoinsSchema = z.object({
   id: z.number(),
   parent_id: z.number(),
-  student_id: z.number(),
   session_id: z.number().nullable(),
-  amount: z.number().int(),
-  balance_after: z.number().nonnegative().int(),
+  available_delta: z.number().int(),
+  pending_delta: z.number().int(),
+  available_after: z.number().nonnegative().int(),
+  pending_after: z.number().nonnegative().int(),
   type: TransactionTypeSchema,
   created_at: z.string(), // ISO date string
+  idempotency_key: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
 
   parent: EmbeddedOneSchema,
-  student: EmbeddedOneSchema,
   session: EmbeddedOneSchema,
 });
 

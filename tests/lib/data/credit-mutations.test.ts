@@ -1,4 +1,4 @@
-import { purchaseParentCredits, reserveCreditsForBooking } from '@/lib/data/credit-mutations';
+import { purchaseParentCredits } from '@/lib/data/credit-mutations';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('credit mutations', () => {
@@ -19,7 +19,7 @@ describe('credit mutations', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(purchaseParentCredits(44, 12, 3, { amount_available: 9, amount_pending: 1 })).resolves.toEqual({
+    await expect(purchaseParentCredits(44, 3, { amount_available: 9, amount_pending: 1 })).resolves.toEqual({
       balance: {
         amount_available: 12,
         amount_pending: 1,
@@ -51,9 +51,10 @@ describe('credit mutations', () => {
     });
     expect(transactionBody).toEqual({
       parent_id: 44,
-      student_id: 12,
-      amount: 3,
-      balance_after: 12,
+      available_delta: 3,
+      pending_delta: 0,
+      available_after: 12,
+      pending_after: 1,
       type: 'purchase',
     });
   });
@@ -75,21 +76,12 @@ describe('credit mutations', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(purchaseParentCredits(21, 4, 2, { amount_available: 5, amount_pending: 0 })).resolves.toEqual({
+    await expect(purchaseParentCredits(21, 2, { amount_available: 5, amount_pending: 0 })).resolves.toEqual({
       balance: {
         amount_available: 7,
         amount_pending: 0,
       },
       warning: 'Credits were added, but the purchase entry could not be recorded in credit history.',
     });
-  });
-  it('rejects reservation attempts when there are not enough available credits', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(reserveCreditsForBooking(9, 3, { amount_available: 2, amount_pending: 0 })).rejects.toThrow(
-      'Not enough available credits to book this session.'
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

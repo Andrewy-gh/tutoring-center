@@ -65,9 +65,13 @@ describe('SingleCreditTransactionPage', () => {
       id: 42,
       created_at: '2026-03-10T15:00:00.000Z',
       type: 'reservation',
-      amount: -1,
-      balance_after: 9,
+      available_delta: -1,
+      pending_delta: 1,
+      available_after: 9,
+      pending_after: 1,
+      net_amount: 0,
       session_id: 500,
+      note: null,
       parent: { id: 1, name: 'Pat Parent', email: 'pat@example.com', phone: '555-1111' },
       student: { id: 2, name: 'Sam Student', email: 'sam@example.com', phone: '555-2222', grade: '8' },
       session: {
@@ -100,11 +104,15 @@ describe('SingleCreditTransactionPage', () => {
       id: 43,
       created_at: '2026-03-10T15:00:00.000Z',
       type: 'purchase',
-      amount: 10,
-      balance_after: 19,
+      available_delta: 10,
+      pending_delta: 0,
+      available_after: 19,
+      pending_after: 0,
+      net_amount: 10,
       session_id: null,
+      note: null,
       parent: { id: 1, name: 'Pat Parent', email: 'pat@example.com', phone: '555-1111' },
-      student: { id: 2, name: 'Sam Student', email: 'sam@example.com', phone: '555-2222', grade: '8' },
+      student: null,
       session: null,
     });
 
@@ -113,7 +121,7 @@ describe('SingleCreditTransactionPage', () => {
 
     const markup = renderToStaticMarkup(await SingleCreditTransactionPage({ params: Promise.resolve({ id: '43' }) }));
 
-    expect(markup).toContain('Sam Student');
+    expect(markup).toContain('No student is linked to this transaction.');
     expect(markup).not.toContain('Pat Parent');
     expect(markup).toContain('No session is linked to this credit transaction.');
   });

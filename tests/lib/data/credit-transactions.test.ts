@@ -62,13 +62,14 @@ describe('credit transaction data', () => {
           id: 10,
           created_at: '2026-03-10T15:00:00.000Z',
           type: 'purchase',
-          amount: 10,
-          balance_after: 20,
+          available_delta: 10,
+          pending_delta: 0,
+          available_after: 20,
+          pending_after: 0,
           parent_id: 1,
-          student_id: 2,
           session_id: null,
           parent: { users: { first_name: 'Pat', last_name: 'Parent' } },
-          student: { users: { first_name: 'Sam', last_name: 'Student' } },
+          session: null,
         },
       ],
       error: null,
@@ -90,10 +91,13 @@ describe('credit transaction data', () => {
         id: 10,
         created_at: '2026-03-10T15:00:00.000Z',
         type: 'purchase',
-        amount: 10,
-        balance_after: 20,
+        available_delta: 10,
+        pending_delta: 0,
+        available_after: 20,
+        pending_after: 0,
+        net_amount: 10,
         parent_name: 'Pat Parent',
-        student_name: 'Sam Student',
+        student_name: '—',
         session_id: null,
       },
     ]);
@@ -109,21 +113,17 @@ describe('credit transaction data', () => {
         id: 99,
         created_at: '2026-03-10T15:00:00.000Z',
         type: 'reservation',
-        amount: -1,
-        balance_after: 9,
+        available_delta: -1,
+        pending_delta: 1,
+        available_after: 9,
+        pending_after: 1,
         parent_id: 77,
-        student_id: 12,
         session_id: 500,
+        note: null,
         parent: {
           id: 77,
           user_id: 42,
           users: { first_name: 'Pat', last_name: 'Parent', email: 'pat@example.com', phone: '555-1111' },
-        },
-        student: {
-          id: 12,
-          user_id: 52,
-          grade: '8',
-          users: { first_name: 'Sam', last_name: 'Student', email: 'sam@example.com', phone: '555-2222' },
         },
         session: {
           id: 500,
@@ -132,6 +132,12 @@ describe('credit transaction data', () => {
           scheduled_at: '2026-03-10T15:00:00.000Z',
           ends_at: '2026-03-10T16:00:00.000Z',
           status: 'Completed',
+          student: {
+            id: 12,
+            user_id: 52,
+            grade: '8',
+            users: { first_name: 'Sam', last_name: 'Student', email: 'sam@example.com', phone: '555-2222' },
+          },
         },
       },
       error: null,
@@ -161,9 +167,10 @@ describe('credit transaction data', () => {
     expect(detailIdEq).toHaveBeenCalledWith('id', 99);
     expect(detailParentEq).toHaveBeenCalledWith('parent_id', 77);
     expect(detail.parent.name).toBe('Pat Parent');
-    expect(detail.student.name).toBe('Sam Student');
+    expect(detail.student?.name).toBe('Sam Student');
     expect(detail.session?.subject_name).toBe('Mathematics');
     expect(mockGetTutorProfileMapByIds).toHaveBeenCalledWith([3]);
     expect(detail.session?.tutor_name).toBe('Taylor Tutor');
+    expect(detail.net_amount).toBe(0);
   });
 });

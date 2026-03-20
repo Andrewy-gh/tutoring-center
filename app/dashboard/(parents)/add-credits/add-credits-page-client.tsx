@@ -9,32 +9,18 @@ import { purchaseParentCredits, type CreditMutationResult } from '@/lib/data/cre
 type AddCreditsPageClientProps = {
   parentId: number;
   initialBalance: CreditBalance;
-  defaultStudentId: number | null;
 };
 
-export function AddCreditsPageClient({ parentId, initialBalance, defaultStudentId }: AddCreditsPageClientProps) {
+export function AddCreditsPageClient({ parentId, initialBalance }: AddCreditsPageClientProps) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
   const [warning, setWarning] = useState<string | null>(null);
-
-  if (defaultStudentId === null) {
-    return (
-      <main className='mx-auto max-w-3xl p-2 md:p-8 text-sm text-muted-foreground'>
-        Add a student before purchasing credits.
-      </main>
-    );
-  }
 
   return (
     <AddCredits
       warningMessage={warning}
       onPurchaseCompleteAction={async purchase => {
-        const result: CreditMutationResult = await purchaseParentCredits(
-          parentId,
-          defaultStudentId,
-          purchase.pkg.credits,
-          balance
-        );
+        const result: CreditMutationResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
 
         setBalance(result.balance);
         setWarning(result.warning ?? null);
