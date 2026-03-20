@@ -3,15 +3,15 @@ import {
   creditBalances,
   creditTransactions,
   roles,
-  subjectKindEnum,
   sessionMetrics,
   sessionProgress,
   sessions,
   sessionStatusEnum,
   studentGrades,
+  subjectKindEnum,
   subjects,
-  tutorSubjects,
   transactionTypeEnum,
+  tutorSubjects,
   weekDayEnum,
 } from '@/lib/db/schema';
 import { getTableName } from 'drizzle-orm';
@@ -28,9 +28,9 @@ describe('db schema exports', () => {
       'Rescheduled',
     ]);
     expect(subjectKindEnum.enumValues).toEqual(['group', 'leaf']);
-    expect(transactionTypeEnum.enumValues).toContain('Reservation');
-    expect(transactionTypeEnum.enumValues).toContain('Reservation Release');
-    expect(transactionTypeEnum.enumValues).toContain('Session Debit');
+    expect(transactionTypeEnum.enumValues).toContain('reservation');
+    expect(transactionTypeEnum.enumValues).toContain('reservation_release');
+    expect(transactionTypeEnum.enumValues).toContain('session_debit');
     expect(weekDayEnum.enumValues).toEqual([
       'Monday',
       'Tuesday',
@@ -59,5 +59,17 @@ describe('db schema exports', () => {
     expect(subjects.kind.name).toBe('kind');
     expect(subjects.parentSubjectId.name).toBe('parent_subject_id');
     expect(subjects.parentSubjectKind.name).toBe('parent_subject_kind');
+  });
+
+  it('exposes the renamed linkage columns for the schema rewrite', () => {
+    expect(tutorSubjects.subjectKind.name).toBe('subject_kind');
+    expect(sessions.subjectId.name).toBe('subject_id');
+    expect(studentGrades.subjectId.name).toBe('subject_id');
+    expect(studentGrades.subjectKind.name).toBe('subject_kind');
+    expect(creditTransactions.availableDelta.name).toBe('available_delta');
+    expect(creditTransactions.pendingDelta.name).toBe('pending_delta');
+    expect(creditTransactions.availableAfter.name).toBe('available_after');
+    expect(creditTransactions.pendingAfter.name).toBe('pending_after');
+    expect(creditTransactions.idempotencyKey.name).toBe('idempotency_key');
   });
 });

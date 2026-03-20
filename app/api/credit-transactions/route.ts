@@ -88,7 +88,7 @@ export async function GET(req: Request) {
   if (parent_id) countQuery = countQuery.eq('parent_id', parent_id);
   if (student_id) countQuery = countQuery.eq('student_id', student_id);
   if (session_id) countQuery = countQuery.eq('session_id', session_id);
-  if (type && type !== 'All') countQuery = countQuery.eq('type', type);
+  if (type && type !== 'all') countQuery = countQuery.eq('type', type);
 
   const { error: countErr, count } = await countQuery;
   if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
   if (parent_id) dataQuery = dataQuery.eq('parent_id', parent_id);
   if (student_id) dataQuery = dataQuery.eq('student_id', student_id);
   if (session_id) dataQuery = dataQuery.eq('session_id', session_id);
-  if (type && type !== 'All') dataQuery = dataQuery.eq('type', type);
+  if (type && type !== 'all') dataQuery = dataQuery.eq('type', type);
   if (start_date) dataQuery = dataQuery.gte('created_at', start_date);
   if (end_date) dataQuery = dataQuery.lte('created_at', end_date);
 

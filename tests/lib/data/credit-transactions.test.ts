@@ -44,7 +44,7 @@ describe('credit transaction data', () => {
         {
           id: 10,
           created_at: '2026-03-10T15:00:00.000Z',
-          type: 'Purchase',
+          type: 'purchase',
           amount: 10,
           balance_after: 20,
           parent_id: 1,
@@ -72,7 +72,7 @@ describe('credit transaction data', () => {
       {
         id: 10,
         created_at: '2026-03-10T15:00:00.000Z',
-        type: 'Purchase',
+        type: 'purchase',
         amount: 10,
         balance_after: 20,
         parent_name: 'Pat Parent',
@@ -91,7 +91,7 @@ describe('credit transaction data', () => {
       data: {
         id: 99,
         created_at: '2026-03-10T15:00:00.000Z',
-        type: 'Session Debit',
+        type: 'reservation',
         amount: -1,
         balance_after: 9,
         parent_id: 77,

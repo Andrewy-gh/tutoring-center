@@ -138,7 +138,7 @@ describe('credit transactions route auth', () => {
         student_id: 22,
         amount: 4,
         balance_after: 8,
-        type: 'Purchase',
+        type: 'purchase',
       })
     );
     const body = await response.json();
@@ -151,7 +151,7 @@ describe('credit transactions route auth', () => {
         student_id: 22,
         amount: 4,
         balance_after: 8,
-        type: 'Purchase',
+        type: 'purchase',
       })
     );
     expect(body.data).toEqual({ id: 2002 });
