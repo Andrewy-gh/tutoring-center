@@ -2,9 +2,11 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { db } from '@/lib/db/client';
+import { availability, tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { EmbeddedOneUserSchema } from '@/lib/validators/shared';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 export type TutorOption = {
@@ -39,6 +41,20 @@ const TutorOptionQueryRowListSchema = z.array(TutorOptionQueryRowSchema);
 
 type TutorOptionQueryRow = z.infer<typeof TutorOptionQueryRowSchema>;
 type WeekDay = z.infer<typeof WeekDaySchema>;
+
+type TutorOptionJoinRow = {
+  id: unknown;
+  userId: unknown;
+  education: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+  weekDay: unknown;
+  startTime: unknown;
+  endTime: unknown;
+};
 
 const WEEKDAY_ORDER: Record<WeekDay, number> = {
   Monday: 1,
@@ -107,6 +123,53 @@ const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => {
   };
 };
 
+const mapTutorOptionRows = (rows: TutorOptionJoinRow[]) => {
+  const tutorsById = new Map<number, TutorOptionQueryRow>();
+
+  for (const row of rows) {
+    const tutorId = Number(row.id);
+    const existingTutor = tutorsById.get(tutorId);
+
+    if (existingTutor) {
+      if (row.weekDay !== null && row.weekDay !== undefined) {
+        existingTutor.availability ??= [];
+        existingTutor.availability.push({
+          week_day: row.weekDay as WeekDay,
+          start_time: row.startTime as string,
+          end_time: row.endTime as string,
+        });
+      }
+
+      continue;
+    }
+
+    tutorsById.set(tutorId, {
+      id: row.id as number,
+      user_id: row.userId as number,
+      education: row.education as string | null,
+      years_experience: row.yearsExperience as number | null,
+      users: {
+        first_name: row.firstName as string | null,
+        last_name: row.lastName as string | null,
+        email: row.email as string,
+        phone: row.phone as string | null,
+      },
+      availability:
+        row.weekDay === null || row.weekDay === undefined
+          ? []
+          : [
+              {
+                week_day: row.weekDay as WeekDay,
+                start_time: row.startTime as string,
+                end_time: row.endTime as string,
+              },
+            ],
+    });
+  }
+
+  return Array.from(tutorsById.values());
+};
+
 export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
   if (!isValidRole(role)) {
     throw new Error('Role is required to fetch tutor options.');
@@ -121,26 +184,32 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
     return [] as TutorOption[];
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('tutors')
-    .select(
-      `
-      id,
-      user_id,
-      education,
-      years_experience,
-      users:user_id ( first_name, last_name, email, phone ),
-      availability ( week_day, start_time, end_time )
-    `
-    )
-    .in('id', uniqueTutorIds);
-
-  if (error) {
+  let rows: TutorOptionJoinRow[];
+  try {
+    rows = await db
+      .select({
+        id: tutors.id,
+        userId: tutors.userId,
+        education: tutors.education,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+        weekDay: availability.weekDay,
+        startTime: availability.startTime,
+        endTime: availability.endTime,
+      })
+      .from(tutors)
+      .innerJoin(users, eq(tutors.userId, users.id))
+      .leftJoin(availability, eq(availability.tutorId, tutors.id))
+      .where(inArray(tutors.id, uniqueTutorIds))
+      .orderBy(asc(tutors.id), asc(availability.weekDay), asc(availability.startTime), asc(availability.endTime));
+  } catch {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.database);
   }
 
-  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(data ?? []);
+  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(mapTutorOptionRows(rows));
   if (!parsedTutors.success) {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.validation);
   }

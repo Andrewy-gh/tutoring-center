@@ -1,9 +1,10 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { TUTOR_SELECT_WITH_JOINS } from '@/lib/supabase/types';
+import { db } from '@/lib/db/client';
+import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsSchema, type TutorWithJoins } from '@/lib/validators/tutors';
+import { eq } from 'drizzle-orm';
 
 export { getUserRole } from '@/lib/auth';
 
@@ -39,16 +40,66 @@ const mapTutorDetail = (tutor: TutorWithJoins): TutorDetailType => {
   };
 };
 
+type TutorDetailRow = {
+  id: unknown;
+  userId: unknown;
+  verified: unknown;
+  education: unknown;
+  bio: unknown;
+  tagline: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+};
+
+const mapTutorJoinRow = (row: TutorDetailRow): TutorWithJoins => ({
+  id: row.id as number,
+  user_id: row.userId as number,
+  verified: row.verified as boolean,
+  education: row.education as string | null,
+  bio: row.bio as string | null,
+  tagline: row.tagline as string | null,
+  years_experience: row.yearsExperience as number | null,
+  users: {
+    first_name: row.firstName as string | null,
+    last_name: row.lastName as string | null,
+    email: row.email as string,
+    phone: row.phone as string | null,
+  },
+});
+
 export async function getTutor(id: number): Promise<TutorDetailType> {
-  const supabase = createSupabaseServiceClient();
-
-  const { data, error } = await supabase.from('tutors').select(TUTOR_SELECT_WITH_JOINS).eq('id', id).single();
-
-  if (error || !data) {
+  let row: TutorDetailRow | undefined;
+  try {
+    [row] = await db
+      .select({
+        id: tutors.id,
+        userId: tutors.userId,
+        verified: tutors.verified,
+        education: tutors.education,
+        bio: tutors.bio,
+        tagline: tutors.tagline,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+      })
+      .from(tutors)
+      .innerJoin(users, eq(tutors.userId, users.id))
+      .where(eq(tutors.id, id))
+      .limit(1);
+  } catch {
     notFound();
   }
 
-  const parsedTutor = TutorWithJoinsSchema.safeParse(data);
+  if (!row) {
+    notFound();
+  }
+
+  const parsedTutor = TutorWithJoinsSchema.safeParse(mapTutorJoinRow(row));
   if (!parsedTutor.success) {
     notFound();
   }
