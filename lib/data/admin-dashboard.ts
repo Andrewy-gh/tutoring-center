@@ -1,6 +1,6 @@
 import 'server-only';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
+import { creditBalances, creditTransactions, parents, sessions, users } from '@/lib/db/schema';
+import { and, asc, eq, gte, isNotNull, lt, lte, sql } from 'drizzle-orm';
 
 export type AdminMetrics = {
   sessionsTodayCount: number;
@@ -21,57 +21,91 @@ export type AtRiskParent = {
 
 export const AT_RISK_THRESHOLD = 2;
 
-export async function getAdminMetrics(): Promise<AdminMetrics> {
-  const supabase = createSupabaseServiceClient();
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
+export async function getAdminMetrics(): Promise<AdminMetrics> {
+  const db = await getDb();
   const now = new Date();
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(now);
   endOfToday.setHours(23, 59, 59, 999);
 
-  const [sessionsTodayResult, pendingNotesResult, debitTransactionsResult, completedSessionsResult, atRiskResult] =
-    await Promise.all([
-      supabase
-        .from('sessions')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'Scheduled')
-        .gte('scheduled_at', startOfToday.toISOString())
-        .lte('scheduled_at', endOfToday.toISOString()),
-      supabase.from('sessions').select('id, slot_units').eq('status', 'Pending-Notes'),
-      supabase
-        .from('credit_transactions')
-        .select('pending_delta')
-        .eq('type', 'session_debit')
-        .not('session_id', 'is', null),
-      supabase.from('sessions').select('id, slot_units, credit_transactions(id, type)').eq('status', 'Completed'),
-      supabase
-        .from('credit_balances')
-        .select('id', { count: 'exact', head: true })
-        .lt('amount_available', AT_RISK_THRESHOLD),
-    ]);
+  const [sessionsTodayRows, pendingNotes, debitTransactions, completedSessionRows, atRiskRows] = await Promise.all([
+    db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.status, 'Scheduled'),
+          gte(sessions.scheduledAt, startOfToday.toISOString()),
+          lte(sessions.scheduledAt, endOfToday.toISOString())
+        )
+      ),
+    db
+      .select({
+        id: sessions.id,
+        slot_units: sessions.slotUnits,
+      })
+      .from(sessions)
+      .where(eq(sessions.status, 'Pending-Notes')),
+    db
+      .select({
+        pending_delta: creditTransactions.pendingDelta,
+      })
+      .from(creditTransactions)
+      .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId))),
+    db
+      .select({
+        id: sessions.id,
+        slot_units: sessions.slotUnits,
+        debit_transaction_id: creditTransactions.id,
+      })
+      .from(sessions)
+      .leftJoin(
+        creditTransactions,
+        and(eq(creditTransactions.sessionId, sessions.id), eq(creditTransactions.type, 'session_debit'))
+      )
+      .where(eq(sessions.status, 'Completed')),
+    db
+      .select({
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(creditBalances)
+      .where(lt(creditBalances.amountAvailable, AT_RISK_THRESHOLD)),
+  ]);
 
-  const pendingNotes = pendingNotesResult.data ?? [];
   const pendingNotesCreditsAtRisk = pendingNotes.reduce((sum, session) => sum + session.slot_units, 0);
-  const creditsCaptured = (debitTransactionsResult.data ?? []).reduce((sum, tx) => sum + Math.abs(tx.pending_delta), 0);
+  const creditsCaptured = debitTransactions.reduce((sum, tx) => sum + Math.abs(tx.pending_delta), 0);
+  const completedSessions = new Map<number, { slotUnits: number; hasDebit: boolean }>();
 
-  type CompletedRow = {
-    id: number;
-    slot_units: number;
-    credit_transactions: Array<{ id: number; type: string }> | null;
-  };
+  for (const row of completedSessionRows) {
+    const existing = completedSessions.get(row.id);
+    if (existing) {
+      existing.hasDebit ||= row.debit_transaction_id !== null;
+      continue;
+    }
 
-  const completedSessions = (completedSessionsResult.data ?? []) as CompletedRow[];
-  const creditsLeaked = completedSessions
-    .filter(session => !(session.credit_transactions ?? []).some(tx => tx.type === 'session_debit'))
-    .reduce((sum, session) => sum + session.slot_units, 0);
+    completedSessions.set(row.id, {
+      slotUnits: row.slot_units,
+      hasDebit: row.debit_transaction_id !== null,
+    });
+  }
+
+  const creditsLeaked = Array.from(completedSessions.values())
+    .filter(session => !session.hasDebit)
+    .reduce((sum, session) => sum + session.slotUnits, 0);
   const leakageRate = creditsCaptured + creditsLeaked > 0 ? creditsLeaked / (creditsCaptured + creditsLeaked) : 0;
 
   return {
-    sessionsTodayCount: sessionsTodayResult.count ?? 0,
+    sessionsTodayCount: sessionsTodayRows[0]?.count ?? 0,
     pendingNotesCount: pendingNotes.length,
     pendingNotesCreditsAtRisk,
-    atRiskParentsCount: atRiskResult.count ?? 0,
+    atRiskParentsCount: atRiskRows[0]?.count ?? 0,
     creditsCaptured,
     creditsLeaked,
     leakageRate,
@@ -79,48 +113,41 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
 }
 
 export async function getAtRiskParents(): Promise<AtRiskParent[]> {
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('credit_balances')
-    .select('amount_available, parents(id, users:user_id(first_name, last_name, email))')
-    .lt('amount_available', AT_RISK_THRESHOLD)
-    .order('amount_available', { ascending: true });
+  try {
+    const db = await getDb();
+    const rows = await db
+      .select({
+        parent_id: parents.id,
+        first_name: users.firstName,
+        last_name: users.lastName,
+        email: users.email,
+        amount_available: creditBalances.amountAvailable,
+      })
+      .from(creditBalances)
+      .innerJoin(parents, eq(creditBalances.parentId, parents.id))
+      .innerJoin(users, eq(parents.userId, users.id))
+      .where(lt(creditBalances.amountAvailable, AT_RISK_THRESHOLD))
+      .orderBy(asc(creditBalances.amountAvailable));
 
-  if (error || !data) {
+    return rows.map(row => ({
+      parent_id: row.parent_id,
+      name: [row.first_name, row.last_name].filter(Boolean).join(' ') || '—',
+      email: row.email,
+      amount_available: row.amount_available,
+    }));
+  } catch {
     return [];
   }
-
-  return data.flatMap(row => {
-    const parent = Array.isArray(row.parents) ? row.parents[0] : row.parents;
-    if (!parent) {
-      return [];
-    }
-
-    const userRaw = parent.users ? pickFirstEmbedded(parent.users) : null;
-    if (!userRaw) {
-      return [];
-    }
-
-    const user = userRaw as { email: string; first_name: string | null; last_name: string | null };
-
-    return [
-      {
-        parent_id: parent.id,
-        name: [user.first_name, user.last_name].filter(Boolean).join(' ') || '—',
-        email: user.email,
-        amount_available: row.amount_available,
-      },
-    ];
-  });
 }
 
 export async function getDebitSessionIds(): Promise<Set<number>> {
-  const supabase = createSupabaseServiceClient();
-  const { data } = await supabase
-    .from('credit_transactions')
-    .select('session_id')
-    .eq('type', 'session_debit')
-    .not('session_id', 'is', null);
+  const db = await getDb();
+  const rows = await db
+    .select({
+      session_id: creditTransactions.sessionId,
+    })
+    .from(creditTransactions)
+    .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId)));
 
-  return new Set((data ?? []).map(tx => tx.session_id).filter((id): id is number => id !== null));
+  return new Set(rows.map(tx => tx.session_id).filter((id): id is number => id !== null));
 }

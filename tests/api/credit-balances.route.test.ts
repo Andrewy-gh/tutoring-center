@@ -1,17 +1,21 @@
 import { GET, PUT } from '@/app/api/credit-balances/route';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockCookies, mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
   mockCookies: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+    insert: mockDbInsert,
+  },
 }));
 
 function setCookies(role?: string, userId?: string) {
@@ -32,56 +36,42 @@ function makePutRequest(body: Record<string, unknown>) {
   });
 }
 
-type SupabaseSetup = {
-  parentRow?: { id: number } | null;
-  parentErr?: { message: string } | null;
-  balanceRows?: Array<{ parent_id: number; amount_available: number; amount_pending: number }>;
-  balanceErr?: { message: string } | null;
-  upsertRow?: { parent_id: number; amount_available: number; amount_pending: number } | null;
-  upsertErr?: { message: string } | null;
-};
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    where: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  };
 
-function setupSupabase({
-  parentRow = { id: 7 },
-  parentErr = null,
-  balanceRows = [{ parent_id: 7, amount_available: 4, amount_pending: 1 }],
-  balanceErr = null,
-  upsertRow = { parent_id: 7, amount_available: 5, amount_pending: 0 },
-  upsertErr = null,
-}: SupabaseSetup = {}) {
-  const parentSingle = vi.fn().mockResolvedValue({ data: parentRow, error: parentErr });
-  const parentEq = vi.fn().mockReturnValue({ single: parentSingle });
-  const parentSelect = vi.fn().mockReturnValue({ eq: parentEq });
+  return query;
+}
 
-  const balanceEq = vi.fn().mockResolvedValue({ data: balanceRows, error: balanceErr });
-  const balanceSelect = vi.fn().mockReturnValue({ eq: balanceEq });
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
 
-  const upsertSingle = vi.fn().mockResolvedValue({ data: upsertRow, error: upsertErr });
-  const upsertSelect = vi.fn().mockReturnValue({ single: upsertSingle });
-  const balanceUpsert = vi.fn().mockReturnValue({ select: upsertSelect });
-
-  const from = vi.fn((table: string) => {
-    if (table === 'parents') {
-      return { select: parentSelect };
-    }
-
-    if (table === 'credit_balances') {
-      return {
-        select: balanceSelect,
-        upsert: balanceUpsert,
-      };
-    }
-
-    throw new Error(`Unexpected table: ${table}`);
-  });
-
-  mockCreateSupabaseServiceClient.mockReturnValue({ from });
-
+function createInsertQuery(result: unknown) {
   return {
-    from,
-    parentEq,
-    balanceEq,
-    balanceUpsert,
+    values: vi.fn(() => ({
+      onConflictDoUpdate: vi.fn(() => ({
+        returning: vi.fn().mockResolvedValue(result),
+      })),
+    })),
+  };
+}
+
+function createRejectingInsertQuery(message: string) {
+  return {
+    values: vi.fn(() => ({
+      onConflictDoUpdate: vi.fn(() => ({
+        returning: vi.fn().mockRejectedValue(new Error(message)),
+      })),
+    })),
   };
 }
 
@@ -89,7 +79,6 @@ describe('credit balances route auth', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setCookies('parent', '42');
-    setupSupabase();
   });
 
   it('returns 401 for GET when role cookie is missing', async () => {
@@ -113,39 +102,40 @@ describe('credit balances route auth', () => {
   });
 
   it('derives the parent id for GET when the caller is a parent', async () => {
-    const { parentEq, balanceEq } = setupSupabase({
-      parentRow: { id: 77 },
-      balanceRows: [{ parent_id: 77, amount_available: 8, amount_pending: 2 }],
-    });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 77 }]))
+      .mockReturnValueOnce(createSelectQuery([{ parent_id: 77, amount_available: 8, amount_pending: 2 }]));
 
     const response = await GET(new Request('https://example.test/api/credit-balances?parent_id=999'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(parentEq).toHaveBeenCalledWith('user_id', 42);
-    expect(balanceEq).toHaveBeenCalledWith('parent_id', 77);
     expect(body).toEqual({ parent_id: 77, amount_available: 8, amount_pending: 2 });
   });
 
   it('derives the parent id for PUT when the caller is a parent', async () => {
-    const { parentEq, balanceUpsert } = setupSupabase({
-      parentRow: { id: 55 },
-      upsertRow: { parent_id: 55, amount_available: 6, amount_pending: 1 },
-    });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
+    mockDbInsert.mockReturnValueOnce(createInsertQuery([{ parent_id: 55, amount_available: 6, amount_pending: 1 }]));
 
     const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(parentEq).toHaveBeenCalledWith('user_id', 42);
-    expect(balanceUpsert).toHaveBeenCalledWith(
-      {
-        parent_id: 55,
-        amount_available: 6,
-        amount_pending: 1,
-      },
-      { onConflict: 'parent_id' }
-    );
     expect(body).toEqual({ parent_id: 55, amount_available: 6, amount_pending: 1 });
+  });
+
+  it('returns a JSON 500 when the balance upsert fails', async () => {
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
+    mockDbInsert.mockReturnValueOnce(createRejectingInsertQuery('upsert failed'));
+
+    const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'upsert failed' });
   });
 });

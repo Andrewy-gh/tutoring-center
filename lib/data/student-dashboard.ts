@@ -1,39 +1,22 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-ledger';
-import type { Enums, Tables } from '@/lib/supabase/database.types';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-type Embedded<T> = T | T[] | null;
-type AllowedRole = Exclude<UserRole, 'tutor'>;
-type TransactionType = Enums<'transaction_type'>;
-type SessionStatus = Enums<'session_status'>;
+import { creditTransactions, parents, sessionProgress, sessions, type SessionStatus } from '@/lib/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
 
+type AllowedRole = Exclude<UserRole, 'tutor'>;
 type CreditTransactionRecord = Pick<
-  Tables<'credit_transactions'>,
-  | 'id'
-  | 'created_at'
-  | 'type'
-  | 'available_delta'
-  | 'pending_delta'
-  | 'available_after'
-  | 'pending_after'
-  | 'session_id'
+  typeof creditTransactions.$inferSelect,
+  'id' | 'createdAt' | 'type' | 'availableDelta' | 'pendingDelta' | 'availableAfter' | 'pendingAfter' | 'sessionId'
 >;
-type SessionProgressJoin = Pick<
-  Tables<'session_progress'>,
-  'created_at' | 'updated_at' | 'topics' | 'homework_assigned' | 'public_notes'
->;
-type ProgressSessionRecord = Pick<Tables<'sessions'>, 'id' | 'scheduled_at' | 'status' | 'subject_id' | 'tutor_id'> & {
-  session_progress: Embedded<SessionProgressJoin>;
-};
 
 export type StudentCreditHistoryItem = {
   id: number;
   created_at: string;
-  type: TransactionType;
+  type: CreditTransactionRecord['type'];
   available_delta: number;
   pending_delta: number;
   available_after: number;
@@ -62,92 +45,50 @@ export type StudentDashboardDetails = {
 };
 
 const MISSING_VALUE = '\u2014';
-
 const CREDIT_HISTORY_LIMIT = 5;
 const PROGRESS_REPORT_LIMIT = 5;
 
-const CREDIT_HISTORY_SELECT = `
-  id,
-  created_at,
-  type,
-  available_delta,
-  pending_delta,
-  available_after,
-  pending_after,
-  session_id,
-  session:sessions!inner (
-    student_id
-  )
-` as const;
-
-const PROGRESS_REPORT_SELECT = `
-  id,
-  subject_id,
-  tutor_id,
-  scheduled_at,
-  status,
-  session_progress!inner (
-    created_at,
-    updated_at,
-    topics,
-    homework_assigned,
-    public_notes
-  )
-` as const;
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 async function getScopedParentId(role: AllowedRole) {
   if (role !== 'parent') {
     return null;
   }
 
+  const db = await getDb();
   const userId = await getCurrentUserID();
-  const supabase = createSupabaseServiceClient();
-  const { data: parent, error } = await supabase.from('parents').select('id').eq('user_id', userId).single();
 
-  if (error || !parent) {
+  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+
+  if (!parent) {
     notFound();
   }
 
   return parent.id;
 }
 
-function mapCreditHistoryItem(transaction: CreditTransactionRecord): StudentCreditHistoryItem {
+function toLedgerRecord(transaction: CreditTransactionRecord) {
   return {
     id: transaction.id,
-    created_at: transaction.created_at,
+    created_at: transaction.createdAt,
     type: transaction.type,
-    available_delta: transaction.available_delta,
-    pending_delta: transaction.pending_delta,
-    available_after: transaction.available_after,
-    pending_after: transaction.pending_after,
-    net_amount: getNetCreditDelta(transaction),
-    summary: getCreditTransactionSummary(transaction),
-    session_id: transaction.session_id,
+    available_delta: transaction.availableDelta,
+    pending_delta: transaction.pendingDelta,
+    available_after: transaction.availableAfter,
+    pending_after: transaction.pendingAfter,
+    session_id: transaction.sessionId,
   };
 }
 
-function mapProgressReportItem(
-  session: ProgressSessionRecord,
-  subjectMap: Map<number, { name: string }>,
-  tutorMap: Map<number, { name: string }>
-): StudentProgressReportItem | null {
-  const progress = Array.isArray(session.session_progress) ? session.session_progress[0] : session.session_progress;
-
-  if (!progress) {
-    return null;
-  }
+function mapCreditHistoryItem(transaction: CreditTransactionRecord): StudentCreditHistoryItem {
+  const ledgerRecord = toLedgerRecord(transaction);
 
   return {
-    session_id: session.id,
-    scheduled_at: session.scheduled_at,
-    status: session.status,
-    subject_name: subjectMap.get(session.subject_id)?.name ?? MISSING_VALUE,
-    tutor_name: tutorMap.get(session.tutor_id)?.name ?? MISSING_VALUE,
-    report_created_at: progress.created_at,
-    report_updated_at: progress.updated_at,
-    topics: progress.topics,
-    homework_assigned: progress.homework_assigned,
-    public_notes: progress.public_notes,
+    ...ledgerRecord,
+    net_amount: getNetCreditDelta(ledgerRecord),
+    summary: getCreditTransactionSummary(ledgerRecord),
   };
 }
 
@@ -165,47 +106,70 @@ export async function getStudentDashboardDetails(studentId: number, role: UserRo
   }
 
   const allowedRole: AllowedRole = role;
-  const supabase = createSupabaseServiceClient();
   const parentId = await getScopedParentId(allowedRole);
+  const db = await getDb();
 
-  let creditHistoryQuery = supabase
-    .from('credit_transactions')
-    .select(CREDIT_HISTORY_SELECT)
-    .eq('session.student_id', studentId)
-    .order('created_at', { ascending: false })
-    .limit(CREDIT_HISTORY_LIMIT);
-
-  let progressReportsQuery = supabase
-    .from('sessions')
-    .select(PROGRESS_REPORT_SELECT)
-    .eq('student_id', studentId)
-    .order('scheduled_at', { ascending: false })
-    .limit(PROGRESS_REPORT_LIMIT);
+  const creditHistoryWhere = [eq(sessions.studentId, studentId)];
+  const progressReportsWhere = [eq(sessions.studentId, studentId)];
 
   if (parentId !== null) {
-    creditHistoryQuery = creditHistoryQuery.eq('parent_id', parentId);
-    progressReportsQuery = progressReportsQuery.eq('parent_id', parentId);
+    creditHistoryWhere.push(eq(creditTransactions.parentId, parentId));
+    progressReportsWhere.push(eq(sessions.parentId, parentId));
   }
 
-  const [{ data: creditHistoryData, error: creditHistoryError }, { data: progressReportsData, error: progressError }] =
-    await Promise.all([creditHistoryQuery, progressReportsQuery]);
+  const [creditHistoryRows, progressReportRows] = await Promise.all([
+    db
+      .select({
+        id: creditTransactions.id,
+        createdAt: creditTransactions.createdAt,
+        type: creditTransactions.type,
+        availableDelta: creditTransactions.availableDelta,
+        pendingDelta: creditTransactions.pendingDelta,
+        availableAfter: creditTransactions.availableAfter,
+        pendingAfter: creditTransactions.pendingAfter,
+        sessionId: creditTransactions.sessionId,
+      })
+      .from(creditTransactions)
+      .innerJoin(sessions, eq(creditTransactions.sessionId, sessions.id))
+      .where(and(...creditHistoryWhere))
+      .orderBy(desc(creditTransactions.createdAt))
+      .limit(CREDIT_HISTORY_LIMIT),
+    db
+      .select({
+        session_id: sessions.id,
+        subject_id: sessions.subjectId,
+        tutor_id: sessions.tutorId,
+        scheduled_at: sessions.scheduledAt,
+        status: sessions.status,
+        report_created_at: sessionProgress.createdAt,
+        report_updated_at: sessionProgress.updatedAt,
+        topics: sessionProgress.topics,
+        homework_assigned: sessionProgress.homeworkAssigned,
+        public_notes: sessionProgress.publicNotes,
+      })
+      .from(sessions)
+      .innerJoin(sessionProgress, eq(sessionProgress.sessionId, sessions.id))
+      .where(and(...progressReportsWhere))
+      .orderBy(desc(sessions.scheduledAt))
+      .limit(PROGRESS_REPORT_LIMIT),
+  ]);
 
-  if (creditHistoryError) {
-    throw new Error('Student credit history is temporarily unavailable. Please try again.');
-  }
-
-  if (progressError) {
-    throw new Error('Student progress reports are temporarily unavailable. Please try again.');
-  }
-
-  const progressReportRows = (progressReportsData ?? []) as ProgressSessionRecord[];
   const subjectMap = await getSubjectMapByIds(progressReportRows.map(item => item.subject_id));
   const tutorMap = await getTutorProfileMapByIds(progressReportRows.map(item => item.tutor_id));
 
   return {
-    creditHistory: (creditHistoryData ?? []).map(item => mapCreditHistoryItem(item as CreditTransactionRecord)),
-    progressReports: progressReportRows
-      .map(item => mapProgressReportItem(item, subjectMap, tutorMap))
-      .filter((item): item is StudentProgressReportItem => item !== null),
+    creditHistory: creditHistoryRows.map(mapCreditHistoryItem),
+    progressReports: progressReportRows.map(item => ({
+      session_id: item.session_id,
+      scheduled_at: item.scheduled_at,
+      status: item.status,
+      subject_name: subjectMap.get(item.subject_id)?.name ?? MISSING_VALUE,
+      tutor_name: tutorMap.get(item.tutor_id)?.name ?? MISSING_VALUE,
+      report_created_at: item.report_created_at,
+      report_updated_at: item.report_updated_at,
+      topics: item.topics,
+      homework_assigned: item.homework_assigned,
+      public_notes: item.public_notes,
+    })),
   };
 }

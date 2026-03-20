@@ -1,13 +1,47 @@
-import { getStudentGrades } from '@/lib/data/dashboard';
+import { getCurrentUserID, getUserRole } from '@/lib/auth';
+import { getStudentGrades, getStudentsWithProgress } from '@/lib/data/dashboard';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
-  mockCreateSupabaseServiceClient: vi.fn(),
+const { mockDbSelect, mockGetSubjectMapByIds } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+  mockGetSubjectMapByIds: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/auth', () => ({
+  getCurrentUserID: vi.fn(),
+  getUserRole: vi.fn(),
 }));
+
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
+}));
+
+vi.mock('@/lib/data/subjects', () => ({
+  getSubjectMapByIds: mockGetSubjectMapByIds,
+}));
+
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  };
+
+  return query;
+}
+
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
 
 describe('getStudentGrades', () => {
   beforeEach(() => {
@@ -15,38 +49,72 @@ describe('getStudentGrades', () => {
   });
 
   it('resolves subject names from subject ids in the redesigned grade schema', async () => {
-    const gradesQuery = {
-      eq: vi.fn(() => gradesQuery),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          { id: 1, subject_id: 12, grade: 'A-', created_at: '2026-03-01T12:00:00.000Z' },
-          { id: 2, subject_id: 19, grade: 'B+', created_at: '2026-03-10T12:00:00.000Z' },
-        ],
-        error: null,
-      }),
-    };
-    const subjectsQuery = {
-      in: vi.fn().mockResolvedValue({
-        data: [
-          { id: 12, name: 'Algebra II' },
-          { id: 19, name: 'Biology' },
-        ],
-        error: null,
-      }),
-    };
-
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === 'student_grades') return { select: vi.fn(() => gradesQuery) };
-        if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    });
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
+        { id: 1, subject_id: 12, grade: 'A-', created_at: '2026-03-01T12:00:00.000Z' },
+        { id: 2, subject_id: 19, grade: 'B+', created_at: '2026-03-10T12:00:00.000Z' },
+      ])
+    );
+    mockGetSubjectMapByIds.mockResolvedValue(
+      new Map([
+        [12, { id: 12, name: 'Algebra II', slug: 'algebra-ii' }],
+        [19, { id: 19, name: 'Biology', slug: 'biology' }],
+      ])
+    );
 
     await expect(getStudentGrades(77)).resolves.toEqual([
-      { id: 1, subject: 'Algebra II', grade: 'A-', createdAt: '2026-03-01T12:00:00.000Z' },
-      { id: 2, subject: 'Biology', grade: 'B+', createdAt: '2026-03-10T12:00:00.000Z' },
+      {
+        id: 1,
+        subject: 'Algebra II',
+        subjectSlug: 'algebra-ii',
+        grade: 'A-',
+        createdAt: '2026-03-01T12:00:00.000Z',
+      },
+      {
+        id: 2,
+        subject: 'Biology',
+        subjectSlug: 'biology',
+        grade: 'B+',
+        createdAt: '2026-03-10T12:00:00.000Z',
+      },
     ]);
-    expect(subjectsQuery.in).toHaveBeenCalledWith('id', [12, 19]);
+    expect(mockGetSubjectMapByIds).toHaveBeenCalledWith([12, 19]);
+  });
+});
+
+describe('getStudentsWithProgress', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(getUserRole).mockResolvedValue('parent');
+    vi.mocked(getCurrentUserID).mockResolvedValue(42);
+  });
+
+  it('keeps the student list and falls back to empty series when metrics loading fails', async () => {
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
+      .mockReturnValueOnce(
+        createSelectQuery([
+          { id: 10, firstName: 'Jane', lastName: 'Doe' },
+          { id: 11, firstName: 'John', lastName: 'Doe' },
+        ])
+      )
+      .mockReturnValueOnce(createRejectingSelectQuery('metrics failed'));
+
+    await expect(getStudentsWithProgress()).resolves.toEqual([
+      {
+        studentId: 10,
+        studentName: 'Jane Doe',
+        performance: [],
+        confidence: [],
+        homework: [],
+      },
+      {
+        studentId: 11,
+        studentName: 'John Doe',
+        performance: [],
+        confidence: [],
+        homework: [],
+      },
+    ]);
   });
 });

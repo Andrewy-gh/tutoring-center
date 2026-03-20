@@ -1,9 +1,16 @@
 import 'server-only';
 import { SLOT_DURATION_MINS, TIMEZONE } from '@/lib/constants';
 import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
-import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/lib/db/schema';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import {
+  availability,
+  FREE_SLOT_STATUSES,
+  sessions,
+  tutorSubjects,
+  type FreeSlotStatus,
+  type WeekDay,
+} from '@/lib/db/schema';
 import type { AvailableSession } from '@/lib/validators/sessions';
+import { and, eq, gt, lt, notInArray } from 'drizzle-orm';
 
 function generateSlots(dateStr: string, startTime: string, endTime: string, timezone = TIMEZONE) {
   const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -41,6 +48,10 @@ export const AVAILABLE_SLOTS_ERROR_MESSAGES = {
   database: 'Available slots are temporarily unavailable. Please retry in a moment.',
   tutorSubject: 'Tutor does not teach this subject',
 } as const;
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export function buildAvailableSlots(
   availability: AvailabilityRow[],
@@ -101,42 +112,59 @@ export async function getAvailableSlots(
   to: string,
   timezone = TIMEZONE
 ) {
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
   const fromUtc = tzDateToUtcIso(from, timezone);
   const toUtc = tzDateToUtcIso(to, timezone);
 
-  const { data: tutorSubject, error: tutorSubjectError } = await supabase
-    .from('tutor_subjects')
-    .select('id')
-    .eq('tutor_id', tutorId)
-    .eq('subject_id', subjectId)
-    .maybeSingle();
-
-  if (tutorSubjectError) {
+  let tutorSubjectRows: Array<{ id: number }>;
+  try {
+    tutorSubjectRows = await db
+      .select({ id: tutorSubjects.id })
+      .from(tutorSubjects)
+      .where(and(eq(tutorSubjects.tutorId, tutorId), eq(tutorSubjects.subjectId, subjectId)))
+      .limit(1);
+  } catch {
     throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
   }
+  const [tutorSubject] = tutorSubjectRows;
   if (!tutorSubject) {
     throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject);
   }
 
-  const [{ data: availability, error: availabilityError }, { data: sessions, error: sessionsError }] =
-    await Promise.all([
-      supabase.from('availability').select('week_day, start_time, end_time').eq('tutor_id', tutorId),
-      supabase
-        .from('sessions')
-        .select('scheduled_at, ends_at, status')
-        .eq('tutor_id', tutorId)
-        .filter('status', 'not.in', `(${FREE_SLOT_STATUSES.join(',')})`)
-        .filter('scheduled_at', 'lt', toUtc)
-        .filter('ends_at', 'gt', fromUtc),
+  let availabilityRows: AvailabilityRow[];
+  let sessionRows: BookedRowWithStatus[];
+  try {
+    [availabilityRows, sessionRows] = await Promise.all([
+      db
+        .select({
+          week_day: availability.weekDay,
+          start_time: availability.startTime,
+          end_time: availability.endTime,
+        })
+        .from(availability)
+        .where(eq(availability.tutorId, tutorId)),
+      db
+        .select({
+          scheduled_at: sessions.scheduledAt,
+          ends_at: sessions.endsAt,
+          status: sessions.status,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.tutorId, tutorId),
+            notInArray(sessions.status, [...FREE_SLOT_STATUSES]),
+            lt(sessions.scheduledAt, toUtc),
+            gt(sessions.endsAt, fromUtc)
+          )
+        ),
     ]);
-
-  if (availabilityError || sessionsError) {
+  } catch {
     throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
   }
 
-  if (!availability?.length) return [];
+  if (!availabilityRows.length) return [];
 
-  const booked = filterActiveBookedSessions(sessions, fromUtc, toUtc);
-  return buildAvailableSlots(availability, booked, from, to, timezone);
+  const booked = filterActiveBookedSessions(sessionRows, fromUtc, toUtc);
+  return buildAvailableSlots(availabilityRows, booked, from, to, timezone);
 }
