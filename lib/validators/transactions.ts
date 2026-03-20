@@ -1,17 +1,9 @@
+import { TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/schema';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize } from './shared';
 
-export const TRANSACTION_TYPE_OPTIONS = [
-  'purchase',
-  'reservation',
-  'reservation_release',
-  'session_debit',
-  'refund',
-  'adjustment',
-  'cancellation_fee',
-] as const;
-
-export type TransactionType = (typeof TRANSACTION_TYPE_OPTIONS)[number];
+export { TRANSACTION_TYPE_OPTIONS };
+export type { TransactionType };
 export const TransactionTypeSchema = z.enum(TRANSACTION_TYPE_OPTIONS);
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   purchase: 'Purchase',

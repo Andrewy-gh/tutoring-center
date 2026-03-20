@@ -1,8 +1,12 @@
 import {
   availability,
+  CANCELED_SESSION_STATUS,
   creditBalances,
   creditTransactions,
+  DEFAULT_SESSION_STATUS,
+  FREE_SLOT_STATUSES,
   roles,
+  SESSION_STATUS_OPTIONS,
   sessionMetrics,
   sessionProgress,
   sessions,
@@ -10,8 +14,10 @@ import {
   studentGrades,
   subjectKindEnum,
   subjects,
+  TRANSACTION_TYPE_OPTIONS,
   transactionTypeEnum,
   tutorSubjects,
+  WEEKDAY_OPTIONS,
   weekDayEnum,
 } from '@/lib/db/schema';
 import { getTableName } from 'drizzle-orm';
@@ -41,6 +47,15 @@ describe('db schema exports', () => {
       'Saturday',
       'Sunday',
     ]);
+  });
+
+  it('exports shared enum arrays and session status constants from the schema layer', () => {
+    expect(SESSION_STATUS_OPTIONS).toBe(sessionStatusEnum.enumValues);
+    expect(TRANSACTION_TYPE_OPTIONS).toBe(transactionTypeEnum.enumValues);
+    expect(WEEKDAY_OPTIONS).toBe(weekDayEnum.enumValues);
+    expect(DEFAULT_SESSION_STATUS).toBe('Scheduled');
+    expect(CANCELED_SESSION_STATUS).toBe('Canceled');
+    expect(FREE_SLOT_STATUSES).toEqual(['Canceled', 'Rescheduled']);
   });
 
   it('exports the main domain tables from the consolidated schema index', () => {

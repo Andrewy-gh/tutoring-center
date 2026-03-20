@@ -1,10 +1,11 @@
 import { submitSessionMetrics } from '@/lib/actions/session-metrics';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockGetUserRole, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockDbInsert, mockDbSelect, mockGetCurrentUserID, mockGetUserRole } = vi.hoisted(() => ({
+  mockDbInsert: vi.fn(),
+  mockDbSelect: vi.fn(),
   mockGetCurrentUserID: vi.fn(),
   mockGetUserRole: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -12,14 +13,18 @@ vi.mock('@/lib/auth', () => ({
   getUserRole: mockGetUserRole,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    insert: mockDbInsert,
+    select: mockDbSelect,
+  },
 }));
 
-function createSessionQuery(result: { data: unknown; error: unknown }) {
+function createSelectQuery(result: unknown) {
   const query = {
-    eq: vi.fn(() => query),
-    single: vi.fn().mockResolvedValue(result),
+    from: vi.fn(() => query),
+    where: vi.fn(() => query),
+    limit: vi.fn().mockResolvedValue(result),
   };
 
   return query;
@@ -33,24 +38,13 @@ describe('submitSessionMetrics', () => {
   });
 
   it('inserts metrics without the removed student_id column', async () => {
-    const sessionsQuery = createSessionQuery({ data: { tutor_id: 9 }, error: null });
-    const tutorsQuery = createSessionQuery({ data: { id: 9 }, error: null });
-    const metricsSelectQuery = createSessionQuery({ data: null, error: null });
-    const insert = vi.fn().mockResolvedValue({ error: null });
+    const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
+    const values = vi.fn(() => ({ onConflictDoUpdate }));
 
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === 'sessions') return { select: vi.fn(() => sessionsQuery) };
-        if (table === 'tutors') return { select: vi.fn(() => tutorsQuery) };
-        if (table === 'session_metrics') {
-          return {
-            select: vi.fn(() => metricsSelectQuery),
-            insert,
-          };
-        }
-
-        throw new Error(`Unexpected table ${table}`);
-      }),
+    mockDbSelect.mockImplementationOnce(() => createSelectQuery([{ tutorId: 9 }]));
+    mockDbSelect.mockImplementationOnce(() => createSelectQuery([{ id: 9 }]));
+    mockDbInsert.mockReturnValue({
+      values,
     });
 
     await expect(
@@ -63,15 +57,20 @@ describe('submitSessionMetrics', () => {
       })
     ).resolves.toEqual({ success: true });
 
-    expect(insert).toHaveBeenCalledWith(
+    expect(values).toHaveBeenCalledWith(
       expect.objectContaining({
-        session_id: 17,
-        confidence_score: 4,
-        session_performance: 5,
-        homework_completed: true,
-        tutor_comments: 'Strong follow-through.',
+        sessionId: 17,
+        confidenceScore: 4,
+        sessionPerformance: 5,
+        homeworkCompleted: true,
+        tutorComments: 'Strong follow-through.',
       })
     );
-    expect(insert).toHaveBeenCalledWith(expect.not.objectContaining({ student_id: expect.anything() }));
+    expect(values).toHaveBeenCalledWith(expect.not.objectContaining({ studentId: expect.anything() }));
+    expect(onConflictDoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        set: expect.not.objectContaining({ studentId: expect.anything() }),
+      })
+    );
   });
 });

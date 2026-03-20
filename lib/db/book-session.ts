@@ -1,10 +1,15 @@
 import 'server-only';
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { db } from './client';
-import { creditBalances, creditTransactions, sessions, students, type SessionStatus } from './schema';
+import { DEFAULT_SESSION_STATUS, FREE_SLOT_STATUSES, type SessionStatus } from './schema';
 
-const FREE_SLOT_STATUSES: SessionStatus[] = ['Canceled', 'Rescheduled'];
-const DEFAULT_SESSION_STATUS: SessionStatus = 'Scheduled';
+type SqlExecutor = {
+  execute(query: SQL): Promise<unknown>;
+};
+
+export type BookSessionDatabase = SqlExecutor & {
+  transaction<T>(callback: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+};
 
 export type BookSessionInput = {
   tutorId: number;
@@ -45,87 +50,142 @@ export class CreditBalanceNotFoundError extends Error {
   }
 }
 
+export class InvalidSessionTimeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSessionTimeError';
+  }
+}
+
 function isDatabaseError(error: unknown): error is { code: string; constraint?: string } {
   return typeof error === 'object' && error !== null && 'code' in error;
 }
 
-export async function bookSession(input: BookSessionInput, database = db) {
+function validateSessionInput(input: BookSessionInput) {
+  if (input.slotUnits <= 0) {
+    throw new InvalidSessionTimeError('slot_units must be positive');
+  }
+
+  const start = new Date(input.scheduledAt);
+  const end = new Date(input.endsAt);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new InvalidSessionTimeError('scheduled_at and ends_at must be valid ISO datetimes');
+  }
+
+  if (end <= start) {
+    throw new InvalidSessionTimeError('ends_at must be after scheduled_at');
+  }
+
+  const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+  if (durationMinutes !== input.slotUnits * 30) {
+    throw new InvalidSessionTimeError('slot_units must match the scheduled time range');
+  }
+}
+
+function overlapStatusPredicate() {
+  return sql`status <> ${FREE_SLOT_STATUSES[0]} and status <> ${FREE_SLOT_STATUSES[1]}`;
+}
+
+function mapInvalidSessionConstraint(constraint?: string) {
+  if (constraint === 'sessions_ends_after_start') {
+    return new InvalidSessionTimeError('ends_at must be after scheduled_at');
+  }
+
+  if (constraint === 'sessions_slot_units_positive') {
+    return new InvalidSessionTimeError('slot_units must be positive');
+  }
+
+  if (constraint === 'sessions_slot_units_match_range') {
+    return new InvalidSessionTimeError('slot_units must match the scheduled time range');
+  }
+
+  return null;
+}
+
+export async function bookSession(input: BookSessionInput, database: BookSessionDatabase = db as BookSessionDatabase) {
+  validateSessionInput(input);
   const status = input.status ?? DEFAULT_SESSION_STATUS;
 
   try {
     return await database.transaction(async tx => {
-      const ownedStudent = await tx
-        .select({ id: students.id })
-        .from(students)
-        .where(and(eq(students.id, input.studentId), eq(students.parentId, input.parentId)))
-        .limit(1);
+      const ownedStudent = (await tx.execute(sql`
+        select id
+        from students
+        where id = ${input.studentId}
+          and parent_id = ${input.parentId}
+        limit 1
+      `)) as Array<{ id: number }>;
 
       if (ownedStudent.length === 0) {
         throw new ParentStudentMismatchError();
       }
 
-      const overlapping = await tx
-        .select({ id: sessions.id })
-        .from(sessions)
-        .where(
-          and(
-            eq(sessions.tutorId, input.tutorId),
-            ne(sessions.status, FREE_SLOT_STATUSES[0]),
-            ne(sessions.status, FREE_SLOT_STATUSES[1]),
-            sql`tstzrange(${sessions.scheduledAt}, ${sessions.endsAt}, '[)') && tstzrange(${input.scheduledAt}::timestamptz, ${input.endsAt}::timestamptz, '[)')`
-          )
-        )
-        .limit(1);
+      const overlapping = (await tx.execute(sql`
+        select id
+        from sessions
+        where tutor_id = ${input.tutorId}
+          and ${overlapStatusPredicate()}
+          and tstzrange(scheduled_at, ends_at, '[)') && tstzrange(${input.scheduledAt}::timestamptz, ${input.endsAt}::timestamptz, '[)')
+        limit 1
+      `)) as Array<{ id: number }>;
 
       if (overlapping.length > 0) {
         throw new SessionOverlapError();
       }
 
-      const [session] = await tx
-        .insert(sessions)
-        .values({
-          tutorId: input.tutorId,
-          studentId: input.studentId,
-          subjectId: input.subjectId,
-          parentId: input.parentId,
-          slotUnits: input.slotUnits,
-          scheduledAt: input.scheduledAt,
-          endsAt: input.endsAt,
-          status,
-        })
-        .returning({
-          id: sessions.id,
-          tutor_id: sessions.tutorId,
-          student_id: sessions.studentId,
-          subject_id: sessions.subjectId,
-          parent_id: sessions.parentId,
-          slot_units: sessions.slotUnits,
-          scheduled_at: sessions.scheduledAt,
-          ends_at: sessions.endsAt,
-          status: sessions.status,
-        });
-
-      const [balance] = await tx
-        .update(creditBalances)
-        .set({
-          amountAvailable: sql`${creditBalances.amountAvailable} - ${input.slotUnits}`,
-          amountPending: sql`${creditBalances.amountPending} + ${input.slotUnits}`,
-          updatedAt: sql`now()`,
-        })
-        .where(
-          and(eq(creditBalances.parentId, input.parentId), sql`${creditBalances.amountAvailable} >= ${input.slotUnits}`)
+      const [session] = (await tx.execute(sql`
+        insert into sessions (
+          tutor_id,
+          student_id,
+          subject_id,
+          parent_id,
+          slot_units,
+          scheduled_at,
+          ends_at,
+          status
         )
-        .returning({
-          amountAvailable: creditBalances.amountAvailable,
-          amountPending: creditBalances.amountPending,
-        });
+        values (
+          ${input.tutorId},
+          ${input.studentId},
+          ${input.subjectId},
+          ${input.parentId},
+          ${input.slotUnits},
+          ${input.scheduledAt}::timestamptz,
+          ${input.endsAt}::timestamptz,
+          ${status}
+        )
+        returning id, tutor_id, student_id, subject_id, parent_id, slot_units, scheduled_at, ends_at, status
+      `)) as Array<{
+        id: number;
+        tutor_id: number;
+        student_id: number;
+        subject_id: number;
+        parent_id: number;
+        slot_units: number;
+        scheduled_at: string;
+        ends_at: string;
+        status: SessionStatus;
+      }>;
+
+      const [balance] = (await tx.execute(sql`
+        update credit_balances
+        set
+          amount_available = amount_available - ${input.slotUnits},
+          amount_pending = amount_pending + ${input.slotUnits},
+          updated_at = now()
+        where parent_id = ${input.parentId}
+          and amount_available >= ${input.slotUnits}
+        returning amount_available, amount_pending
+      `)) as Array<{ amount_available: number; amount_pending: number }>;
 
       if (!balance) {
-        const existingBalance = await tx
-          .select({ id: creditBalances.id })
-          .from(creditBalances)
-          .where(eq(creditBalances.parentId, input.parentId))
-          .limit(1);
+        const existingBalance = (await tx.execute(sql`
+          select id
+          from credit_balances
+          where parent_id = ${input.parentId}
+          limit 1
+        `)) as Array<{ id: number }>;
 
         if (existingBalance.length === 0) {
           throw new CreditBalanceNotFoundError();
@@ -134,27 +194,45 @@ export async function bookSession(input: BookSessionInput, database = db) {
         throw new InsufficientCreditsError();
       }
 
-      await tx.insert(creditTransactions).values({
-        parentId: input.parentId,
-        sessionId: session.id,
-        availableDelta: input.slotUnits * -1,
-        pendingDelta: input.slotUnits,
-        availableAfter: balance.amountAvailable,
-        pendingAfter: balance.amountPending,
-        type: 'reservation',
-      });
+      await tx.execute(sql`
+        insert into credit_transactions (
+          parent_id,
+          session_id,
+          available_delta,
+          pending_delta,
+          available_after,
+          pending_after,
+          type
+        )
+        values (
+          ${input.parentId},
+          ${session.id},
+          ${input.slotUnits * -1},
+          ${input.slotUnits},
+          ${balance.amount_available},
+          ${balance.amount_pending},
+          'reservation'
+        )
+      `);
 
       return {
         session,
         balance: {
-          amount_available: balance.amountAvailable,
-          amount_pending: balance.amountPending,
+          amount_available: balance.amount_available,
+          amount_pending: balance.amount_pending,
         },
       };
     });
   } catch (error) {
     if (isDatabaseError(error) && error.code === '23P01' && error.constraint === 'sessions_tutor_time_overlap') {
       throw new SessionOverlapError();
+    }
+
+    if (isDatabaseError(error) && error.code === '23514') {
+      const invalidSessionError = mapInvalidSessionConstraint(error.constraint);
+      if (invalidSessionError) {
+        throw invalidSessionError;
+      }
     }
 
     throw error;

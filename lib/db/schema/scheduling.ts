@@ -33,8 +33,6 @@ export const sessionStatusEnum = pgEnum('session_status', [
   'Rescheduled',
 ]);
 
-export type SessionStatus = (typeof sessionStatusEnum.enumValues)[number];
-
 export const subjectKindEnum = pgEnum('subject_kind', ['group', 'leaf']);
 
 export const subjects = pgTable(
