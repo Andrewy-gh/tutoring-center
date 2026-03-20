@@ -1,19 +1,30 @@
 import 'dotenv/config';
+import { sessions } from '@/lib/db/schema';
+import { desc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { createSupabaseTestClient } from '../helpers/supabaseTestClient';
+import { closeTestDatabase, createTestDatabase } from '../helpers/postgresTestClient';
 
-describe('supabase db connection test', () => {
+const HAS_DB_ENV = Boolean(process.env.DATABASE_URL);
+const describeIfConfigured = HAS_DB_ENV ? describe : describe.skip;
+
+describeIfConfigured('database connection test', () => {
   it('can query sessions table', async () => {
-    const supabase = createSupabaseTestClient();
+    const client = createTestDatabase();
 
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('id,scheduled_at,status')
-      .order('scheduled_at', { ascending: false })
-      .limit(1);
+    try {
+      const rows = await client.db
+        .select({
+          id: sessions.id,
+          scheduled_at: sessions.scheduledAt,
+          status: sessions.status,
+        })
+        .from(sessions)
+        .orderBy(desc(sessions.scheduledAt))
+        .limit(1);
 
-    // If this fails with "permission denied", your connection is fine and something is blocking it.
-    expect(error).toBeNull();
-    expect(Array.isArray(data)).toBe(true);
+      expect(Array.isArray(rows)).toBe(true);
+    } finally {
+      await closeTestDatabase(client);
+    }
   });
 });

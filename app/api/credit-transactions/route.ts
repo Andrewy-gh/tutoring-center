@@ -273,7 +273,7 @@ export async function GET(req: Request) {
     const joinParsed = TransactionsWithJoinsListSchema.safeParse(mappedRows);
 
     if (!joinParsed.success) {
-      return NextResponse.json({ error: 'Unexpected sessions join shape returned from Supabase' }, { status: 500 });
+      return NextResponse.json({ error: 'Unexpected sessions join shape returned from the database' }, { status: 500 });
     }
 
     const normalizedData = joinParsed.data.map((row: TransactionsWithJoins) => {

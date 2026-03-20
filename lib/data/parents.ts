@@ -1,8 +1,7 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { isValidRole, type UserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { PARENT_DETAIL_SELECT_WITH_JOINS, PARENT_SELECT_WITH_JOINS } from '@/lib/supabase/types';
+import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
   ParentDetailWithJoinsSchema,
@@ -10,6 +9,7 @@ import {
   type ParentDetailStudent,
   type ParentWithJoins,
 } from '@/lib/validators/parents';
+import { eq } from 'drizzle-orm';
 
 const MISSING_VALUE = '\u2014';
 
@@ -101,17 +101,82 @@ const mapParentStudentRow = (student: ParentDetailStudent): ParentStudentRow => 
 const sortByName = <TRow extends { name: string }>(rows: TRow[]) =>
   rows.slice().sort((left, right) => left.name.localeCompare(right.name));
 
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
+
+type ParentListRow = {
+  id: number;
+  user_id: number;
+  billing_address: string | null;
+  notification_preferences: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  phone: string | null;
+  amount_available: number | null;
+  student_id: number | null;
+};
+
+function buildParentList(rows: ParentListRow[]): ParentWithJoins[] {
+  const parentMap = new Map<number, ParentWithJoins>();
+
+  for (const row of rows) {
+    const existing = parentMap.get(row.id);
+    if (existing) {
+      if (row.student_id !== null) {
+        existing.students = [...(existing.students ?? []), { id: row.student_id }];
+      }
+      continue;
+    }
+
+    parentMap.set(row.id, {
+      id: row.id,
+      user_id: row.user_id,
+      billing_address: row.billing_address,
+      notification_preferences: row.notification_preferences,
+      users: {
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        phone: row.phone,
+      },
+      credit_balances: row.amount_available === null ? null : { amount_available: row.amount_available },
+      students: row.student_id === null ? [] : [{ id: row.student_id }],
+    });
+  }
+
+  return Array.from(parentMap.values());
+}
+
 export async function getParents(role: UserRole) {
   ensureAdminRole(role);
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from('parents').select(PARENT_SELECT_WITH_JOINS);
-
-  if (error) {
+  const db = await getDb();
+  let rows: ParentListRow[];
+  try {
+    rows = await db
+      .select({
+        id: parents.id,
+        user_id: parents.userId,
+        billing_address: parents.billingAddress,
+        notification_preferences: parents.notificationPreferences,
+        first_name: users.firstName,
+        last_name: users.lastName,
+        email: users.email,
+        phone: users.phone,
+        amount_available: creditBalances.amountAvailable,
+        student_id: students.id,
+      })
+      .from(parents)
+      .innerJoin(users, eq(parents.userId, users.id))
+      .leftJoin(creditBalances, eq(creditBalances.parentId, parents.id))
+      .leftJoin(students, eq(students.parentId, parents.id));
+  } catch {
     throw new Error(PARENT_ERROR_MESSAGES.admin.database);
   }
 
-  const parsedParents = ParentWithJoinsListSchema.safeParse(data ?? []);
+  const parsedParents = ParentWithJoinsListSchema.safeParse(buildParentList(rows));
   if (!parsedParents.success) {
     throw new Error(PARENT_ERROR_MESSAGES.admin.validation);
   }
@@ -122,31 +187,106 @@ export async function getParents(role: UserRole) {
 export async function getParent(userID: number, role: UserRole): Promise<ParentProfileDetail> {
   ensureAdminRole(role);
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('parents')
-    .select(PARENT_DETAIL_SELECT_WITH_JOINS)
-    .eq('user_id', userID)
-    .maybeSingle();
+  const db = await getDb();
 
-  if (error) {
+  let parentRows: Array<{
+    id: number;
+    user_id: number;
+    billing_address: string | null;
+    notification_preferences: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    phone: string | null;
+    amount_available: number | null;
+  }>;
+  try {
+    parentRows = await db
+      .select({
+        id: parents.id,
+        user_id: parents.userId,
+        billing_address: parents.billingAddress,
+        notification_preferences: parents.notificationPreferences,
+        first_name: users.firstName,
+        last_name: users.lastName,
+        email: users.email,
+        phone: users.phone,
+        amount_available: creditBalances.amountAvailable,
+      })
+      .from(parents)
+      .innerJoin(users, eq(parents.userId, users.id))
+      .leftJoin(creditBalances, eq(creditBalances.parentId, parents.id))
+      .where(eq(parents.userId, userID))
+      .limit(1);
+  } catch {
     throw new Error(PARENT_ERROR_MESSAGES.admin.database);
   }
 
-  if (!data) {
+  const [parentRow] = parentRows;
+  if (!parentRow) {
     notFound();
   }
 
-  const parsedParent = ParentDetailWithJoinsSchema.safeParse(data);
+  let studentRows: Array<{
+    id: number;
+    user_id: number;
+    grade: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+    phone: string | null;
+  }>;
+  try {
+    studentRows = await db
+      .select({
+        id: students.id,
+        user_id: students.userId,
+        grade: students.grade,
+        first_name: users.firstName,
+        last_name: users.lastName,
+        email: users.email,
+        phone: users.phone,
+      })
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(eq(students.parentId, parentRow.id));
+  } catch {
+    throw new Error(PARENT_ERROR_MESSAGES.admin.database);
+  }
+
+  const parsedParent = ParentDetailWithJoinsSchema.safeParse({
+    id: parentRow.id,
+    user_id: parentRow.user_id,
+    billing_address: parentRow.billing_address,
+    notification_preferences: parentRow.notification_preferences,
+    users: {
+      first_name: parentRow.first_name,
+      last_name: parentRow.last_name,
+      email: parentRow.email,
+      phone: parentRow.phone,
+    },
+    credit_balances: parentRow.amount_available === null ? null : { amount_available: parentRow.amount_available },
+    students: studentRows.map(student => ({
+      id: student.id,
+      user_id: student.user_id,
+      grade: student.grade,
+      users: {
+        first_name: student.first_name,
+        last_name: student.last_name,
+        email: student.email,
+        phone: student.phone,
+      },
+    })),
+  });
   if (!parsedParent.success) {
     throw new Error(PARENT_ERROR_MESSAGES.admin.validation);
   }
 
   const parent = parsedParent.data;
-  const parentRow = mapParentRow(parent);
+  const mappedParent = mapParentRow(parent);
 
   return {
-    ...parentRow,
+    ...mappedParent,
     billing_address: parent.billing_address ?? MISSING_VALUE,
     notification_preferences: parent.notification_preferences ?? MISSING_VALUE,
     students: sortByName((parent.students ?? []).map(mapParentStudentRow)),

@@ -3,15 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
 
-const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockCreateSupabaseServiceClient, mockNotFound } = vi.hoisted(
-  () => ({
-    mockDbSelect: vi.fn(),
-    mockDbInsert: vi.fn(),
-    mockGetCurrentUserID: vi.fn(),
-    mockCreateSupabaseServiceClient: vi.fn(),
-    mockNotFound: vi.fn(),
-  })
-);
+const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockNotFound } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
+  mockGetCurrentUserID: vi.fn(),
+  mockNotFound: vi.fn(),
+}));
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
@@ -20,10 +17,6 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('next/navigation', () => ({
   notFound: mockNotFound,
   forbidden: vi.fn(),
-}));
-
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
 }));
 
 vi.mock('@/lib/db/client', () => ({
@@ -124,34 +117,16 @@ describe('grade data', () => {
   });
 
   it('returns only leaf subjects for the grade form', async () => {
-    const subjectsQuery = {
-      eq: vi.fn(() => subjectsQuery),
-      order: vi.fn(() => subjectsQuery),
-      then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-        Promise.resolve({
-          data: [
-            { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', is_active: true },
-            { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', is_active: true },
-          ],
-          error: null,
-        }).then(resolve, reject)
-      ),
-    };
-
-    mockCreateSupabaseServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    });
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
+        { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', is_active: true },
+        { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', is_active: true },
+      ])
+    );
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
       { id: 3, slug: 'algebra-i', name: 'Algebra I' },
       { id: 8, slug: 'geometry', name: 'Geometry' },
     ]);
-    expect(subjectsQuery.eq).toHaveBeenCalledWith('kind', 'leaf');
-    expect(subjectsQuery.eq).toHaveBeenCalledWith('is_active', true);
-    expect(subjectsQuery.order).toHaveBeenCalledWith('name');
-    expect(subjectsQuery.order).toHaveBeenCalledWith('slug');
   });
 });

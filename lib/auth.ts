@@ -2,7 +2,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { parents, roles, tutors, users } from '@/lib/db/schema';
+import { asc, eq, ilike } from 'drizzle-orm';
 
 export type UserRole = 'admin' | 'parent' | 'tutor';
 
@@ -19,6 +20,10 @@ export function isValidRole(value: unknown): value is UserRole {
 
 export function isUserRole(value: unknown): value is UserRole {
   return value === 'admin' || value === 'parent' || value === 'tutor';
+}
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
 }
 
 export async function getUserRole() {
@@ -41,85 +46,80 @@ export async function getCurrentUserID() {
 }
 
 /**
- * Get a real user ID from Supabase based on the selected role.
+ * Get a real user ID from the database based on the selected role.
  * Returns the first user with the specified role, sorted by user ID for determinism.
  */
 export async function getUserIdByRole(role: UserRole): Promise<string | null> {
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
 
   if (role === 'parent') {
-    const { data, error } = await supabase
-      .from('parents')
-      .select('user_id')
-      .order('user_id', { ascending: true })
-      .limit(1);
+    try {
+      const [parent] = await db.select({ userId: parents.userId }).from(parents).orderBy(asc(parents.userId)).limit(1);
 
-    if (error) {
+      return parent?.userId?.toString() ?? null;
+    } catch {
       return null;
     }
-    return data?.[0]?.user_id?.toString() ?? null;
   }
 
   if (role === 'tutor') {
-    const { data, error } = await supabase
-      .from('tutors')
-      .select('user_id')
-      .order('user_id', { ascending: true })
-      .limit(1);
+    try {
+      const [tutor] = await db.select({ userId: tutors.userId }).from(tutors).orderBy(asc(tutors.userId)).limit(1);
 
-    if (error) {
+      return tutor?.userId?.toString() ?? null;
+    } catch {
       return null;
     }
-    return data?.[0]?.user_id?.toString() ?? null;
   }
 
   if (role === 'admin') {
-    // First get the admin role ID
-    const { data: roleData, error: roleError } = await supabase
-      .from('roles')
-      .select('id')
-      .ilike('name', 'admin')
-      .single();
+    try {
+      const [adminRole] = await db.select({ id: roles.id }).from(roles).where(ilike(roles.name, 'admin')).limit(1);
+      if (!adminRole) {
+        return null;
+      }
 
-    if (roleError || !roleData) {
+      const [admin] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.role, adminRole.id))
+        .orderBy(asc(users.id))
+        .limit(1);
+
+      return admin?.id?.toString() ?? null;
+    } catch {
       return null;
     }
-
-    // Then get the first user with that role
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('role', roleData.id)
-      .order('id', { ascending: true })
-      .limit(1);
-
-    if (error) {
-      return null;
-    }
-    return data?.[0]?.id?.toString() ?? null;
   }
 
   return null;
 }
 
 /**
- * Get the current user's name from Supabase
+ * Get the current user's name from the database.
  */
 export async function getCurrentUserName(): Promise<string | null> {
   const userId = await getCurrentUserID();
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
 
-  const { data, error } = await supabase.from('users').select('first_name, last_name').eq('id', userId).single();
+  try {
+    const [user] = await db
+      .select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-  if (error) {
+    if (!user) {
+      return null;
+    }
+
+    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || null;
+  } catch {
     return null;
   }
-
-  if (data) {
-    return `${data.first_name} ${data.last_name}`;
-  }
-
-  return null;
 }
 
 export async function login(formData: FormData) {
@@ -130,7 +130,7 @@ export async function login(formData: FormData) {
     throw new Error('Invalid role');
   }
 
-  // Get real user ID from Supabase based on role
+  // Get a real user ID from the database based on role.
   const userId = await getUserIdByRole(role);
 
   // Fallback to temp user if no user found for role

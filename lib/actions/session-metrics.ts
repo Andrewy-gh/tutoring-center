@@ -1,7 +1,8 @@
 'use server';
 
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { sessionMetrics, sessions, tutors } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export type SessionMetricsFormData = {
   sessionId: number;
@@ -11,6 +12,10 @@ export type SessionMetricsFormData = {
   tutorComments: string;
 };
 
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
+
 export async function submitSessionMetrics(formData: SessionMetricsFormData) {
   const role = await getUserRole();
   if (role !== 'tutor') {
@@ -18,61 +23,54 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
   }
 
   const userId = await getCurrentUserID();
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
 
-  const { data: session, error: sessionError } = await supabase
-    .from('sessions')
-    .select('tutor_id')
-    .eq('id', formData.sessionId)
-    .single();
+  const [session] = await db
+    .select({ tutorId: sessions.tutorId })
+    .from(sessions)
+    .where(eq(sessions.id, formData.sessionId))
+    .limit(1);
 
-  if (sessionError || !session) {
+  if (!session) {
     throw new Error('Session not found');
   }
 
-  const { data: tutor, error: tutorError } = await supabase.from('tutors').select('id').eq('user_id', userId).single();
+  const [tutor] = await db.select({ id: tutors.id }).from(tutors).where(eq(tutors.userId, userId)).limit(1);
 
-  if (tutorError || !tutor) {
+  if (!tutor) {
     throw new Error('Tutor profile not found');
   }
 
-  if (session.tutor_id !== tutor.id) {
+  if (session.tutorId !== tutor.id) {
     throw new Error('You are not assigned to this session');
   }
 
-  const { data: existingMetrics } = await supabase
-    .from('session_metrics')
-    .select('id')
-    .eq('session_id', formData.sessionId)
-    .single();
-
-  let metricsError;
-  if (existingMetrics) {
-    const { error } = await supabase
-      .from('session_metrics')
-      .update({
-        confidence_score: formData.confidenceScore,
-        session_performance: formData.sessionPerformance,
-        homework_completed: formData.homeworkCompleted,
-        tutor_comments: formData.tutorComments || null,
-        recorded_at: new Date().toISOString(),
+  try {
+    await db
+      .insert(sessionMetrics)
+      .values({
+        sessionId: formData.sessionId,
+        confidenceScore: formData.confidenceScore,
+        sessionPerformance: formData.sessionPerformance,
+        homeworkCompleted: formData.homeworkCompleted,
+        tutorComments: formData.tutorComments || null,
+        recordedAt: new Date().toISOString(),
       })
-      .eq('session_id', formData.sessionId);
-    metricsError = error;
-  } else {
-    const { error } = await supabase.from('session_metrics').insert({
-      session_id: formData.sessionId,
-      confidence_score: formData.confidenceScore,
-      session_performance: formData.sessionPerformance,
-      homework_completed: formData.homeworkCompleted,
-      tutor_comments: formData.tutorComments || null,
-      recorded_at: new Date().toISOString(),
-    });
-    metricsError = error;
-  }
-
-  if (metricsError) {
-    throw new Error(metricsError.message || 'Failed to submit session metrics');
+      .onConflictDoUpdate({
+        target: sessionMetrics.sessionId,
+        set: {
+          confidenceScore: formData.confidenceScore,
+          sessionPerformance: formData.sessionPerformance,
+          homeworkCompleted: formData.homeworkCompleted,
+          tutorComments: formData.tutorComments || null,
+          recordedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message || 'Failed to submit session metrics' : 'Failed to submit session metrics'
+    );
   }
 
   return { success: true };

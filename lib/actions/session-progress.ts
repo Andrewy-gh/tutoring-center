@@ -1,7 +1,8 @@
 'use server';
 
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { sessionProgress, sessions, tutors } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export type ProgressReportFormData = {
   sessionId: number;
@@ -11,6 +12,10 @@ export type ProgressReportFormData = {
   internalNotes: string;
 };
 
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
+
 export async function submitProgressReport(formData: ProgressReportFormData) {
   const role = await getUserRole();
   if (role !== 'tutor') {
@@ -18,41 +23,52 @@ export async function submitProgressReport(formData: ProgressReportFormData) {
   }
 
   const userId = await getCurrentUserID();
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
 
-  const { data: session, error: sessionError } = await supabase
-    .from('sessions')
-    .select('tutor_id')
-    .eq('id', formData.sessionId)
-    .single();
+  const [session] = await db
+    .select({ tutorId: sessions.tutorId })
+    .from(sessions)
+    .where(eq(sessions.id, formData.sessionId))
+    .limit(1);
 
-  if (sessionError || !session) {
+  if (!session) {
     throw new Error('Session not found');
   }
 
-  const { data: tutor, error: tutorError } = await supabase.from('tutors').select('id').eq('user_id', userId).single();
+  const [tutor] = await db.select({ id: tutors.id }).from(tutors).where(eq(tutors.userId, userId)).limit(1);
 
-  if (tutorError || !tutor) {
+  if (!tutor) {
     throw new Error('Tutor profile not found');
   }
 
-  if (session.tutor_id !== tutor.id) {
+  if (session.tutorId !== tutor.id) {
     throw new Error('You are not assigned to this session');
   }
 
-  const { error: progressError } = await supabase.from('session_progress').upsert(
-    {
-      session_id: formData.sessionId,
-      topics: formData.topics || null,
-      homework_assigned: formData.homeworkAssigned || null,
-      public_notes: formData.publicNotes || null,
-      internal_notes: formData.internalNotes || null,
-    },
-    { onConflict: 'session_id' }
-  );
-
-  if (progressError) {
-    throw new Error(progressError.message || 'Failed to submit progress report');
+  try {
+    await db
+      .insert(sessionProgress)
+      .values({
+        sessionId: formData.sessionId,
+        topics: formData.topics || null,
+        homeworkAssigned: formData.homeworkAssigned || null,
+        publicNotes: formData.publicNotes || null,
+        internalNotes: formData.internalNotes || null,
+      })
+      .onConflictDoUpdate({
+        target: sessionProgress.sessionId,
+        set: {
+          topics: formData.topics || null,
+          homeworkAssigned: formData.homeworkAssigned || null,
+          publicNotes: formData.publicNotes || null,
+          internalNotes: formData.internalNotes || null,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message || 'Failed to submit progress report' : 'Failed to submit progress report'
+    );
   }
 
   return { success: true };

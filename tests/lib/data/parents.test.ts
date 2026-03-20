@@ -2,11 +2,10 @@ import type { UserRole } from '@/lib/auth';
 import { getParent, getParents } from '@/lib/data/parents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockForbidden, mockNotFound, mockFrom, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockForbidden, mockNotFound, mockDbSelect } = vi.hoisted(() => ({
   mockForbidden: vi.fn(),
   mockNotFound: vi.fn(),
-  mockFrom: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockDbSelect: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -14,30 +13,36 @@ vi.mock('next/navigation', () => ({
   notFound: mockNotFound,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
 }));
 
-const createListQuery = (result: { data: unknown; error: unknown }) =>
-  ({
-    select: vi.fn().mockReturnThis(),
-    then: vi.fn((resolve: (value: { data: unknown; error: unknown }) => void, reject?: (reason?: unknown) => void) =>
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    leftJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
       Promise.resolve(result).then(resolve, reject)
     ),
-  }) as const;
+  };
 
-const createDetailQuery = (result: { data: unknown; error: unknown }) =>
-  ({
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue(result),
-  }) as const;
+  return query;
+}
+
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
 
 describe('getParents', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockFrom.mockReturnValue(undefined);
-    mockCreateSupabaseServiceClient.mockReturnValue({ from: mockFrom } as const);
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
@@ -47,34 +52,46 @@ describe('getParents', () => {
   });
 
   it('maps joined parent rows with student counts, credits, and fallbacks', async () => {
-    const parentsQuery = createListQuery({
-      data: [
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
         {
           id: 2,
           user_id: 22,
           billing_address: null,
           notification_preferences: null,
-          users: [{ first_name: 'Alex', last_name: 'Brown', email: 'alex@example.com', phone: null }],
-          credit_balances: [{ amount_available: 6 }],
-          students: [{ id: 8 }, { id: 9 }],
+          first_name: 'Alex',
+          last_name: 'Brown',
+          email: 'alex@example.com',
+          phone: null,
+          amount_available: 6,
+          student_id: 8,
+        },
+        {
+          id: 2,
+          user_id: 22,
+          billing_address: null,
+          notification_preferences: null,
+          first_name: 'Alex',
+          last_name: 'Brown',
+          email: 'alex@example.com',
+          phone: null,
+          amount_available: 6,
+          student_id: 9,
         },
         {
           id: 1,
           user_id: 11,
           billing_address: '123 Main St',
           notification_preferences: 'email',
-          users: { first_name: 'Jamie', last_name: 'Adams', email: 'jamie@example.com', phone: '555-0100' },
-          credit_balances: null,
-          students: [],
+          first_name: 'Jamie',
+          last_name: 'Adams',
+          email: 'jamie@example.com',
+          phone: '555-0100',
+          amount_available: null,
+          student_id: null,
         },
-      ],
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'parents') return parentsQuery;
-      throw new Error(`Unexpected table ${table}`);
-    });
+      ])
+    );
 
     const result = await getParents('admin');
 
@@ -98,13 +115,11 @@ describe('getParents', () => {
         credit_balance_info: 0,
       },
     ]);
-    expect(mockFrom).toHaveBeenCalledWith('parents');
-    expect(parentsQuery.select).toHaveBeenCalledTimes(1);
   });
 
   it('rejects missing roles before querying', async () => {
     await expect(getParents(undefined as unknown as UserRole)).rejects.toThrow('Role is required to fetch parents.');
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockDbSelect).not.toHaveBeenCalled();
   });
 
   it('blocks non-admin roles', async () => {
@@ -114,12 +129,7 @@ describe('getParents', () => {
   });
 
   it('throws a database error when parent list query fails', async () => {
-    const parentsQuery = createListQuery({
-      data: null,
-      error: { message: 'db failed' },
-    });
-
-    mockFrom.mockImplementation(() => parentsQuery);
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('db failed'));
 
     await expect(getParents('admin')).rejects.toThrow(
       'Parent data is temporarily unavailable. Please retry in a moment.'
@@ -127,12 +137,7 @@ describe('getParents', () => {
   });
 
   it('throws a validation error when parent list rows are malformed', async () => {
-    const parentsQuery = createListQuery({
-      data: [{ id: 'bad-id', user_id: 11 }],
-      error: null,
-    });
-
-    mockFrom.mockImplementation(() => parentsQuery);
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 'bad-id', user_id: 11 }]));
 
     await expect(getParents('admin')).rejects.toThrow('Parent data format is invalid. Please try again later.');
   });
@@ -141,8 +146,6 @@ describe('getParents', () => {
 describe('getParent', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockFrom.mockReturnValue(undefined);
-    mockCreateSupabaseServiceClient.mockReturnValue({ from: mockFrom } as const);
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
@@ -152,36 +155,44 @@ describe('getParent', () => {
   });
 
   it('maps a joined parent profile using user_id route params', async () => {
-    const parentQuery = createDetailQuery({
-      data: {
-        id: 7,
-        user_id: 77,
-        billing_address: null,
-        notification_preferences: 'sms',
-        users: { first_name: 'Morgan', last_name: 'Lee', email: 'morgan@example.com', phone: null },
-        credit_balances: { amount_available: 4 },
-        students: [
+    mockDbSelect
+      .mockReturnValueOnce(
+        createSelectQuery([
+          {
+            id: 7,
+            user_id: 77,
+            billing_address: null,
+            notification_preferences: 'sms',
+            first_name: 'Morgan',
+            last_name: 'Lee',
+            email: 'morgan@example.com',
+            phone: null,
+            amount_available: 4,
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        createSelectQuery([
           {
             id: 4,
             user_id: 404,
             grade: null,
-            users: { first_name: 'Zoe', last_name: 'Lee', email: 'zoe@example.com', phone: null },
+            first_name: 'Zoe',
+            last_name: 'Lee',
+            email: 'zoe@example.com',
+            phone: null,
           },
           {
             id: 3,
             user_id: 303,
             grade: '6',
-            users: [{ first_name: 'Ava', last_name: 'Lee', email: 'ava@example.com', phone: '555-2222' }],
+            first_name: 'Ava',
+            last_name: 'Lee',
+            email: 'ava@example.com',
+            phone: '555-2222',
           },
-        ],
-      },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'parents') return parentQuery;
-      throw new Error(`Unexpected table ${table}`);
-    });
+        ])
+      );
 
     const result = await getParent(77, 'admin');
 
@@ -214,32 +225,33 @@ describe('getParent', () => {
         },
       ],
     });
-    expect(parentQuery.eq).toHaveBeenCalledWith('user_id', 77);
-    expect(parentQuery.maybeSingle).toHaveBeenCalledTimes(1);
   });
 
   it('throws notFound when the parent is missing', async () => {
-    const parentQuery = createDetailQuery({ data: null, error: null });
-    mockFrom.mockImplementation(() => parentQuery);
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
 
     await expect(getParent(999, 'admin')).rejects.toThrow('notFound');
     expect(mockNotFound).toHaveBeenCalledTimes(1);
   });
 
   it('throws a validation error when the parent detail shape is invalid', async () => {
-    const parentQuery = createDetailQuery({
-      data: {
-        id: 7,
-        user_id: 77,
-        billing_address: null,
-        notification_preferences: null,
-        users: { first_name: 'Morgan', last_name: 'Lee', email: 'morgan@example.com', phone: null },
-        credit_balances: { amount_available: 4 },
-        students: [{ id: 'bad-id' }],
-      },
-      error: null,
-    });
-    mockFrom.mockImplementation(() => parentQuery);
+    mockDbSelect
+      .mockReturnValueOnce(
+        createSelectQuery([
+          {
+            id: 7,
+            user_id: 77,
+            billing_address: null,
+            notification_preferences: null,
+            first_name: 'Morgan',
+            last_name: 'Lee',
+            email: 'morgan@example.com',
+            phone: null,
+            amount_available: 4,
+          },
+        ])
+      )
+      .mockReturnValueOnce(createSelectQuery([{ id: 'bad-id' }]));
 
     await expect(getParent(77, 'admin')).rejects.toThrow('Parent data format is invalid. Please try again later.');
   });

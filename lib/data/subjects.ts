@@ -1,6 +1,6 @@
 import { forbidden } from 'next/navigation';
 import { isUserRole, type UserRole } from '@/lib/auth';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
+import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
   SubjectOptionRowListSchema,
@@ -8,6 +8,7 @@ import {
   type SubjectOptionRow,
   type SubjectRecord,
 } from '@/lib/validators/subjects';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 type SubjectLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -43,21 +44,57 @@ const SUBJECT_ERROR_MESSAGES = {
   },
 } as const satisfies Record<AllowedRole, Record<SubjectLoadErrorReason, string>>;
 
-const ACTIVE_SUBJECT_SELECT = 'id,name,slug,kind,is_active' as const;
-
-const SUBJECT_OPTIONS_SELECT = `
-  id,
-  name,
-  slug,
-  kind,
-  is_active,
-  tutor_subjects!inner (
-    tutor_id,
-    subject_id
-  )
-` as const;
-
 const sortNumberAsc = (a: number, b: number) => a - b;
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
+
+type SubjectRecordRow = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: 'group' | 'leaf';
+  is_active: boolean;
+};
+
+function mapSubjectRecordRow(row: SubjectRecordRow): SubjectRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    kind: row.kind,
+    is_active: row.is_active,
+  };
+}
+
+function buildSubjectOptionRows(
+  rows: Array<SubjectRecordRow & { tutor_id: number; subject_id: number }>
+): SubjectOptionRow[] {
+  const subjectMap = new Map<number, SubjectOptionRow>();
+
+  for (const row of rows) {
+    const existing = subjectMap.get(row.id);
+    if (existing) {
+      existing.tutor_subjects = [
+        ...(existing.tutor_subjects ?? []),
+        { tutor_id: row.tutor_id, subject_id: row.subject_id },
+      ];
+      continue;
+    }
+
+    subjectMap.set(row.id, {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      kind: 'leaf',
+      is_active: true,
+      tutor_subjects: [{ tutor_id: row.tutor_id, subject_id: row.subject_id }],
+    });
+  }
+
+  return Array.from(subjectMap.values());
+}
 
 export const mapSubjectOptions = (subjects: SubjectOptionRow[]) => {
   return subjects
@@ -92,14 +129,24 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
     return new Map<number, SubjectRecord>();
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from('subjects').select(ACTIVE_SUBJECT_SELECT).in('id', uniqueSubjectIds);
-
-  if (error) {
+  const db = await getDb();
+  let rows: SubjectRecordRow[];
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        is_active: subjects.isActive,
+      })
+      .from(subjects)
+      .where(inArray(subjects.id, uniqueSubjectIds));
+  } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
 
-  const parsedSubjects = SubjectRecordListSchema.safeParse(data ?? []);
+  const parsedSubjects = SubjectRecordListSchema.safeParse(rows.map(mapSubjectRecordRow));
   if (!parsedSubjects.success) {
     throw new Error('Subject data format is invalid. Please try again later.');
   }
@@ -115,20 +162,28 @@ export async function getSubjects(role: UserRole) {
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('subjects')
-    .select(SUBJECT_OPTIONS_SELECT)
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
-    .order('name')
-    .order('slug');
-
-  if (error) {
+  const db = await getDb();
+  let rows: Array<SubjectRecordRow & { tutor_id: number; subject_id: number }>;
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        is_active: subjects.isActive,
+        tutor_id: tutorSubjects.tutorId,
+        subject_id: tutorSubjects.subjectId,
+      })
+      .from(subjects)
+      .innerJoin(tutorSubjects, eq(tutorSubjects.subjectId, subjects.id))
+      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
+      .orderBy(asc(subjects.name), asc(subjects.slug));
+  } catch {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['database']);
   }
 
-  const parsedSubjects = SubjectOptionRowListSchema.safeParse(data ?? []);
+  const parsedSubjects = SubjectOptionRowListSchema.safeParse(buildSubjectOptionRows(rows));
   if (!parsedSubjects.success) {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['validation']);
   }
@@ -143,20 +198,25 @@ export type SubjectForGradeForm = {
 };
 
 export async function getSubjectsForGradeForm() {
-  const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase
-    .from('subjects')
-    .select(ACTIVE_SUBJECT_SELECT)
-    .eq('kind', 'leaf')
-    .eq('is_active', true)
-    .order('name')
-    .order('slug');
-
-  if (error) {
+  const db = await getDb();
+  let rows: SubjectRecordRow[];
+  try {
+    rows = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        kind: subjects.kind,
+        is_active: subjects.isActive,
+      })
+      .from(subjects)
+      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
+      .orderBy(asc(subjects.name), asc(subjects.slug));
+  } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
 
-  const parsedSubjects = ActiveLeafSubjectListSchema.safeParse(data ?? []);
+  const parsedSubjects = ActiveLeafSubjectListSchema.safeParse(rows.map(mapSubjectRecordRow));
   if (!parsedSubjects.success) {
     throw new Error('There was a problem preparing subjects. Please try again.');
   }

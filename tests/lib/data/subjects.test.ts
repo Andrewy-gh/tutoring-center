@@ -1,11 +1,9 @@
-import { getSubjects, mapSubjectOptions } from '@/lib/data/subjects';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockIsUserRole, mockForbidden, mockFrom, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockIsUserRole, mockForbidden, mockDbSelect } = vi.hoisted(() => ({
   mockIsUserRole: vi.fn(),
   mockForbidden: vi.fn(),
-  mockFrom: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockDbSelect: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -16,117 +14,113 @@ vi.mock('@/lib/auth', () => ({
   isUserRole: mockIsUserRole,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
+  },
 }));
 
-const createMockQuery = (result: { data: unknown; error: unknown }) => {
+function createSelectQuery(result: unknown) {
   const query = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    then: vi.fn((resolve: (value: { data: unknown; error: unknown }) => void, reject?: (reason?: unknown) => void) =>
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    orderBy: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
       Promise.resolve(result).then(resolve, reject)
     ),
-  } as const;
+  };
 
   return query;
-};
+}
 
-const setupSupabaseMock = (subjects: ReturnType<typeof createMockQuery>) => {
-  mockFrom.mockImplementation((table: string) => {
-    if (table === 'subjects') return subjects;
-    throw new Error(`Unexpected table ${table}`);
-  });
-  mockCreateSupabaseServiceClient.mockReturnValue({ from: mockFrom } as const);
-};
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
 
 describe('getSubjects', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockFrom.mockReturnValue(undefined);
     mockIsUserRole.mockImplementation(value => value === 'admin' || value === 'parent' || value === 'tutor');
-    mockCreateSupabaseServiceClient.mockReturnValue({ from: mockFrom });
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
   });
 
-  it('applies expected query filters before loading subjects', async () => {
-    const subjectsQuery = createMockQuery({
-      data: [
-        {
-          id: 1,
-          name: 'Math',
-          slug: 'math',
-          kind: 'leaf',
-          is_active: true,
-          tutor_subjects: [{ tutor_id: 10, subject_id: 1 }],
-        },
-        {
-          id: 2,
-          name: 'Science',
-          slug: 'science',
-          kind: 'leaf',
-          is_active: true,
-          tutor_subjects: [{ tutor_id: 20, subject_id: 2 }],
-        },
-      ],
-      error: null,
-    });
-    setupSupabaseMock(subjectsQuery);
+  it('returns mapped subject options from database rows', async () => {
+    const query = createSelectQuery([
+      { id: 1, name: 'Math', slug: 'math', kind: 'leaf', is_active: true, tutor_id: 10, subject_id: 1 },
+      { id: 2, name: 'Science', slug: 'science', kind: 'leaf', is_active: true, tutor_id: 20, subject_id: 2 },
+    ]);
+    mockDbSelect.mockReturnValueOnce(query);
 
-    await getSubjects('admin');
+    const { getSubjects } = await import('@/lib/data/subjects');
+    await expect(getSubjects('admin')).resolves.toEqual([
+      {
+        slug: 'math',
+        name: 'Math',
+        tutorCount: 1,
+        assignments: [{ tutorId: 10, subjectId: 1, subjectSlug: 'math' }],
+      },
+      {
+        slug: 'science',
+        name: 'Science',
+        tutorCount: 1,
+        assignments: [{ tutorId: 20, subjectId: 2, subjectSlug: 'science' }],
+      },
+    ]);
 
-    expect(mockFrom).toHaveBeenCalledWith('subjects');
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(1, 'kind', 'leaf');
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(2, 'is_active', true);
+    expect(query.where).toHaveBeenCalledTimes(1);
+    expect(query.orderBy).toHaveBeenCalledTimes(1);
   });
 
   it('throws when role is invalid', async () => {
     mockIsUserRole.mockReturnValue(false);
 
+    const { getSubjects } = await import('@/lib/data/subjects');
     await expect(getSubjects('admin')).rejects.toThrow('Role is required to fetch students.');
   });
 
   it('throws forbidden for tutors', async () => {
+    const { getSubjects } = await import('@/lib/data/subjects');
     await expect(getSubjects('tutor')).rejects.toThrow('forbidden');
     expect(mockForbidden).toHaveBeenCalledTimes(1);
   });
 
   it('throws when the database query fails', async () => {
-    const subjectsQuery = createMockQuery({
-      data: null,
-      error: { message: 'db failed' },
-    });
-    setupSupabaseMock(subjectsQuery);
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('db failed'));
 
-    await expect(getSubjects('admin')).rejects.toThrow();
+    const { getSubjects } = await import('@/lib/data/subjects');
+    await expect(getSubjects('admin')).rejects.toThrow(
+      'Loading subject records for admin views failed due to a temporary backend issue. Please try again.'
+    );
   });
 
   it('throws when subject rows fail validation', async () => {
-    const subjectsQuery = createMockQuery({
-      data: [{ id: 'bad-id', name: 'Math', slug: 'math', kind: 'leaf', is_active: true, tutor_subjects: [] }],
-      error: null,
-    });
-    setupSupabaseMock(subjectsQuery);
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
+        { id: 'bad-id', name: 'Math', slug: 'math', kind: 'leaf', is_active: true, tutor_id: 1, subject_id: 1 },
+      ])
+    );
 
-    await expect(getSubjects('admin')).rejects.toThrow();
+    const { getSubjects } = await import('@/lib/data/subjects');
+    await expect(getSubjects('admin')).rejects.toThrow('Subject data format is invalid. Please try again later.');
   });
 
   it('returns an empty array when there are no subjects', async () => {
-    const subjectsQuery = createMockQuery({ data: [], error: null });
-    setupSupabaseMock(subjectsQuery);
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
 
-    const result = await getSubjects('admin');
-
-    expect(result).toEqual([]);
-    expect(subjectsQuery.order).toHaveBeenCalledTimes(2);
+    const { getSubjects } = await import('@/lib/data/subjects');
+    await expect(getSubjects('admin')).resolves.toEqual([]);
   });
 });
 
 describe('mapSubjectOptions', () => {
-  it('keeps the smallest subject id per tutor and returns slug-based assignments', () => {
+  it('keeps the smallest subject id per tutor and returns slug-based assignments', async () => {
+    const { mapSubjectOptions } = await import('@/lib/data/subjects');
+
     const result = mapSubjectOptions([
       {
         id: 5,
@@ -155,7 +149,9 @@ describe('mapSubjectOptions', () => {
     ]);
   });
 
-  it('skips subjects that normalize to empty slug or name', () => {
+  it('skips subjects that normalize to empty slug or name', async () => {
+    const { mapSubjectOptions } = await import('@/lib/data/subjects');
+
     const result = mapSubjectOptions([
       {
         id: 1,
@@ -193,7 +189,9 @@ describe('mapSubjectOptions', () => {
     ]);
   });
 
-  it('returns deterministic subject and tutor assignment sorting', () => {
+  it('returns deterministic subject and tutor assignment sorting', async () => {
+    const { mapSubjectOptions } = await import('@/lib/data/subjects');
+
     const result = mapSubjectOptions([
       {
         id: 9,

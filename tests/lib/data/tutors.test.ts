@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockForbidden, mockFrom, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const { mockForbidden, mockDbSelect } = vi.hoisted(() => ({
   mockForbidden: vi.fn(),
-  mockFrom: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockDbSelect: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -11,69 +10,58 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
-}));
-
-vi.mock('@/lib/validators/tutors', () => ({
-  TutorWithJoinsListSchema: {
-    safeParse: vi.fn().mockReturnValue({
-      success: true,
-      data: [
-        {
-          id: 1,
-          user_id: 101,
-          verified: true,
-          education: 'M.S. in Mathematics, NYU',
-          years_experience: 8,
-          users: {
-            first_name: 'Sarah',
-            last_name: 'Jennings',
-            email: 'sarah.j@tutor.mail',
-            phone: '(212) 555-0101',
-          },
-        },
-      ],
-    }),
+vi.mock('@/lib/db/client', () => ({
+  db: {
+    select: mockDbSelect,
   },
 }));
 
-const createMockQuery = (result: { data: unknown; error: unknown }) => {
-  return {
-    select: vi.fn().mockResolvedValue(result),
-  } as const;
-};
+function createSelectQuery(result: unknown) {
+  const query = {
+    from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
+    where: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject)
+    ),
+  };
+
+  return query;
+}
+
+function createRejectingSelectQuery(message: string) {
+  const query = createSelectQuery([]);
+  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
+  return query;
+}
 
 describe('getTutors', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockFrom.mockReturnValue(undefined);
-    mockCreateSupabaseServiceClient.mockReturnValue({ from: mockFrom } as const);
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
   });
 
   it('returns tutors data when role is admin', async () => {
-    const mockQuery = createMockQuery({
-      data: [
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
         {
           id: 1,
           user_id: 101,
           verified: true,
           education: 'M.S. in Mathematics, NYU',
+          bio: null,
+          tagline: null,
           years_experience: 8,
-          users: {
-            first_name: 'Sarah',
-            last_name: 'Jennings',
-            email: 'sarah.j@tutor.mail',
-            phone: '(212) 555-0101',
-          },
+          first_name: 'Sarah',
+          last_name: 'Jennings',
+          email: 'sarah.j@tutor.mail',
+          phone: '(212) 555-0101',
         },
-      ],
-      error: null,
-    });
-    mockFrom.mockImplementation(() => mockQuery);
+      ])
+    );
 
     const { getTutors } = await import('@/lib/data/tutors');
     const tutors = await getTutors('admin');
@@ -103,11 +91,7 @@ describe('getTutors', () => {
   });
 
   it('throws error when database query fails', async () => {
-    const mockQuery = createMockQuery({
-      data: null,
-      error: { message: 'Database error' },
-    });
-    mockFrom.mockImplementation(() => mockQuery);
+    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('Database error'));
 
     const { getTutors } = await import('@/lib/data/tutors');
     await expect(getTutors('admin')).rejects.toThrow(

@@ -18,8 +18,6 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -57,7 +55,6 @@
     "eslint-config-prettier": "^9.1.0",
     "postcss": "^8.4.49",
     "prettier": "^3.4.2",
-    "supabase": "^2.76.9",
     "tailwindcss": "^4.1.18",
     "vitest": "^4.0.18"
   },
