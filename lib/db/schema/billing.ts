@@ -54,5 +54,18 @@ export const creditTransactions = pgTable(
     check('credit_transactions_nonzero_delta', sql`${table.availableDelta} <> 0 or ${table.pendingDelta} <> 0`),
     check('credit_transactions_available_after_nonnegative', sql`${table.availableAfter} >= 0`),
     check('credit_transactions_pending_after_nonnegative', sql`${table.pendingAfter} >= 0`),
+    check(
+      'credit_transactions_valid_delta_shape_by_type',
+      sql`case
+        when ${table.type} = 'Purchase' then ${table.availableDelta} > 0 and ${table.pendingDelta} = 0
+        when ${table.type} = 'Reservation'
+          then ${table.availableDelta} < 0 and ${table.pendingDelta} > 0 and ${table.availableDelta} + ${table.pendingDelta} = 0
+        when ${table.type} = 'Reservation Release'
+          then ${table.availableDelta} > 0 and ${table.pendingDelta} < 0 and ${table.availableDelta} + ${table.pendingDelta} = 0
+        when ${table.type} = 'Session Debit' then ${table.availableDelta} = 0 and ${table.pendingDelta} < 0
+        when ${table.type} = 'Cancellation Fee' then ${table.availableDelta} = 0 and ${table.pendingDelta} < 0
+        else true
+      end`
+    ),
   ]
 );

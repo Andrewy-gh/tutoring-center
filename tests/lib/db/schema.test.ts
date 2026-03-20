@@ -15,6 +15,7 @@ import {
   weekDayEnum,
 } from '@/lib/db/schema';
 import { getTableName } from 'drizzle-orm';
+import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
 describe('db schema exports', () => {
@@ -53,6 +54,23 @@ describe('db schema exports', () => {
     expect(getTableName(studentGrades)).toBe('student_grades');
     expect(getTableName(sessionProgress)).toBe('session_progress');
     expect(getTableName(sessionMetrics)).toBe('session_metrics');
+  });
+
+  it('defines credit transaction delta columns and the type-specific shape check', () => {
+    const tableConfig = getTableConfig(creditTransactions);
+    const shapeCheck = tableConfig.checks.find(check => check.name === 'credit_transactions_valid_delta_shape_by_type');
+    const dialect = new PgDialect();
+
+    expect(creditTransactions.availableDelta.name).toBe('available_delta');
+    expect(creditTransactions.pendingDelta.name).toBe('pending_delta');
+    expect(tableConfig.checks.map(check => check.name)).toContain('credit_transactions_valid_delta_shape_by_type');
+    expect(shapeCheck).toBeDefined();
+    expect(dialect.sqlToQuery(shapeCheck!.value).sql).toContain(
+      `when "credit_transactions"."type" = 'Cancellation Fee'`
+    );
+    expect(dialect.sqlToQuery(shapeCheck!.value).sql).toContain(
+      '"credit_transactions"."available_delta" = 0 and "credit_transactions"."pending_delta" < 0'
+    );
   });
 
   it('tracks subject parent metadata needed for group-only parent enforcement', () => {
