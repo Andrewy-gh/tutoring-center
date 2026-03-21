@@ -49,8 +49,60 @@ export const AVAILABLE_SLOTS_ERROR_MESSAGES = {
   tutorSubject: 'Tutor does not teach this subject',
 } as const;
 
+type TutorSubjectRow = { id: number };
+
+export type AvailableSessionsServiceDeps = {
+  findTutorSubject: (tutorId: number, subjectId: number) => Promise<TutorSubjectRow | null>;
+  listAvailability: (tutorId: number) => Promise<AvailabilityRow[]>;
+  listBookedSessions: (tutorId: number, fromUtc: string, toUtc: string) => Promise<BookedRowWithStatus[]>;
+};
+
 async function getDb() {
   return (await import('@/lib/db/client')).db;
+}
+
+async function findTutorSubject(tutorId: number, subjectId: number) {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: tutorSubjects.id })
+    .from(tutorSubjects)
+    .where(and(eq(tutorSubjects.tutorId, tutorId), eq(tutorSubjects.subjectId, subjectId)))
+    .limit(1);
+
+  return row ?? null;
+}
+
+async function listAvailability(tutorId: number) {
+  const db = await getDb();
+
+  return db
+    .select({
+      week_day: availability.weekDay,
+      start_time: availability.startTime,
+      end_time: availability.endTime,
+    })
+    .from(availability)
+    .where(eq(availability.tutorId, tutorId));
+}
+
+async function listBookedSessions(tutorId: number, fromUtc: string, toUtc: string) {
+  const db = await getDb();
+
+  return db
+    .select({
+      scheduled_at: sessions.scheduledAt,
+      ends_at: sessions.endsAt,
+      status: sessions.status,
+    })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.tutorId, tutorId),
+        notInArray(sessions.status, [...FREE_SLOT_STATUSES]),
+        lt(sessions.scheduledAt, toUtc),
+        gt(sessions.endsAt, fromUtc)
+      )
+    );
 }
 
 export function buildAvailableSlots(
@@ -105,6 +157,48 @@ function filterActiveBookedSessions(rows: BookedRowWithStatus[] | null, fromUtc:
     .map(({ scheduled_at, ends_at }) => ({ scheduled_at, ends_at }));
 }
 
+export function createAvailableSessionsService(deps: AvailableSessionsServiceDeps) {
+  return {
+    async getAvailableSlots(tutorId: number, subjectId: number, from: string, to: string, timezone = TIMEZONE) {
+      const fromUtc = tzDateToUtcIso(from, timezone);
+      const toUtc = tzDateToUtcIso(to, timezone);
+
+      let tutorSubject: TutorSubjectRow | null;
+      try {
+        tutorSubject = await deps.findTutorSubject(tutorId, subjectId);
+      } catch {
+        throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
+      }
+
+      if (!tutorSubject) {
+        throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject);
+      }
+
+      let availabilityRows: AvailabilityRow[];
+      let sessionRows: BookedRowWithStatus[];
+      try {
+        [availabilityRows, sessionRows] = await Promise.all([
+          deps.listAvailability(tutorId),
+          deps.listBookedSessions(tutorId, fromUtc, toUtc),
+        ]);
+      } catch {
+        throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
+      }
+
+      if (!availabilityRows.length) return [];
+
+      const booked = filterActiveBookedSessions(sessionRows, fromUtc, toUtc);
+      return buildAvailableSlots(availabilityRows, booked, from, to, timezone);
+    },
+  };
+}
+
+export const availableSessionsService = createAvailableSessionsService({
+  findTutorSubject,
+  listAvailability,
+  listBookedSessions,
+});
+
 export async function getAvailableSlots(
   tutorId: number,
   subjectId: number,
@@ -112,59 +206,5 @@ export async function getAvailableSlots(
   to: string,
   timezone = TIMEZONE
 ) {
-  const db = await getDb();
-  const fromUtc = tzDateToUtcIso(from, timezone);
-  const toUtc = tzDateToUtcIso(to, timezone);
-
-  let tutorSubjectRows: Array<{ id: number }>;
-  try {
-    tutorSubjectRows = await db
-      .select({ id: tutorSubjects.id })
-      .from(tutorSubjects)
-      .where(and(eq(tutorSubjects.tutorId, tutorId), eq(tutorSubjects.subjectId, subjectId)))
-      .limit(1);
-  } catch {
-    throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
-  }
-  const [tutorSubject] = tutorSubjectRows;
-  if (!tutorSubject) {
-    throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject);
-  }
-
-  let availabilityRows: AvailabilityRow[];
-  let sessionRows: BookedRowWithStatus[];
-  try {
-    [availabilityRows, sessionRows] = await Promise.all([
-      db
-        .select({
-          week_day: availability.weekDay,
-          start_time: availability.startTime,
-          end_time: availability.endTime,
-        })
-        .from(availability)
-        .where(eq(availability.tutorId, tutorId)),
-      db
-        .select({
-          scheduled_at: sessions.scheduledAt,
-          ends_at: sessions.endsAt,
-          status: sessions.status,
-        })
-        .from(sessions)
-        .where(
-          and(
-            eq(sessions.tutorId, tutorId),
-            notInArray(sessions.status, [...FREE_SLOT_STATUSES]),
-            lt(sessions.scheduledAt, toUtc),
-            gt(sessions.endsAt, fromUtc)
-          )
-        ),
-    ]);
-  } catch {
-    throw new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
-  }
-
-  if (!availabilityRows.length) return [];
-
-  const booked = filterActiveBookedSessions(sessionRows, fromUtc, toUtc);
-  return buildAvailableSlots(availabilityRows, booked, from, to, timezone);
+  return availableSessionsService.getAvailableSlots(tutorId, subjectId, from, to, timezone);
 }
