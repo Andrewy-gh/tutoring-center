@@ -1,9 +1,13 @@
 'use server';
 
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { db } from '@/lib/db/client';
-import { sessionMetrics, sessions, tutors } from '@/lib/db/schema';
+import { getTutorIdByUserId } from '@/lib/db/queries/actors';
+import { sessionMetrics, sessions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export type SessionMetricsFormData = {
   sessionId: number;
@@ -14,6 +18,7 @@ export type SessionMetricsFormData = {
 };
 
 async function assertTutorCanSubmitSessionMetrics(sessionId: number, userId: number) {
+  const db = await getDb();
   const [session] = await db
     .select({ tutorId: sessions.tutorId })
     .from(sessions)
@@ -24,13 +29,12 @@ async function assertTutorCanSubmitSessionMetrics(sessionId: number, userId: num
     throw new Error('Session not found');
   }
 
-  const [tutor] = await db.select({ id: tutors.id }).from(tutors).where(eq(tutors.userId, userId)).limit(1);
-
-  if (!tutor) {
+  const tutorId = await getTutorIdByUserId(userId);
+  if (!tutorId) {
     throw new Error('Tutor profile not found');
   }
 
-  if (session.tutorId !== tutor.id) {
+  if (session.tutorId !== tutorId) {
     throw new Error('You are not assigned to this session');
   }
 }
@@ -45,6 +49,7 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
   await assertTutorCanSubmitSessionMetrics(formData.sessionId, userId);
 
   const now = new Date().toISOString();
+  const db = await getDb();
   const values = {
     sessionId: formData.sessionId,
     confidenceScore: formData.confidenceScore,

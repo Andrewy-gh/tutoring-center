@@ -1,6 +1,5 @@
 import { forbidden } from 'next/navigation';
 import { isUserRole, type UserRole } from '@/lib/auth';
-import { db } from '@/lib/db/client';
 import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
@@ -10,6 +9,10 @@ import {
   type SubjectRecord,
 } from '@/lib/validators/subjects';
 import { and, asc, eq, inArray } from 'drizzle-orm';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 type SubjectLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -140,6 +143,7 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
 
   let rows: SubjectRecordRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: subjects.id,
@@ -173,6 +177,7 @@ export async function getSubjects(role: UserRole) {
 
   let rows: SubjectOptionJoinRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: subjects.id,
@@ -211,6 +216,7 @@ export type SubjectForGradeForm = {
 export async function getSubjectsForGradeForm() {
   let rows: SubjectRecordRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: subjects.id,

@@ -1,5 +1,4 @@
 import { CreditBalanceNotFoundError, InsufficientCreditsError } from '@/lib/db/book-session';
-import { db } from '@/lib/db/client';
 import { sql, type SQL } from 'drizzle-orm';
 
 type CreditBalanceRow = {
@@ -15,8 +14,8 @@ function isSqlExecutor(value: unknown): value is SqlExecutor {
   return typeof value === 'object' && value !== null && 'execute' in value && typeof value.execute === 'function';
 }
 
-function resolveDatabase(database?: unknown): SqlExecutor {
-  return isSqlExecutor(database) ? database : db;
+function resolveDatabase(database?: unknown): SqlExecutor | null {
+  return isSqlExecutor(database) ? database : null;
 }
 
 function normalizeError(error: unknown) {
@@ -30,7 +29,7 @@ function normalizeError(error: unknown) {
  * @returns the amount available and amount pending for the parent, or an error if the query fails
  */
 export async function getBalance(parent_id: number, database?: unknown) {
-  const client = resolveDatabase(database);
+  const client = resolveDatabase(database) ?? (await import('@/lib/db/client')).db;
 
   try {
     const data = await client.execute(sql`
@@ -53,7 +52,7 @@ export async function getBalance(parent_id: number, database?: unknown) {
  * @returns The updated balance for the parent, or an error if the query fails or if the parent has insufficient credits
  */
 export async function deductCredits(parent_id: number, amount: number, database?: unknown) {
-  const client = resolveDatabase(database);
+  const client = resolveDatabase(database) ?? (await import('@/lib/db/client')).db;
 
   try {
     const [data] = (await client.execute(sql`

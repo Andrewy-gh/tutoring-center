@@ -1,7 +1,8 @@
 import 'server-only';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
-import { parents, sessionMetrics, sessions, studentGrades, students, subjects, users } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import { sessionMetrics, sessions, studentGrades, students, subjects, users } from '@/lib/db/schema';
 import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 export type DateRange = {
@@ -202,9 +203,9 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
 
   try {
     const db = await getDb();
-    const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
+    const parentId = await getParentIdByUserId(userID);
 
-    if (!parent) {
+    if (!parentId) {
       return [];
     }
 
@@ -216,7 +217,7 @@ export async function getStudentsWithProgress(dateRange?: DateRange, subject?: s
       })
       .from(students)
       .innerJoin(users, eq(students.userId, users.id))
-      .where(eq(students.parentId, parent.id));
+      .where(eq(students.parentId, parentId));
 
     if (studentRows.length === 0) {
       return [];

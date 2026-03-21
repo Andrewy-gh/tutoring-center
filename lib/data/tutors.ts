@@ -2,11 +2,14 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
-import { db } from '@/lib/db/client';
 import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsListSchema, type TutorWithJoins } from '@/lib/validators/tutors';
 import { asc, eq, inArray } from 'drizzle-orm';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export { getUserRole } from '@/lib/auth';
 
@@ -100,6 +103,7 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
 
   let rows: Array<Pick<TutorJoinRow, 'id' | 'firstName' | 'lastName' | 'email' | 'phone'>>;
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: tutors.id,
@@ -149,6 +153,7 @@ export async function getTutors(role: UserRole) {
 
   let rows: TutorJoinRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: tutors.id,

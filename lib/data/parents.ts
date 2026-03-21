@@ -1,7 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { isValidRole, type UserRole } from '@/lib/auth';
-import { db } from '@/lib/db/client';
 import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
@@ -13,6 +12,10 @@ import {
 } from '@/lib/validators/parents';
 import { asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 const MISSING_VALUE = '\u2014';
 
@@ -232,6 +235,7 @@ export async function getParents(role: UserRole) {
 
   let rows: ParentListJoinRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: parents.id,
@@ -268,6 +272,7 @@ export async function getParent(userID: number, role: UserRole): Promise<ParentP
   const studentUsers = alias(users, 'student_users');
   let rows: ParentDetailJoinRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: parents.id,

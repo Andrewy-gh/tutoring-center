@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
 import { creditBalances, parents } from '@/lib/db/schema';
 import { BalanceQuerySchema, BalanceUpdateSchema } from '@/lib/validators/balances';
 import { eq, sql } from 'drizzle-orm';
@@ -41,8 +42,8 @@ async function resolveParentId(requestedParentId?: number) {
 
   let parent;
   try {
-    const db = await getDb();
-    [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+    const parentId = await getParentIdByUserId(userId);
+    parent = parentId ? { id: parentId } : null;
   } catch (error) {
     return { response: NextResponse.json({ error: getErrorMessage(error) }, { status: 500 }) };
   }

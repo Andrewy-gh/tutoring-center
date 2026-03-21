@@ -4,8 +4,10 @@ import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
 import { getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import { buildCreditTransactionFilters, getCreditTransactionRows } from '@/lib/db/queries/credits/transactions';
 import { creditTransactions, parents, sessions, students, users } from '@/lib/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 type CreditTransactionStudent = {
@@ -79,15 +81,14 @@ function getPhone(phone: string | null | undefined) {
 }
 
 async function getCurrentParentId() {
-  const db = await getDb();
   const userId = await getCurrentUserID();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+  const parentId = await getParentIdByUserId(userId);
 
-  if (!parent) {
+  if (!parentId) {
     notFound();
   }
 
-  return parent.id;
+  return parentId;
 }
 
 function mapTransactionStudent(row: {
@@ -151,34 +152,12 @@ export async function getCreditTransactions(role: UserRole) {
   }
 
   const parentId = role === 'parent' ? await getCurrentParentId() : null;
-  const db = await getDb();
-  const parentUsers = alias(users, 'credit_tx_parent_users');
-  const studentUsers = alias(users, 'credit_tx_student_users');
-
-  const rows = await db
-    .select({
-      id: creditTransactions.id,
-      created_at: creditTransactions.createdAt,
-      type: creditTransactions.type,
-      available_delta: creditTransactions.availableDelta,
-      pending_delta: creditTransactions.pendingDelta,
-      available_after: creditTransactions.availableAfter,
-      pending_after: creditTransactions.pendingAfter,
-      session_id: creditTransactions.sessionId,
-      parent_first_name: parentUsers.firstName,
-      parent_last_name: parentUsers.lastName,
-      student_id: students.id,
-      student_first_name: studentUsers.firstName,
-      student_last_name: studentUsers.lastName,
+  const rows = await getCreditTransactionRows(
+    buildCreditTransactionFilters({
+      parentId: parentId ?? undefined,
+      type: 'all',
     })
-    .from(creditTransactions)
-    .innerJoin(parents, eq(creditTransactions.parentId, parents.id))
-    .innerJoin(parentUsers, eq(parents.userId, parentUsers.id))
-    .leftJoin(sessions, eq(creditTransactions.sessionId, sessions.id))
-    .leftJoin(students, eq(sessions.studentId, students.id))
-    .leftJoin(studentUsers, eq(students.userId, studentUsers.id))
-    .where(parentId === null ? undefined : eq(creditTransactions.parentId, parentId))
-    .orderBy(desc(creditTransactions.createdAt));
+  );
 
   return rows.map(mapTransactionRow);
 }

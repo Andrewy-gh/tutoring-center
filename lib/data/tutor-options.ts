@@ -2,12 +2,15 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
-import { db } from '@/lib/db/client';
 import { availability, tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { EmbeddedOneUserSchema } from '@/lib/validators/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export type TutorOption = {
   id: number;
@@ -186,6 +189,7 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
 
   let rows: TutorOptionJoinRow[];
   try {
+    const db = await getDb();
     rows = await db
       .select({
         id: tutors.id,

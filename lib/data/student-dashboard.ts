@@ -4,7 +4,8 @@ import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
 import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { creditTransactions, parents, sessionProgress, sessions, type SessionStatus } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import { creditTransactions, sessionProgress, sessions, type SessionStatus } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -57,16 +58,14 @@ async function getScopedParentId(role: AllowedRole) {
     return null;
   }
 
-  const db = await getDb();
   const userId = await getCurrentUserID();
+  const parentId = await getParentIdByUserId(userId);
 
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
-
-  if (!parent) {
+  if (!parentId) {
     notFound();
   }
 
-  return parent.id;
+  return parentId;
 }
 
 function toLedgerRecord(transaction: CreditTransactionRecord) {

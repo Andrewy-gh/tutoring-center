@@ -1,7 +1,8 @@
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import type { SubjectForGradeForm } from '@/lib/data/subjects';
-import { parents, studentGrades, students, subjects, users } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import { studentGrades, students, subjects, users } from '@/lib/db/schema';
 import { GradeInputSchema, type GradeInput } from '@/lib/validators/grades';
 import { and, eq } from 'drizzle-orm';
 
@@ -76,10 +77,8 @@ export async function getStudentsForGradeForm(role: UserRole) {
     const userID = await getCurrentUserID();
 
     try {
-      const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
-
-      if (!parent) notFound();
-      parentId = parent.id;
+      parentId = await getParentIdByUserId(userID);
+      if (!parentId) notFound();
     } catch (error) {
       if (isNextControlFlowError(error)) {
         throw error;
@@ -121,9 +120,8 @@ export async function addGrade(input: GradeInput) {
   const db = await getDb();
   const userID = await getCurrentUserID();
   try {
-    const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
-
-    if (!parent) {
+    const parentId = await getParentIdByUserId(userID);
+    if (!parentId) {
       throw new Error(GRADE_ERROR_MESSAGES.forbidden);
     }
 
@@ -137,7 +135,7 @@ export async function addGrade(input: GradeInput) {
       throw new Error(GRADE_ERROR_MESSAGES.validation);
     }
 
-    if (student.parent_id === null || student.parent_id !== parent.id) {
+    if (student.parent_id === null || student.parent_id !== parentId) {
       throw new Error(GRADE_ERROR_MESSAGES.forbidden);
     }
 

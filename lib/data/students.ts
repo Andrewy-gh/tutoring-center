@@ -3,7 +3,8 @@ import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { parents, sessions, students, users } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import { sessions, students, users } from '@/lib/db/schema';
 import type { SessionStatus } from '@/lib/validators/sessions';
 import {
   StudentDetailWithJoinsSchema,
@@ -146,15 +147,14 @@ const mapSessionRow = (
 };
 
 async function getParentIdForCurrentUser() {
-  const db = await getDb();
   const userID = await getCurrentUserID();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
+  const parentId = await getParentIdByUserId(userID);
 
-  if (!parent) {
+  if (!parentId) {
     notFound();
   }
 
-  return parent.id;
+  return parentId;
 }
 
 export async function getStudents(role: UserRole) {

@@ -7,7 +7,6 @@ import {
   SessionOverlapError,
   type BookSessionDatabase,
 } from '@/lib/db/book-session';
-import { db } from '@/lib/db/client';
 
 function isBookSessionDatabase(value: unknown): value is BookSessionDatabase {
   return (
@@ -20,8 +19,8 @@ function isBookSessionDatabase(value: unknown): value is BookSessionDatabase {
   );
 }
 
-function resolveDatabase(database?: unknown): BookSessionDatabase {
-  return isBookSessionDatabase(database) ? database : (db as BookSessionDatabase);
+function resolveDatabase(database?: unknown): BookSessionDatabase | null {
+  return isBookSessionDatabase(database) ? database : null;
 }
 
 function getSlotUnits(scheduled_at: string, ends_at: string) {
@@ -68,6 +67,7 @@ export async function placeSession(
 ) {
   try {
     const slotUnits = getSlotUnits(scheduled_at, ends_at);
+    const resolvedDatabase = resolveDatabase(database) ?? ((await import('@/lib/db/client')).db as BookSessionDatabase);
     const { session } = await bookSession(
       {
         parentId: parent_id,
@@ -78,7 +78,7 @@ export async function placeSession(
         scheduledAt: scheduled_at,
         endsAt: ends_at,
       },
-      resolveDatabase(database)
+      resolvedDatabase
     );
 
     return { data: session, error: null };

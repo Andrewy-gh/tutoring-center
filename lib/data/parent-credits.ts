@@ -2,24 +2,18 @@ import 'server-only';
 import { notFound } from 'next/navigation';
 import { getCurrentUserID } from '@/lib/auth';
 import { EMPTY_CREDIT_BALANCE } from '@/lib/credit-balances';
-import { parents } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
 import { getBalance } from '@/server/credits';
-import { eq } from 'drizzle-orm';
-
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
 
 async function getCurrentParentId() {
   const userId = await getCurrentUserID();
-  const db = await getDb();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+  const parentId = await getParentIdByUserId(userId);
 
-  if (!parent) {
+  if (!parentId) {
     notFound();
   }
 
-  return parent.id;
+  return parentId;
 }
 
 export async function getCurrentParentBalance() {

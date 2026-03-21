@@ -3,9 +3,11 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { parents, sessionMetrics, sessionProgress, sessions, students, tutors, users } from '@/lib/db/schema';
-import { SessionWithJoinsListSchema, type SessionWithJoins } from '@/lib/validators/sessions';
-import { and, desc, eq, gte, lt, ne } from 'drizzle-orm';
+import { getParentIdByUserId, getTutorIdByUserId } from '@/lib/db/queries/actors';
+import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/lib/db/queries/sessions/list';
+import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/lib/db/schema';
+import { type SessionWithJoins } from '@/lib/validators/sessions';
+import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
@@ -47,60 +49,6 @@ const SESSION_ERROR_MESSAGES: Record<UserRole, Record<SessionLoadErrorReason, st
     validation: 'Session data format is invalid. Please try again later.',
   },
 };
-
-type SessionListJoinRow = {
-  id: unknown;
-  tutorId: unknown;
-  studentId: unknown;
-  subjectId: unknown;
-  parentId: unknown;
-  slotUnits: unknown;
-  scheduledAt: unknown;
-  endsAt: unknown;
-  status: unknown;
-  studentParentId: unknown;
-  studentLearningGoals: unknown;
-  studentFirstName: unknown;
-  studentLastName: unknown;
-  studentEmail: unknown;
-  parentBillingAddress: unknown;
-  parentNotificationPreferences: unknown;
-  parentFirstName: unknown;
-  parentLastName: unknown;
-  parentEmail: unknown;
-};
-
-const mapSessionJoinRow = (row: SessionListJoinRow): SessionWithJoins => ({
-  id: row.id as number,
-  tutor_id: row.tutorId as number,
-  student_id: row.studentId as number,
-  subject_id: row.subjectId as number,
-  parent_id: row.parentId as number,
-  slot_units: row.slotUnits as number,
-  scheduled_at: row.scheduledAt as string,
-  ends_at: row.endsAt as string,
-  status: row.status as SessionWithJoins['status'],
-  student: {
-    id: row.studentId as number,
-    parent_id: row.studentParentId as number | null,
-    learning_goals: row.studentLearningGoals as string | null,
-    users: {
-      first_name: row.studentFirstName as string | null,
-      last_name: row.studentLastName as string | null,
-      email: row.studentEmail as string,
-    },
-  },
-  parent: {
-    id: row.parentId as number,
-    billing_address: row.parentBillingAddress as string | null,
-    notification_preferences: row.parentNotificationPreferences as string | null,
-    users: {
-      first_name: row.parentFirstName as string | null,
-      last_name: row.parentLastName as string | null,
-      email: row.parentEmail as string,
-    },
-  },
-});
 
 const parseStudentUser = (student: SessionWithJoins['student']) => {
   if (!student) return { name: '—' };
@@ -153,94 +101,46 @@ const compareSessionRows = (left: SessionRow, right: SessionRow) => {
   return new Date(right.scheduled_at).getTime() - new Date(left.scheduled_at).getTime();
 };
 
-async function getParentIdForUser(userId: number) {
-  const db = await getDb();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
-
-  if (!parent) {
-    notFound();
-  }
-
-  return parent.id;
-}
-
-async function getTutorIdForUser(userId: number) {
-  const db = await getDb();
-  const [tutor] = await db.select({ id: tutors.id }).from(tutors).where(eq(tutors.userId, userId)).limit(1);
-
-  if (!tutor) {
-    notFound();
-  }
-
-  return tutor.id;
-}
-
-function getSessionListBaseQuery(database: Awaited<ReturnType<typeof getDb>>) {
-  const studentUsers = alias(users, 'session_student_users');
-  const parentUsers = alias(users, 'session_parent_users');
-
-  return database
-    .select({
-      id: sessions.id,
-      tutorId: sessions.tutorId,
-      studentId: sessions.studentId,
-      subjectId: sessions.subjectId,
-      parentId: sessions.parentId,
-      slotUnits: sessions.slotUnits,
-      scheduledAt: sessions.scheduledAt,
-      endsAt: sessions.endsAt,
-      status: sessions.status,
-      studentParentId: students.parentId,
-      studentLearningGoals: students.learningGoals,
-      studentFirstName: studentUsers.firstName,
-      studentLastName: studentUsers.lastName,
-      studentEmail: studentUsers.email,
-      parentBillingAddress: parents.billingAddress,
-      parentNotificationPreferences: parents.notificationPreferences,
-      parentFirstName: parentUsers.firstName,
-      parentLastName: parentUsers.lastName,
-      parentEmail: parentUsers.email,
-    })
-    .from(sessions)
-    .innerJoin(students, eq(sessions.studentId, students.id))
-    .innerJoin(studentUsers, eq(students.userId, studentUsers.id))
-    .innerJoin(parents, eq(sessions.parentId, parents.id))
-    .innerJoin(parentUsers, eq(parents.userId, parentUsers.id));
-}
-
 export async function getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
   const role = await getUserRole();
   if (!isValidRole(role)) {
     throw new Error('Role is required to fetch sessions.');
   }
 
-  const filters = [];
-  if (kind === 'upcoming') {
-    const now = new Date().toISOString();
-    filters.push(gte(sessions.scheduledAt, now), ne(sessions.status, 'Completed'));
-  } else if (kind === 'past') {
-    filters.push(lt(sessions.scheduledAt, new Date().toISOString()));
-  }
+  let parentId: number | undefined;
+  let tutorId: number | undefined;
 
   if (role !== 'admin') {
-    const userID = await getCurrentUserID();
+    const userId = await getCurrentUserID();
     if (role === 'tutor') {
-      filters.push(eq(sessions.tutorId, await getTutorIdForUser(userID)));
+      tutorId = (await getTutorIdByUserId(userId)) ?? undefined;
+      if (!tutorId) {
+        notFound();
+      }
     } else {
-      filters.push(eq(sessions.parentId, await getParentIdForUser(userID)));
+      parentId = (await getParentIdByUserId(userId)) ?? undefined;
+      if (!parentId) {
+        notFound();
+      }
     }
   }
 
-  let rows: SessionListJoinRow[];
+  const filters = buildSessionListFilters({
+    kind,
+    nowIso: new Date().toISOString(),
+    parentId,
+    tutorId,
+    excludeCompletedForUpcoming: true,
+  });
+
+  let rows;
   try {
-    const db = await getDb();
-    const query = getSessionListBaseQuery(db);
-    rows = await query.where(filters.length === 0 ? undefined : and(...filters));
+    rows = await getSessionListRows(filters);
   } catch {
     throw new Error(SESSION_ERROR_MESSAGES[role].database);
   }
 
-  const parsedSessions = SessionWithJoinsListSchema.safeParse(rows.map(mapSessionJoinRow));
+  const parsedSessions = parseSessionListRows(rows);
   if (!parsedSessions.success) {
     throw new Error(SESSION_ERROR_MESSAGES[role].validation);
   }
@@ -334,7 +234,11 @@ export async function getSession(id: number): Promise<SessionDetailType> {
 
   if (role !== 'admin' && role !== 'tutor') {
     const userID = await getCurrentUserID();
-    const parentId = await getParentIdForUser(userID);
+    const parentId = await getParentIdByUserId(userID);
+
+    if (!parentId) {
+      notFound();
+    }
 
     if (data.parent_id !== parentId) {
       redirect('/dashboard/sessions');
@@ -417,7 +321,12 @@ export async function getTutorAssignedSessions(): Promise<TutorAssignedSession[]
   let tutorId: number;
 
   try {
-    tutorId = await getTutorIdForUser(tutorUserId);
+    const resolvedTutorId = await getTutorIdByUserId(tutorUserId);
+    if (!resolvedTutorId) {
+      return [];
+    }
+
+    tutorId = resolvedTutorId;
   } catch {
     return [];
   }

@@ -2,16 +2,21 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { parents, sessions, students, users } from '@/lib/db/schema';
+import { getParentIdByUserId } from '@/lib/db/queries/actors';
+import {
+  buildSessionListFilters,
+  getSessionListCount,
+  getSessionListRows,
+  parseSessionListRows,
+} from '@/lib/db/queries/sessions/list';
+import { sessions } from '@/lib/db/schema';
 import {
   SessionCreateSchema,
   SessionListQuerySchema,
   SessionUpdateSchema,
-  SessionWithJoinsListSchema,
   type SessionWithJoins,
 } from '@/lib/validators/sessions';
-import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { eq } from 'drizzle-orm';
 
 async function getDb() {
   return (await import('@/lib/db/client')).db;
@@ -25,155 +30,6 @@ type SessionApiRow = Omit<SessionWithJoins, 'student' | 'parent'> & {
   student: Record<string, unknown> | null;
   parent: Record<string, unknown> | null;
 };
-
-function buildSessionWhereClauses({
-  parent_id,
-  tutor_id,
-  student_id,
-  subject_id,
-  status,
-  kind,
-  nowIso,
-}: {
-  parent_id?: number;
-  tutor_id?: number;
-  student_id?: number;
-  subject_id?: number;
-  status?: string;
-  kind: 'all' | 'upcoming' | 'past';
-  nowIso: string;
-}) {
-  const filters = [];
-
-  if (parent_id) filters.push(eq(sessions.parentId, parent_id));
-  if (tutor_id) filters.push(eq(sessions.tutorId, tutor_id));
-  if (student_id) filters.push(eq(sessions.studentId, student_id));
-  if (subject_id) filters.push(eq(sessions.subjectId, subject_id));
-  if (status) filters.push(eq(sessions.status, status as typeof sessions.$inferSelect.status));
-  if (kind === 'upcoming') filters.push(gte(sessions.scheduledAt, nowIso));
-  if (kind === 'past') filters.push(lt(sessions.scheduledAt, nowIso));
-
-  return filters;
-}
-
-function mapSessionJoinRows(
-  rows: Array<{
-    id: number;
-    tutor_id: number;
-    student_id: number;
-    subject_id: number;
-    parent_id: number;
-    slot_units: number;
-    scheduled_at: string;
-    ends_at: string;
-    status: typeof sessions.$inferSelect.status;
-    student_parent_id: number | null;
-    student_learning_goals: string | null;
-    student_first_name: string | null;
-    student_last_name: string | null;
-    student_email: string;
-    parent_billing_address: string | null;
-    parent_notification_preferences: string | null;
-    parent_first_name: string | null;
-    parent_last_name: string | null;
-    parent_email: string;
-  }>
-): SessionWithJoins[] {
-  return rows.map(row => ({
-    id: row.id,
-    tutor_id: row.tutor_id,
-    student_id: row.student_id,
-    subject_id: row.subject_id,
-    parent_id: row.parent_id,
-    slot_units: row.slot_units,
-    scheduled_at: row.scheduled_at,
-    ends_at: row.ends_at,
-    status: row.status,
-    student: {
-      id: row.student_id,
-      parent_id: row.student_parent_id,
-      learning_goals: row.student_learning_goals,
-      users: {
-        first_name: row.student_first_name,
-        last_name: row.student_last_name,
-        email: row.student_email,
-      },
-    },
-    parent: {
-      id: row.parent_id,
-      billing_address: row.parent_billing_address,
-      notification_preferences: row.parent_notification_preferences,
-      users: {
-        first_name: row.parent_first_name,
-        last_name: row.parent_last_name,
-        email: row.parent_email,
-      },
-    },
-  }));
-}
-
-async function getSessionCount(filters: ReturnType<typeof buildSessionWhereClauses>) {
-  const db = await getDb();
-  const rows = await db
-    .select({
-      count: sql<number>`cast(count(*) as int)`,
-    })
-    .from(sessions)
-    .where(and(...filters));
-
-  return rows[0]?.count ?? 0;
-}
-
-async function getSessionRows(
-  filters: ReturnType<typeof buildSessionWhereClauses>,
-  page: number,
-  pageSize: number,
-  kind: 'all' | 'upcoming' | 'past'
-) {
-  const db = await getDb();
-  const studentUsers = alias(users, 'api_session_student_users');
-  const parentUsers = alias(users, 'api_session_parent_users');
-
-  const query = db
-    .select({
-      id: sessions.id,
-      tutor_id: sessions.tutorId,
-      student_id: sessions.studentId,
-      subject_id: sessions.subjectId,
-      parent_id: sessions.parentId,
-      slot_units: sessions.slotUnits,
-      scheduled_at: sessions.scheduledAt,
-      ends_at: sessions.endsAt,
-      status: sessions.status,
-      student_parent_id: students.parentId,
-      student_learning_goals: students.learningGoals,
-      student_first_name: studentUsers.firstName,
-      student_last_name: studentUsers.lastName,
-      student_email: studentUsers.email,
-      parent_billing_address: parents.billingAddress,
-      parent_notification_preferences: parents.notificationPreferences,
-      parent_first_name: parentUsers.firstName,
-      parent_last_name: parentUsers.lastName,
-      parent_email: parentUsers.email,
-    })
-    .from(sessions)
-    .innerJoin(students, eq(sessions.studentId, students.id))
-    .innerJoin(studentUsers, eq(students.userId, studentUsers.id))
-    .innerJoin(parents, eq(sessions.parentId, parents.id))
-    .innerJoin(parentUsers, eq(parents.userId, parentUsers.id))
-    .where(and(...filters))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
-
-  return kind === 'upcoming' ? query.orderBy(asc(sessions.scheduledAt)) : query.orderBy(desc(sessions.scheduledAt));
-}
-
-async function getParentIdByUserId(userId: number) {
-  const db = await getDb();
-  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
-
-  return parent?.id ?? null;
-}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -194,18 +50,18 @@ export async function GET(req: Request) {
   }
 
   const { kind, parent_id, tutor_id, student_id, subject_id, status, page, page_size } = parsed.data;
-  const filters = buildSessionWhereClauses({
+  const filters = buildSessionListFilters({
     kind,
-    parent_id,
-    tutor_id,
-    student_id,
-    subject_id,
+    parentId: parent_id,
+    tutorId: tutor_id,
+    studentId: student_id,
+    subjectId: subject_id,
     status,
     nowIso: new Date().toISOString(),
   });
 
   try {
-    const total = await getSessionCount(filters);
+    const total = await getSessionListCount(filters);
     const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
 
     if (total === 0 || (page - 1) * page_size >= total) {
@@ -221,8 +77,8 @@ export async function GET(req: Request) {
       });
     }
 
-    const rows = await getSessionRows(filters, page, page_size, kind);
-    const joinedParsed = SessionWithJoinsListSchema.safeParse(mapSessionJoinRows(rows));
+    const rows = await getSessionListRows(filters, { page, pageSize: page_size, orderByKind: kind });
+    const joinedParsed = parseSessionListRows(rows);
 
     if (!joinedParsed.success) {
       return NextResponse.json({ error: 'Unexpected sessions join shape returned from the database' }, { status: 500 });

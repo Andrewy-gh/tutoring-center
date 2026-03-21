@@ -1,10 +1,13 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
-import { db } from '@/lib/db/client';
 import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsSchema, type TutorWithJoins } from '@/lib/validators/tutors';
 import { eq } from 'drizzle-orm';
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export { getUserRole } from '@/lib/auth';
 
@@ -73,6 +76,7 @@ const mapTutorJoinRow = (row: TutorDetailRow): TutorWithJoins => ({
 export async function getTutor(id: number): Promise<TutorDetailType> {
   let row: TutorDetailRow | undefined;
   try {
+    const db = await getDb();
     [row] = await db
       .select({
         id: tutors.id,
