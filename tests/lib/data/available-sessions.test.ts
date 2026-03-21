@@ -1,15 +1,9 @@
-import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/lib/data/available-sessions';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const { mockDbSelect } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-}));
-
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-  },
-}));
+import {
+  AVAILABLE_SLOTS_ERROR_MESSAGES,
+  createAvailableSessionsService,
+  type AvailableSessionsServiceDeps,
+} from '@/lib/data/available-sessions';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 type AvailabilityLike = { week_day: string; start_time: string; end_time: string };
 type SessionLike = { scheduled_at: string; ends_at: string; status?: string | null };
@@ -22,58 +16,55 @@ const ALL_THREE_SLOTS = [
   { scheduled_at: '2026-03-02T21:00:00.000Z', ends_at: '2026-03-02T22:00:00.000Z' },
   { scheduled_at: '2026-03-02T22:00:00.000Z', ends_at: '2026-03-02T23:00:00.000Z' },
 ];
+let deps: AvailableSessionsServiceDeps;
+let findTutorSubjectMock: Mock<AvailableSessionsServiceDeps['findTutorSubject']>;
+let listAvailabilityMock: Mock<AvailableSessionsServiceDeps['listAvailability']>;
+let listBookedSessionsMock: Mock<AvailableSessionsServiceDeps['listBookedSessions']>;
 
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    where: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
+function createDeps(): AvailableSessionsServiceDeps {
+  findTutorSubjectMock = vi.fn<AvailableSessionsServiceDeps['findTutorSubject']>().mockResolvedValue({ id: 1 });
+  listAvailabilityMock = vi
+    .fn<AvailableSessionsServiceDeps['listAvailability']>()
+    .mockResolvedValue(MONDAY_AVAILABILITY as never);
+  listBookedSessionsMock = vi.fn<AvailableSessionsServiceDeps['listBookedSessions']>().mockResolvedValue([]);
+
+  return {
+    findTutorSubject: (tutorId, subjectId) => findTutorSubjectMock(tutorId, subjectId),
+    listAvailability: tutorId => listAvailabilityMock(tutorId),
+    listBookedSessions: (tutorId, fromUtc, toUtc) => listBookedSessionsMock(tutorId, fromUtc, toUtc),
   };
-
-  return query;
 }
 
 describe('getAvailableSlots', () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    deps = createDeps();
   });
 
   it('throws tutor-subject error when relationship is missing', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([]))
-      .mockReturnValueOnce(createSelectQuery([]))
-      .mockReturnValueOnce(createSelectQuery([]));
+    findTutorSubjectMock.mockResolvedValueOnce(null);
+    const service = createAvailableSessionsService(deps);
 
-    await expect(getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).rejects.toThrow(
+    await expect(service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).rejects.toThrow(
       AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject
     );
   });
 
   it('returns empty array when availability is empty', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 1 }]))
-      .mockReturnValueOnce(createSelectQuery([]))
-      .mockReturnValueOnce(createSelectQuery([]));
+    listAvailabilityMock.mockResolvedValueOnce([]);
+    const service = createAvailableSessionsService(deps);
 
-    await expect(getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).resolves.toEqual([]);
+    await expect(service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).resolves.toEqual([]);
   });
 
   it('defensively ignores free-slot statuses and out-of-range sessions', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 1 }]))
-      .mockReturnValueOnce(createSelectQuery(MONDAY_AVAILABILITY))
-      .mockReturnValueOnce(
-        createSelectQuery([
-          { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Canceled' },
-          { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Rescheduled' },
-          { scheduled_at: '2026-03-02T21:00:00.000Z', ends_at: '2026-03-02T22:00:00.000Z', status: 'Scheduled' },
-        ])
-      );
+    listBookedSessionsMock.mockResolvedValueOnce([
+      { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Canceled' },
+      { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Rescheduled' },
+      { scheduled_at: '2026-03-02T21:00:00.000Z', ends_at: '2026-03-02T22:00:00.000Z', status: 'Scheduled' },
+    ]);
+    const service = createAvailableSessionsService(deps);
 
-    const result = await getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO);
+    const result = await service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO);
     expect(result).toEqual([
       { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z' },
       { scheduled_at: '2026-03-02T22:00:00.000Z', ends_at: '2026-03-02T23:00:00.000Z' },
@@ -81,17 +72,22 @@ describe('getAvailableSlots', () => {
   });
 
   it('uses half-open interval semantics: boundary-touching sessions do not block slots', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 1 }]))
-      .mockReturnValueOnce(createSelectQuery(MONDAY_AVAILABILITY))
-      .mockReturnValueOnce(
-        createSelectQuery([
-          { scheduled_at: '2026-03-02T19:00:00.000Z', ends_at: '2026-03-02T20:00:00.000Z', status: 'Scheduled' },
-          { scheduled_at: '2026-03-02T23:00:00.000Z', ends_at: '2026-03-03T00:00:00.000Z', status: 'Scheduled' },
-        ])
-      );
+    listBookedSessionsMock.mockResolvedValueOnce([
+      { scheduled_at: '2026-03-02T19:00:00.000Z', ends_at: '2026-03-02T20:00:00.000Z', status: 'Scheduled' },
+      { scheduled_at: '2026-03-02T23:00:00.000Z', ends_at: '2026-03-03T00:00:00.000Z', status: 'Scheduled' },
+    ]);
+    const service = createAvailableSessionsService(deps);
 
-    const result = await getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO);
+    const result = await service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO);
     expect(result).toEqual(ALL_THREE_SLOTS);
+  });
+
+  it('maps dependency failures to the user-facing database error', async () => {
+    listBookedSessionsMock.mockRejectedValueOnce(new Error('db failed'));
+    const service = createAvailableSessionsService(deps);
+
+    await expect(service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).rejects.toThrow(
+      AVAILABLE_SLOTS_ERROR_MESSAGES.database
+    );
   });
 });
