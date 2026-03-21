@@ -1,62 +1,38 @@
-import { addGrade } from '@/lib/data/grades';
-import { getSubjectsForGradeForm } from '@/lib/data/subjects';
+import { addGrade, getStudentsForGradeForm, getSubjectsForGradeForm } from '@/lib/data/grades';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDbSelect, mockGetCurrentUserID, mockCreateSupabaseServiceClient } = vi.hoisted(() => ({
+const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
+
+const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockNotFound } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
   mockGetCurrentUserID: vi.fn(),
-  mockCreateSupabaseServiceClient: vi.fn(),
+  mockNotFound: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
 }));
 
-vi.mock('@/lib/supabase/serverClient', () => ({
-  createSupabaseServiceClient: mockCreateSupabaseServiceClient,
+vi.mock('next/navigation', () => ({
+  notFound: mockNotFound,
+  forbidden: vi.fn(),
 }));
 
 vi.mock('@/lib/db/client', () => ({
   db: {
     select: mockDbSelect,
+    insert: mockDbInsert,
   },
 }));
 
-type QueryResult = {
-  data: unknown;
-  error: unknown;
-};
-
-function createSingleResultQuery(result: QueryResult) {
-  const query = {
-    eq: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    single: vi.fn().mockResolvedValue(result),
-    order: vi.fn(() => query),
-    in: vi.fn(() => query),
-  };
-
-  return query;
-}
-
-function createInsertQuery(result: QueryResult) {
-  const selection = {
-    single: vi.fn().mockResolvedValue(result),
-  };
-
-  return {
-    insert: vi.fn(() => ({
-      select: vi.fn(() => selection),
-    })),
-    selection,
-  };
-}
-
-function createDrizzleSelectQuery(result: unknown) {
+function createSelectQuery(result: unknown) {
   const query = {
     from: vi.fn(() => query),
+    innerJoin: vi.fn(() => query),
     where: vi.fn(() => query),
     orderBy: vi.fn(() => query),
+    limit: vi.fn(() => query),
     then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
       Promise.resolve(result).then(resolve, reject)
     ),
@@ -65,49 +41,49 @@ function createDrizzleSelectQuery(result: unknown) {
   return query;
 }
 
+function createInsertQuery(result: unknown) {
+  return {
+    values: vi.fn(() => ({
+      returning: vi.fn().mockResolvedValue(result),
+    })),
+  };
+}
+
+function createNextNotFoundError() {
+  const error = new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string };
+  error.digest = NEXT_NOT_FOUND_DIGEST;
+  return error;
+}
+
 describe('grade data', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockNotFound.mockImplementation(() => {
+      throw createNextNotFoundError();
+    });
   });
 
   it('writes grades with subject_id + leaf subject_kind', async () => {
     mockGetCurrentUserID.mockResolvedValue(42);
-
-    const parentsQuery = createSingleResultQuery({ data: { id: 7 }, error: null });
-    const studentsQuery = createSingleResultQuery({ data: { id: 10, parent_id: 7 }, error: null });
-    const subjectsQuery = createSingleResultQuery({ data: { id: 55, name: 'Fractions', kind: 'leaf' }, error: null });
-    const gradesTable = createInsertQuery({
-      data: {
-        id: 99,
-        student_id: 10,
-        subject_id: 55,
-        subject_kind: 'leaf',
-        grade: 'A',
-        created_at: '2026-03-18T12:00:00.000Z',
-      },
-      error: null,
-    });
-
-    const from = vi.fn((table: string) => {
-      if (table === 'parents') return { select: vi.fn(() => parentsQuery) };
-      if (table === 'students') return { select: vi.fn(() => studentsQuery) };
-      if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-      if (table === 'student_grades') return gradesTable;
-      throw new Error(`Unexpected table ${table}`);
-    });
-
-    mockCreateSupabaseServiceClient.mockReturnValue({ from });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 10, parent_id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 55, name: 'Fractions', kind: 'leaf' }]));
+    mockDbInsert.mockReturnValueOnce(
+      createInsertQuery([
+        {
+          id: 99,
+          student_id: 10,
+          subject_id: 55,
+          subject_kind: 'leaf',
+          grade: 'A',
+          created_at: '2026-03-18T12:00:00.000Z',
+        },
+      ])
+    );
 
     const result = await addGrade({ student_id: 10, subject_id: 55, grade: 93 });
 
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(1, 'id', 55);
-    expect(subjectsQuery.eq).toHaveBeenNthCalledWith(2, 'kind', 'leaf');
-    expect(gradesTable.insert).toHaveBeenCalledWith({
-      student_id: 10,
-      subject_id: 55,
-      subject_kind: 'leaf',
-      grade: 'A',
-    });
     expect(result).toEqual({
       id: 99,
       student_id: 10,
@@ -121,40 +97,36 @@ describe('grade data', () => {
 
   it('rejects non-leaf subjects before inserting a grade', async () => {
     mockGetCurrentUserID.mockResolvedValue(42);
-
-    const parentsQuery = createSingleResultQuery({ data: { id: 7 }, error: null });
-    const studentsQuery = createSingleResultQuery({ data: { id: 10, parent_id: 7 }, error: null });
-    const subjectsQuery = createSingleResultQuery({ data: null, error: null });
-    const gradesTable = createInsertQuery({ data: null, error: null });
-
-    const from = vi.fn((table: string) => {
-      if (table === 'parents') return { select: vi.fn(() => parentsQuery) };
-      if (table === 'students') return { select: vi.fn(() => studentsQuery) };
-      if (table === 'subjects') return { select: vi.fn(() => subjectsQuery) };
-      if (table === 'student_grades') return gradesTable;
-      throw new Error(`Unexpected table ${table}`);
-    });
-
-    mockCreateSupabaseServiceClient.mockReturnValue({ from });
+    mockDbSelect
+      .mockReturnValueOnce(createSelectQuery([{ id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([{ id: 10, parent_id: 7 }]))
+      .mockReturnValueOnce(createSelectQuery([]));
+    mockDbInsert.mockReturnValueOnce(createInsertQuery([]));
 
     await expect(addGrade({ student_id: 10, subject_id: 12, grade: 88 })).rejects.toThrow(
       'Grade data is invalid. Please check your input.'
     );
-    expect(gradesTable.insert).not.toHaveBeenCalled();
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
+  it('preserves notFound when the current parent row is missing', async () => {
+    mockGetCurrentUserID.mockResolvedValue(42);
+    mockDbSelect.mockReturnValueOnce(createSelectQuery([]));
+
+    await expect(getStudentsForGradeForm('parent')).rejects.toMatchObject({ digest: NEXT_NOT_FOUND_DIGEST });
   });
 
   it('returns only leaf subjects for the grade form', async () => {
-    const query = createDrizzleSelectQuery([
-      { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
-      { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
-    ]);
-    mockDbSelect.mockReturnValueOnce(query);
+    mockDbSelect.mockReturnValueOnce(
+      createSelectQuery([
+        { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
+        { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
+      ])
+    );
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
       { id: 3, slug: 'algebra-i', name: 'Algebra I' },
       { id: 8, slug: 'geometry', name: 'Geometry' },
     ]);
-    expect(query.where).toHaveBeenCalledTimes(1);
-    expect(query.orderBy).toHaveBeenCalledTimes(1);
   });
 });

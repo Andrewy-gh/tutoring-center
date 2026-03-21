@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { getStudents } from '@/lib/data/students';
-import type { Database } from '@/lib/supabase/types';
-import { createClient } from '@supabase/supabase-js';
+import { parents, students, users } from '@/lib/db/schema';
+import { closeTestDatabase, createTestDatabase } from '@/tests/helpers/postgresTestClient';
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetCurrentUserID } = vi.hoisted(() => ({
@@ -13,31 +13,46 @@ vi.mock('@/lib/mock-api', () => ({
   getUserRole: vi.fn(),
 }));
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing env var: ${name}`);
-  return value;
+const HAS_DB_ENV = Boolean(process.env.DATABASE_URL);
+const describeIfConfigured = HAS_DB_ENV ? describe : describe.skip;
+
+type TestDb = ReturnType<typeof createTestDatabase>['db'];
+
+async function insertUser(
+  db: TestDb,
+  params: {
+    email: string;
+    firstName: string;
+    lastName: string;
+  }
+) {
+  const [row] = await db
+    .insert(users)
+    .values({
+      email: params.email,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      timezone: 'UTC',
+      isActive: true,
+    })
+    .returning({ id: users.id });
+
+  expect(row).toBeDefined();
+  if (!row) {
+    throw new Error('Failed to insert user');
+  }
+
+  return row.id;
 }
 
-function createSupabaseServiceTestClient() {
-  const url = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const key = requireEnv('SUPABASE_SECRET_KEY');
-  return createClient<Database>(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-}
-
-describe('getStudents integration', () => {
+describeIfConfigured('getStudents integration', () => {
   beforeEach(() => {
     mockGetCurrentUserID.mockReset();
   });
 
   it('returns data from the real database for a newly inserted student', async () => {
-    const supabase = createSupabaseServiceTestClient();
+    const { getStudents } = await import('@/lib/data/students');
+    const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const email = `students-int-${unique}@example.com`;
 
@@ -45,47 +60,30 @@ describe('getStudents integration', () => {
     let studentId: number | undefined;
 
     try {
-      const { data: insertedUser, error: userInsertError } = await supabase
-        .from('users')
-        .insert({
-          email,
-          first_name: 'Integration',
-          last_name: 'Student',
-          timezone: 'UTC',
-        })
-        .select('id')
-        .single();
+      userId = await insertUser(client.db, {
+        email,
+        firstName: 'Integration',
+        lastName: 'Student',
+      });
 
-      expect(userInsertError).toBeNull();
-      expect(insertedUser).not.toBeNull();
-
-      if (!insertedUser) {
-        throw new Error('Failed to insert test user');
-      }
-
-      userId = insertedUser.id;
-
-      const { data: insertedStudent, error: studentInsertError } = await supabase
-        .from('students')
-        .insert({
-          user_id: userId,
-          parent_id: null,
+      const [insertedStudent] = await client.db
+        .insert(students)
+        .values({
+          userId,
+          parentId: null,
           grade: '11',
         })
-        .select('id')
-        .single();
+        .returning({ id: students.id });
 
-      expect(studentInsertError).toBeNull();
-      expect(insertedStudent).not.toBeNull();
-
+      expect(insertedStudent).toBeDefined();
       if (!insertedStudent) {
         throw new Error('Failed to insert test student');
       }
 
       studentId = insertedStudent.id;
 
-      const students = await getStudents('admin');
-      const addedStudent = students.find(student => student.id === studentId);
+      const studentRows = await getStudents('admin');
+      const addedStudent = studentRows.find(student => student.id === studentId);
 
       expect(addedStudent).toEqual({
         id: studentId,
@@ -97,16 +95,18 @@ describe('getStudents integration', () => {
       });
     } finally {
       if (studentId) {
-        await supabase.from('students').delete().eq('id', studentId);
+        await client.db.delete(students).where(eq(students.id, studentId));
       }
       if (userId) {
-        await supabase.from('users').delete().eq('id', userId);
+        await client.db.delete(users).where(eq(users.id, userId));
       }
+      await closeTestDatabase(client);
     }
   });
 
   it('scopes parent role to only the current parent students', async () => {
-    const supabase = createSupabaseServiceTestClient();
+    const { getStudents } = await import('@/lib/data/students');
+    const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 
     const userIDs: number[] = [];
@@ -114,94 +114,63 @@ describe('getStudents integration', () => {
     const studentIDs: number[] = [];
 
     let parentAUserID: number | undefined;
-    let parentAID: number | undefined;
-    let parentBID: number | undefined;
     let studentAID: number | undefined;
     let studentBID: number | undefined;
     let studentAUserID: number | undefined;
 
-    const insertUser = async (params: { email: string; firstName: string; lastName: string }) => {
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          email: params.email,
-          first_name: params.firstName,
-          last_name: params.lastName,
-          timezone: 'UTC',
-        })
-        .select('id')
-        .single();
-
-      expect(error).toBeNull();
-      expect(data).not.toBeNull();
-      if (!data) throw new Error('Failed to insert user');
-      userIDs.push(data.id);
-      return data.id;
-    };
-
     try {
-      parentAUserID = await insertUser({
+      parentAUserID = await insertUser(client.db, {
         email: `parent-a-${unique}@example.com`,
         firstName: 'Parent',
         lastName: 'A',
       });
-      const parentBUserID = await insertUser({
+      userIDs.push(parentAUserID);
+
+      const parentBUserID = await insertUser(client.db, {
         email: `parent-b-${unique}@example.com`,
         firstName: 'Parent',
         lastName: 'B',
       });
+      userIDs.push(parentBUserID);
 
-      const { data: parentA, error: parentAError } = await supabase
-        .from('parents')
-        .insert({ user_id: parentAUserID })
-        .select('id')
-        .single();
-      expect(parentAError).toBeNull();
-      expect(parentA).not.toBeNull();
+      const [parentA] = await client.db.insert(parents).values({ userId: parentAUserID }).returning({ id: parents.id });
+      expect(parentA).toBeDefined();
       if (!parentA) throw new Error('Failed to insert parent A');
-      parentAID = parentA.id;
-      parentIDs.push(parentAID);
+      parentIDs.push(parentA.id);
 
-      const { data: parentB, error: parentBError } = await supabase
-        .from('parents')
-        .insert({ user_id: parentBUserID })
-        .select('id')
-        .single();
-      expect(parentBError).toBeNull();
-      expect(parentB).not.toBeNull();
+      const [parentB] = await client.db.insert(parents).values({ userId: parentBUserID }).returning({ id: parents.id });
+      expect(parentB).toBeDefined();
       if (!parentB) throw new Error('Failed to insert parent B');
-      parentBID = parentB.id;
-      parentIDs.push(parentBID);
+      parentIDs.push(parentB.id);
 
-      studentAUserID = await insertUser({
+      studentAUserID = await insertUser(client.db, {
         email: `student-a-${unique}@example.com`,
         firstName: 'Scoped',
         lastName: 'A',
       });
-      const studentBUserID = await insertUser({
+      userIDs.push(studentAUserID);
+
+      const studentBUserID = await insertUser(client.db, {
         email: `student-b-${unique}@example.com`,
         firstName: 'Scoped',
         lastName: 'B',
       });
+      userIDs.push(studentBUserID);
 
-      const { data: studentA, error: studentAError } = await supabase
-        .from('students')
-        .insert({ user_id: studentAUserID, parent_id: parentAID, grade: '7' })
-        .select('id')
-        .single();
-      expect(studentAError).toBeNull();
-      expect(studentA).not.toBeNull();
+      const [studentA] = await client.db
+        .insert(students)
+        .values({ userId: studentAUserID, parentId: parentA.id, grade: '7' })
+        .returning({ id: students.id });
+      expect(studentA).toBeDefined();
       if (!studentA) throw new Error('Failed to insert student A');
       studentAID = studentA.id;
       studentIDs.push(studentAID);
 
-      const { data: studentB, error: studentBError } = await supabase
-        .from('students')
-        .insert({ user_id: studentBUserID, parent_id: parentBID, grade: '8' })
-        .select('id')
-        .single();
-      expect(studentBError).toBeNull();
-      expect(studentB).not.toBeNull();
+      const [studentB] = await client.db
+        .insert(students)
+        .values({ userId: studentBUserID, parentId: parentB.id, grade: '8' })
+        .returning({ id: students.id });
+      expect(studentB).toBeDefined();
       if (!studentB) throw new Error('Failed to insert student B');
       studentBID = studentB.id;
       studentIDs.push(studentBID);
@@ -223,14 +192,15 @@ describe('getStudents integration', () => {
       });
     } finally {
       for (const studentID of studentIDs) {
-        await supabase.from('students').delete().eq('id', studentID);
+        await client.db.delete(students).where(eq(students.id, studentID));
       }
       for (const parentID of parentIDs) {
-        await supabase.from('parents').delete().eq('id', parentID);
+        await client.db.delete(parents).where(eq(parents.id, parentID));
       }
       for (const userID of userIDs) {
-        await supabase.from('users').delete().eq('id', userID);
+        await client.db.delete(users).where(eq(users.id, userID));
       }
+      await closeTestDatabase(client);
     }
   });
 });

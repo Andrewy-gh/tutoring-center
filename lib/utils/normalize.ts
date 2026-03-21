@@ -1,4 +1,4 @@
-// Supabase returning joins looks awful. If you ask for a single object, it returns an array with one item. If you ask for an array, it returns an array of arrays. If you ask for something that doesn't exist, it returns null or an empty array. It's a mess.
+// Some legacy join helpers return an object, an array, or null for the same logical shape.
 // These helpers normalize that into a single object (or null).
 
 // If it's an array, return the first item. If it's an object, return it.

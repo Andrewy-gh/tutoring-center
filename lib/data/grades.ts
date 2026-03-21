@@ -1,9 +1,9 @@
 import { forbidden, notFound } from 'next/navigation';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
-import { getSubjectsForGradeForm, type SubjectForGradeForm } from '@/lib/data/subjects';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { GRADE_SELECT_FIELDS } from '@/lib/supabase/types';
+import type { SubjectForGradeForm } from '@/lib/data/subjects';
+import { parents, studentGrades, students, subjects, users } from '@/lib/db/schema';
 import { GradeInputSchema, type GradeInput } from '@/lib/validators/grades';
+import { and, eq } from 'drizzle-orm';
 
 export type StudentForGradeForm = {
   id: number;
@@ -20,6 +20,21 @@ const GRADE_ERROR_MESSAGES = {
   validation: 'Grade data is invalid. Please check your input.',
   forbidden: 'You do not have permission to add grades for this student.',
 } as const satisfies Record<GradeErrorReason, string>;
+const GRADE_KNOWN_ERRORS = new Set(Object.values(GRADE_ERROR_MESSAGES));
+
+function isNextControlFlowError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const digest = 'digest' in error && typeof error.digest === 'string' ? error.digest : error.message;
+
+  return digest.startsWith('NEXT_HTTP_ERROR_FALLBACK;') || digest.startsWith('NEXT_REDIRECT;');
+}
+
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 export function percentageToLetterGrade(percentage: number): string {
   switch (true) {
@@ -55,32 +70,43 @@ export function percentageToLetterGrade(percentage: number): string {
 export async function getStudentsForGradeForm(role: UserRole) {
   if (role === 'tutor') forbidden();
 
-  const supabase = createSupabaseServiceClient();
-
-  let query = supabase.from('students').select('id,parent_id,users:user_id(first_name,last_name)');
-
+  const db = await getDb();
+  let parentId: number | null = null;
   if (role !== 'admin') {
     const userID = await getCurrentUserID();
-    const { data: parent, error: parentErr } = await supabase
-      .from('parents')
-      .select('id')
-      .eq('user_id', userID)
-      .single();
 
-    if (parentErr || !parent) notFound();
-    query = query.eq('parent_id', parent.id);
+    try {
+      const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
+
+      if (!parent) notFound();
+      parentId = parent.id;
+    } catch (error) {
+      if (isNextControlFlowError(error)) {
+        throw error;
+      }
+
+      throw new Error(GRADE_ERROR_MESSAGES.database);
+    }
   }
 
-  const { data, error } = await query;
+  try {
+    const rows = await db
+      .select({
+        id: students.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(parentId === null ? undefined : eq(students.parentId, parentId));
 
-  if (error) {
+    return rows.map(student => ({
+      id: student.id,
+      name: [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Unknown',
+    }));
+  } catch {
     throw new Error(GRADE_ERROR_MESSAGES.database);
   }
-
-  return (data ?? []).map(student => ({
-    id: student.id,
-    name: [student.users?.first_name, student.users?.last_name].filter(Boolean).join(' ') || 'Unknown',
-  }));
 }
 
 export async function addGrade(input: GradeInput) {
@@ -92,62 +118,74 @@ export async function addGrade(input: GradeInput) {
 
   const { student_id, subject_id, grade } = parsed.data;
 
-  const supabase = createSupabaseServiceClient();
-
+  const db = await getDb();
   const userID = await getCurrentUserID();
-  const { data: parent, error: parentErr } = await supabase.from('parents').select('id').eq('user_id', userID).single();
+  try {
+    const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userID)).limit(1);
 
-  if (parentErr || !parent) {
-    throw new Error(GRADE_ERROR_MESSAGES.forbidden);
-  }
+    if (!parent) {
+      throw new Error(GRADE_ERROR_MESSAGES.forbidden);
+    }
 
-  const { data: student, error: studentErr } = await supabase
-    .from('students')
-    .select('id,parent_id')
-    .eq('id', student_id)
-    .single();
+    const [student] = await db
+      .select({ id: students.id, parent_id: students.parentId })
+      .from(students)
+      .where(eq(students.id, student_id))
+      .limit(1);
 
-  if (studentErr || !student) {
-    throw new Error(GRADE_ERROR_MESSAGES.validation);
-  }
+    if (!student) {
+      throw new Error(GRADE_ERROR_MESSAGES.validation);
+    }
 
-  if (student.parent_id === null || student.parent_id !== parent.id) {
-    throw new Error(GRADE_ERROR_MESSAGES.forbidden);
-  }
+    if (student.parent_id === null || student.parent_id !== parent.id) {
+      throw new Error(GRADE_ERROR_MESSAGES.forbidden);
+    }
 
-  const { data: subjectData, error: subjectErr } = await supabase
-    .from('subjects')
-    .select('id,name,kind')
-    .eq('id', subject_id)
-    .eq('kind', GRADE_SUBJECT_KIND)
-    .limit(1)
-    .single();
+    const [subjectData] = await db
+      .select({ id: subjects.id, name: subjects.name, kind: subjects.kind })
+      .from(subjects)
+      .where(and(eq(subjects.id, subject_id), eq(subjects.kind, GRADE_SUBJECT_KIND)))
+      .limit(1);
 
-  if (subjectErr || !subjectData) {
-    throw new Error(GRADE_ERROR_MESSAGES.validation);
-  }
+    if (!subjectData) {
+      throw new Error(GRADE_ERROR_MESSAGES.validation);
+    }
 
-  const letterGrade = percentageToLetterGrade(grade);
+    const letterGrade = percentageToLetterGrade(grade);
 
-  const { data, error } = await supabase
-    .from('student_grades')
-    .insert({
-      student_id,
-      subject_id,
-      subject_kind: GRADE_SUBJECT_KIND,
-      grade: letterGrade,
-    })
-    .select(GRADE_SELECT_FIELDS)
-    .single();
+    const [insertedGrade] = await db
+      .insert(studentGrades)
+      .values({
+        studentId: student_id,
+        subjectId: subject_id,
+        subjectKind: GRADE_SUBJECT_KIND,
+        grade: letterGrade,
+      })
+      .returning({
+        id: studentGrades.id,
+        student_id: studentGrades.studentId,
+        subject_id: studentGrades.subjectId,
+        subject_kind: studentGrades.subjectKind,
+        grade: studentGrades.grade,
+        created_at: studentGrades.createdAt,
+      });
 
-  if (error) {
+    return {
+      ...insertedGrade,
+      subject: subjectData.name,
+    };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      GRADE_KNOWN_ERRORS.has(error.message as (typeof GRADE_ERROR_MESSAGES)[GradeErrorReason])
+    ) {
+      throw error;
+    }
+
     throw new Error(GRADE_ERROR_MESSAGES.database);
   }
-
-  return {
-    ...data,
-    subject: subjectData.name,
-  };
 }
 
-export { getSubjectsForGradeForm };
+export async function getSubjectsForGradeForm() {
+  return (await import('@/lib/data/subjects')).getSubjectsForGradeForm();
+}

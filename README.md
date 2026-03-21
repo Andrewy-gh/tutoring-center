@@ -14,7 +14,7 @@
 
 ## Tech Stack
 
-![Next.js](https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB) ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white) ![Vitest](https://img.shields.io/badge/vitest-6D4AFF?style=for-the-badge&logo=vitest&logoColor=white) ![ESLint](https://img.shields.io/badge/eslint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/prettier-F7B93E?style=for-the-badge&logo=prettier&logoColor=white) ![Husky](https://img.shields.io/badge/husky-FF6B35?style=for-the-badge&logo=husky&logoColor=white)
+![Next.js](https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB) ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Drizzle ORM](https://img.shields.io/badge/drizzle-ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=000000) ![Postgres](https://img.shields.io/badge/postgres-4169E1?style=for-the-badge&logo=postgresql&logoColor=white) ![Vitest](https://img.shields.io/badge/vitest-6D4AFF?style=for-the-badge&logo=vitest&logoColor=white) ![ESLint](https://img.shields.io/badge/eslint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white) ![Prettier](https://img.shields.io/badge/prettier-F7B93E?style=for-the-badge&logo=prettier&logoColor=white) ![Husky](https://img.shields.io/badge/husky-FF6B35?style=for-the-badge&logo=husky&logoColor=white)
 
 ---
 
@@ -85,6 +85,7 @@ Run `npm run prepare` after clone so Husky installs these hooks into `.git/hooks
 ```bash
 cp .env.example .env
 npm install
+npm run db:migrate
 npm run prepare
 ```
 
@@ -93,6 +94,7 @@ npm run prepare
 - `npm run dev` — dev server
 - `npm run build` — production build
 - `npm run start` — production server
+- `npm run db:generate` / `npm run db:migrate` / `npm run db:push` / `npm run db:studio` — schema and database workflows
 - `npm run lint` — ESLint
 - `npm run prettier:check` / `npm run prettier:fix` — Prettier
 - `npm run test` - runs tests

@@ -1,22 +1,24 @@
 import { GET } from '@/app/api/tutors/[id]/available-sessions/route';
 import { USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { AVAILABLE_SLOTS_ERROR_MESSAGES } from '@/lib/data/available-sessions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetAvailableSlots, mockCookies } = vi.hoisted(() => ({
+const { mockGetAvailableSlots, mockCookies, availableSlotsErrorMessages } = vi.hoisted(() => ({
   mockGetAvailableSlots: vi.fn(),
   mockCookies: vi.fn(),
+  availableSlotsErrorMessages: {
+    database: 'Available slots are temporarily unavailable. Please retry in a moment.',
+    tutorSubject: 'Tutor does not teach this subject',
+  },
 }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/data/available-sessions', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/data/available-sessions')>('@/lib/data/available-sessions');
+vi.mock('@/lib/data/available-sessions', () => {
   return {
-    ...actual,
     getAvailableSlots: mockGetAvailableSlots,
+    AVAILABLE_SLOTS_ERROR_MESSAGES: availableSlotsErrorMessages,
   };
 });
 
@@ -117,7 +119,7 @@ describe('GET /api/tutors/:id/available-sessions', () => {
   });
 
   it('returns 404 when tutor does not teach subject', async () => {
-    mockGetAvailableSlots.mockRejectedValueOnce(new Error(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject));
+    mockGetAvailableSlots.mockRejectedValueOnce(new Error(availableSlotsErrorMessages.tutorSubject));
 
     const response = await GET(
       makeRequest('https://example.test/api/tutors/7/available-sessions?subject_id=3&from=2026-03-02&to=2026-03-03'),
@@ -126,7 +128,7 @@ describe('GET /api/tutors/:id/available-sessions', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body.error).toBe(AVAILABLE_SLOTS_ERROR_MESSAGES.tutorSubject);
+    expect(body.error).toBe(availableSlotsErrorMessages.tutorSubject);
   });
 
   it('returns 500 when data layer throws unexpected error', async () => {
@@ -139,6 +141,6 @@ describe('GET /api/tutors/:id/available-sessions', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe(AVAILABLE_SLOTS_ERROR_MESSAGES.database);
+    expect(body.error).toBe(availableSlotsErrorMessages.database);
   });
 });

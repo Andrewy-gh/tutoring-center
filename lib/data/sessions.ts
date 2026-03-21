@@ -3,10 +3,10 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { createSupabaseServiceClient } from '@/lib/supabase/serverClient';
-import { SESSION_SELECT_WITH_JOINS } from '@/lib/supabase/types';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
+import { parents, sessionMetrics, sessionProgress, sessions, students, tutors, users } from '@/lib/db/schema';
 import { SessionWithJoinsListSchema, type SessionWithJoins } from '@/lib/validators/sessions';
+import { and, desc, eq, gte, lt, ne } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 export { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 
@@ -28,8 +28,10 @@ export type SessionRow = {
 type SessionLoadErrorReason = 'database' | 'validation';
 
 const SCHEDULED_SESSION_STATUSES = new Set(['Scheduled']);
-
 const isValidRole = (value: unknown): value is UserRole => value === 'admin' || value === 'parent' || value === 'tutor';
+async function getDb() {
+  return (await import('@/lib/db/client')).db;
+}
 
 const SESSION_ERROR_MESSAGES: Record<UserRole, Record<SessionLoadErrorReason, string>> = {
   admin: {
@@ -46,20 +48,72 @@ const SESSION_ERROR_MESSAGES: Record<UserRole, Record<SessionLoadErrorReason, st
   },
 };
 
+type SessionListJoinRow = {
+  id: unknown;
+  tutorId: unknown;
+  studentId: unknown;
+  subjectId: unknown;
+  parentId: unknown;
+  slotUnits: unknown;
+  scheduledAt: unknown;
+  endsAt: unknown;
+  status: unknown;
+  studentParentId: unknown;
+  studentLearningGoals: unknown;
+  studentFirstName: unknown;
+  studentLastName: unknown;
+  studentEmail: unknown;
+  parentBillingAddress: unknown;
+  parentNotificationPreferences: unknown;
+  parentFirstName: unknown;
+  parentLastName: unknown;
+  parentEmail: unknown;
+};
+
+const mapSessionJoinRow = (row: SessionListJoinRow): SessionWithJoins => ({
+  id: row.id as number,
+  tutor_id: row.tutorId as number,
+  student_id: row.studentId as number,
+  subject_id: row.subjectId as number,
+  parent_id: row.parentId as number,
+  slot_units: row.slotUnits as number,
+  scheduled_at: row.scheduledAt as string,
+  ends_at: row.endsAt as string,
+  status: row.status as SessionWithJoins['status'],
+  student: {
+    id: row.studentId as number,
+    parent_id: row.studentParentId as number | null,
+    learning_goals: row.studentLearningGoals as string | null,
+    users: {
+      first_name: row.studentFirstName as string | null,
+      last_name: row.studentLastName as string | null,
+      email: row.studentEmail as string,
+    },
+  },
+  parent: {
+    id: row.parentId as number,
+    billing_address: row.parentBillingAddress as string | null,
+    notification_preferences: row.parentNotificationPreferences as string | null,
+    users: {
+      first_name: row.parentFirstName as string | null,
+      last_name: row.parentLastName as string | null,
+      email: row.parentEmail as string,
+    },
+  },
+});
+
 const parseStudentUser = (student: SessionWithJoins['student']) => {
   if (!student) return { name: '—' };
 
   const studentData = Array.isArray(student) ? student[0] : student;
-  const usersData = studentData?.users;
-  const user = usersData ? pickFirstEmbedded(usersData) : null;
-
-  const firstName =
-    user && typeof user === 'object' ? ((user as Record<string, unknown>).first_name as string | null) : null;
-  const lastName =
-    user && typeof user === 'object' ? ((user as Record<string, unknown>).last_name as string | null) : null;
+  const user = studentData?.users
+    ? Array.isArray(studentData.users)
+      ? studentData.users[0]
+      : studentData.users
+    : null;
 
   return {
-    name: [firstName, lastName].filter(Boolean).join(' ') || '—',
+    name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',
   };
 };
 
@@ -99,57 +153,96 @@ const compareSessionRows = (left: SessionRow, right: SessionRow) => {
   return new Date(right.scheduled_at).getTime() - new Date(left.scheduled_at).getTime();
 };
 
+async function getParentIdForUser(userId: number) {
+  const db = await getDb();
+  const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.userId, userId)).limit(1);
+
+  if (!parent) {
+    notFound();
+  }
+
+  return parent.id;
+}
+
+async function getTutorIdForUser(userId: number) {
+  const db = await getDb();
+  const [tutor] = await db.select({ id: tutors.id }).from(tutors).where(eq(tutors.userId, userId)).limit(1);
+
+  if (!tutor) {
+    notFound();
+  }
+
+  return tutor.id;
+}
+
+function getSessionListBaseQuery(database: Awaited<ReturnType<typeof getDb>>) {
+  const studentUsers = alias(users, 'session_student_users');
+  const parentUsers = alias(users, 'session_parent_users');
+
+  return database
+    .select({
+      id: sessions.id,
+      tutorId: sessions.tutorId,
+      studentId: sessions.studentId,
+      subjectId: sessions.subjectId,
+      parentId: sessions.parentId,
+      slotUnits: sessions.slotUnits,
+      scheduledAt: sessions.scheduledAt,
+      endsAt: sessions.endsAt,
+      status: sessions.status,
+      studentParentId: students.parentId,
+      studentLearningGoals: students.learningGoals,
+      studentFirstName: studentUsers.firstName,
+      studentLastName: studentUsers.lastName,
+      studentEmail: studentUsers.email,
+      parentBillingAddress: parents.billingAddress,
+      parentNotificationPreferences: parents.notificationPreferences,
+      parentFirstName: parentUsers.firstName,
+      parentLastName: parentUsers.lastName,
+      parentEmail: parentUsers.email,
+    })
+    .from(sessions)
+    .innerJoin(students, eq(sessions.studentId, students.id))
+    .innerJoin(studentUsers, eq(students.userId, studentUsers.id))
+    .innerJoin(parents, eq(sessions.parentId, parents.id))
+    .innerJoin(parentUsers, eq(parents.userId, parentUsers.id));
+}
+
 export async function getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
   const role = await getUserRole();
   if (!isValidRole(role)) {
     throw new Error('Role is required to fetch sessions.');
   }
 
-  const supabase = createSupabaseServiceClient();
-
-  let sessionsQuery = supabase.from('sessions').select(SESSION_SELECT_WITH_JOINS);
-
+  const filters = [];
   if (kind === 'upcoming') {
     const now = new Date().toISOString();
-    sessionsQuery = sessionsQuery.gte('scheduled_at', now);
-    sessionsQuery = sessionsQuery.neq('status', 'Completed');
+    filters.push(gte(sessions.scheduledAt, now), ne(sessions.status, 'Completed'));
   } else if (kind === 'past') {
-    const now = new Date().toISOString();
-    sessionsQuery = sessionsQuery.lt('scheduled_at', now);
+    filters.push(lt(sessions.scheduledAt, new Date().toISOString()));
   }
 
   if (role !== 'admin') {
     const userID = await getCurrentUserID();
-
     if (role === 'tutor') {
-      const { data: tutor, error: tutorErr } = await supabase
-        .from('tutors')
-        .select('id')
-        .eq('user_id', userID)
-        .single();
-
-      if (tutorErr || !tutor) notFound();
-      sessionsQuery = sessionsQuery.eq('tutor_id', tutor.id);
+      filters.push(eq(sessions.tutorId, await getTutorIdForUser(userID)));
     } else {
-      const { data: parent, error: parentErr } = await supabase
-        .from('parents')
-        .select('id')
-        .eq('user_id', userID)
-        .single();
-
-      if (parentErr || !parent) notFound();
-      sessionsQuery = sessionsQuery.eq('parent_id', parent.id);
+      filters.push(eq(sessions.parentId, await getParentIdForUser(userID)));
     }
   }
 
-  const { data, error } = await sessionsQuery;
-  if (error) {
-    throw new Error(SESSION_ERROR_MESSAGES[role]['database']);
+  let rows: SessionListJoinRow[];
+  try {
+    const db = await getDb();
+    const query = getSessionListBaseQuery(db);
+    rows = await query.where(filters.length === 0 ? undefined : and(...filters));
+  } catch {
+    throw new Error(SESSION_ERROR_MESSAGES[role].database);
   }
 
-  const parsedSessions = SessionWithJoinsListSchema.safeParse(data ?? []);
+  const parsedSessions = SessionWithJoinsListSchema.safeParse(rows.map(mapSessionJoinRow));
   if (!parsedSessions.success) {
-    throw new Error(SESSION_ERROR_MESSAGES[role]['validation']);
+    throw new Error(SESSION_ERROR_MESSAGES[role].validation);
   }
 
   const subjectMap = await getSubjectMapByIds(parsedSessions.data.map(session => session.subject_id));
@@ -192,145 +285,65 @@ export type SessionDetailType = {
   } | null;
 };
 
-// Extended select query for session detail with all joins
-const SESSION_DETAIL_SELECT = `
-  id,
-  tutor_id,
-  scheduled_at,
-  ends_at,
-  slot_units,
-  status,
-  subject_id,
-  student:students (
-    id,
-    parent_id,
-    users:user_id (
-      first_name,
-      last_name,
-      email
-    )
-  ),
-  parent:parents (
-    id,
-    users:user_id (
-      first_name,
-      last_name,
-      email
-    )
-  ),
-  session_progress (
-    topics,
-    homework_assigned,
-    public_notes,
-    internal_notes
-  ),
-  session_metrics (
-    confidence_score,
-    session_performance,
-    homework_completed,
-    tutor_comments
-  )
-` as const;
-
 export async function getSession(id: number): Promise<SessionDetailType> {
   const role = await getUserRole();
-  const supabase = createSupabaseServiceClient();
+  const db = await getDb();
+  const studentUsers = alias(users, 'session_detail_student_users');
+  const parentUsers = alias(users, 'session_detail_parent_users');
 
-  const { data, error } = await supabase.from('sessions').select(SESSION_DETAIL_SELECT).eq('id', id).single();
+  const rows = await db
+    .select({
+      id: sessions.id,
+      tutor_id: sessions.tutorId,
+      scheduled_at: sessions.scheduledAt,
+      ends_at: sessions.endsAt,
+      slot_units: sessions.slotUnits,
+      status: sessions.status,
+      subject_id: sessions.subjectId,
+      parent_id: sessions.parentId,
+      student_id: students.id,
+      student_parent_id: students.parentId,
+      student_first_name: studentUsers.firstName,
+      student_last_name: studentUsers.lastName,
+      parent_first_name: parentUsers.firstName,
+      parent_last_name: parentUsers.lastName,
+      parent_email: parentUsers.email,
+      topics: sessionProgress.topics,
+      homework_assigned: sessionProgress.homeworkAssigned,
+      public_notes: sessionProgress.publicNotes,
+      internal_notes: sessionProgress.internalNotes,
+      confidence_score: sessionMetrics.confidenceScore,
+      session_performance: sessionMetrics.sessionPerformance,
+      homework_completed: sessionMetrics.homeworkCompleted,
+      tutor_comments: sessionMetrics.tutorComments,
+    })
+    .from(sessions)
+    .innerJoin(students, eq(sessions.studentId, students.id))
+    .innerJoin(studentUsers, eq(students.userId, studentUsers.id))
+    .innerJoin(parents, eq(sessions.parentId, parents.id))
+    .innerJoin(parentUsers, eq(parents.userId, parentUsers.id))
+    .leftJoin(sessionProgress, eq(sessionProgress.sessionId, sessions.id))
+    .leftJoin(sessionMetrics, eq(sessionMetrics.sessionId, sessions.id))
+    .where(eq(sessions.id, id))
+    .limit(1);
 
-  if (error || !data) {
+  const [data] = rows;
+  if (!data) {
     notFound();
   }
 
-  const sessionParentData = data.parent as unknown as { id: number } | Array<{ id: number }> | null;
-  const sessionParentId = Array.isArray(sessionParentData) ? sessionParentData[0]?.id : sessionParentData?.id;
-
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'tutor') {
     const userID = await getCurrentUserID();
+    const parentId = await getParentIdForUser(userID);
 
-    if (role === 'tutor') {
-      // Tutors can view all sessions (from all tutors)
-    } else {
-      const { data: parent } = await supabase.from('parents').select('id').eq('user_id', userID).single();
-
-      if (!parent || sessionParentId !== parent.id) {
-        redirect('/dashboard/sessions');
-      }
+    if (data.parent_id !== parentId) {
+      redirect('/dashboard/sessions');
     }
   }
 
-  const studentData = Array.isArray(data.student) ? data.student[0] : data.student;
-  const studentUsersData = studentData?.users;
-  const studentUser = studentUsersData ? pickFirstEmbedded(studentUsersData) : null;
-
-  const parentData = Array.isArray(data.parent) ? data.parent[0] : data.parent;
-  const parentUsersData = parentData?.users;
-  const parentUser = parentUsersData ? pickFirstEmbedded(parentUsersData) : null;
   const subjectMap = await getSubjectMapByIds([data.subject_id]);
   const tutorMap = await getTutorProfileMapByIds([data.tutor_id]);
   const tutorProfile = tutorMap.get(data.tutor_id);
-
-  const progressRaw = data.session_progress as
-    | {
-        topics: string | null;
-        homework_assigned: string | null;
-        public_notes: string | null;
-        internal_notes: string | null;
-      }
-    | Array<{
-        topics: string | null;
-        homework_assigned: string | null;
-        public_notes: string | null;
-        internal_notes: string | null;
-      }>
-    | null;
-  const progress =
-    progressRaw && typeof progressRaw === 'object' && !Array.isArray(progressRaw)
-      ? {
-          topics: progressRaw.topics,
-          homework_assigned: progressRaw.homework_assigned,
-          public_notes: progressRaw.public_notes,
-          internal_notes: progressRaw.internal_notes,
-        }
-      : Array.isArray(progressRaw) && progressRaw.length > 0
-        ? {
-            topics: progressRaw[0].topics,
-            homework_assigned: progressRaw[0].homework_assigned,
-            public_notes: progressRaw[0].public_notes,
-            internal_notes: progressRaw[0].internal_notes,
-          }
-        : null;
-
-  const metricsRaw = data.session_metrics as
-    | {
-        confidence_score: number | null;
-        session_performance: number | null;
-        homework_completed: boolean;
-        tutor_comments: string | null;
-      }
-    | Array<{
-        confidence_score: number | null;
-        session_performance: number | null;
-        homework_completed: boolean;
-        tutor_comments: string | null;
-      }>
-    | null;
-  const metrics =
-    metricsRaw && typeof metricsRaw === 'object' && !Array.isArray(metricsRaw)
-      ? {
-          confidence_score: metricsRaw.confidence_score,
-          session_performance: metricsRaw.session_performance,
-          homework_completed: metricsRaw.homework_completed,
-          tutor_comments: metricsRaw.tutor_comments,
-        }
-      : Array.isArray(metricsRaw) && metricsRaw.length > 0
-        ? {
-            confidence_score: metricsRaw[0].confidence_score,
-            session_performance: metricsRaw[0].session_performance,
-            homework_completed: metricsRaw[0].homework_completed,
-            tutor_comments: metricsRaw[0].tutor_comments,
-          }
-        : null;
 
   return {
     id: data.id,
@@ -347,14 +360,36 @@ export async function getSession(id: number): Promise<SessionDetailType> {
       phone: tutorProfile?.phone || '—',
     },
     student: {
-      id: studentData?.id || 0,
-      name: studentUser ? [studentUser.first_name, studentUser.last_name].filter(Boolean).join(' ') : '—',
-      parent_id: studentData?.parent_id || 0,
-      parent_name: parentUser ? [parentUser.first_name, parentUser.last_name].filter(Boolean).join(' ') : '—',
-      parent_email: parentUser?.email || '—',
+      id: data.student_id,
+      name: [data.student_first_name, data.student_last_name].filter(Boolean).join(' ') || '—',
+      parent_id: data.student_parent_id ?? 0,
+      parent_name: [data.parent_first_name, data.parent_last_name].filter(Boolean).join(' ') || '—',
+      parent_email: data.parent_email || '—',
     },
-    progress,
-    metrics,
+    progress:
+      data.topics !== null ||
+      data.homework_assigned !== null ||
+      data.public_notes !== null ||
+      data.internal_notes !== null
+        ? {
+            topics: data.topics,
+            homework_assigned: data.homework_assigned,
+            public_notes: data.public_notes,
+            internal_notes: data.internal_notes,
+          }
+        : null,
+    metrics:
+      data.confidence_score !== null ||
+      data.session_performance !== null ||
+      data.homework_completed !== null ||
+      data.tutor_comments !== null
+        ? {
+            confidence_score: data.confidence_score,
+            session_performance: data.session_performance,
+            homework_completed: data.homework_completed ?? false,
+            tutor_comments: data.tutor_comments,
+          }
+        : null,
   };
 }
 
@@ -377,90 +412,59 @@ export async function getTutorAssignedSessions(): Promise<TutorAssignedSession[]
     return [];
   }
 
+  const db = await getDb();
   const tutorUserId = await getCurrentUserID();
-  const supabase = createSupabaseServiceClient();
+  let tutorId: number;
 
-  const { data: tutorData, error: tutorError } = await supabase
-    .from('tutors')
-    .select('id')
-    .eq('user_id', tutorUserId)
-    .single();
-
-  if (tutorError || !tutorData) {
+  try {
+    tutorId = await getTutorIdForUser(tutorUserId);
+  } catch {
     return [];
   }
 
-  const tutorId = tutorData.id;
+  const studentUsers = alias(users, 'assigned_student_users');
 
-  const TUTOR_SESSION_SELECT = `
-    id,
-    tutor_id,
-    student_id,
-    subject_id,
-    parent_id,
-    slot_units,
-    scheduled_at,
-    ends_at,
-    status,
-    session_progress (id),
-    session_metrics (id),
-    student:students (
-      users:user_id (
-        first_name,
-        last_name
-      )
-    )
-  ` as const;
+  const rows = await db
+    .select({
+      id: sessions.id,
+      tutor_id: sessions.tutorId,
+      student_id: sessions.studentId,
+      subject_id: sessions.subjectId,
+      scheduled_at: sessions.scheduledAt,
+      ends_at: sessions.endsAt,
+      status: sessions.status,
+      progress_id: sessionProgress.id,
+      metrics_id: sessionMetrics.id,
+      student_first_name: studentUsers.firstName,
+      student_last_name: studentUsers.lastName,
+    })
+    .from(sessions)
+    .innerJoin(students, eq(sessions.studentId, students.id))
+    .innerJoin(studentUsers, eq(students.userId, studentUsers.id))
+    .leftJoin(sessionProgress, eq(sessionProgress.sessionId, sessions.id))
+    .leftJoin(sessionMetrics, eq(sessionMetrics.sessionId, sessions.id))
+    .where(eq(sessions.tutorId, tutorId));
 
-  const { data, error } = await supabase.from('sessions').select(TUTOR_SESSION_SELECT).eq('tutor_id', tutorId);
-
-  if (error || !data || data.length === 0) {
+  if (rows.length === 0) {
     return [];
   }
 
-  const subjectMap = await getSubjectMapByIds(data.map(session => session.subject_id));
+  const subjectMap = await getSubjectMapByIds(rows.map(session => session.subject_id));
 
-  const sessionsWithStatus = data.map(
-    (session): TutorAssignedSession & { hasProgress: boolean; hasMetrics: boolean } => {
-      const progressData = session.session_progress as unknown as { id: number } | null;
-      const metricsData = session.session_metrics as unknown as { id: number } | null;
-      const hasProgress = !!progressData;
-      const hasMetrics = !!metricsData;
-
-      const studentData = Array.isArray(session.student) ? session.student[0] : session.student;
-      const studentUser = studentData?.users
-        ? Array.isArray(studentData.users)
-          ? studentData.users[0]
-          : studentData.users
-        : null;
-      const studentName = studentUser
-        ? `${studentUser.first_name || ''} ${studentUser.last_name || ''}`.trim()
-        : 'Student';
-      const subjectName = subjectMap.get(session.subject_id)?.name ?? 'Subject';
-
-      return {
-        id: session.id,
-        student_name: studentName,
-        student_id: session.student_id,
-        tutor_id: session.tutor_id,
-        subject_name: subjectName,
-        scheduled_at: session.scheduled_at,
-        ends_at: session.ends_at,
-        status: session.status,
-        needsProgressReport: !hasProgress,
-        needsMetrics: !hasMetrics,
-        hasProgress,
-        hasMetrics,
-      };
-    }
-  );
-
-  return (
-    sessionsWithStatus
-      .filter(session => !(session.hasProgress && session.hasMetrics))
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .map(({ hasProgress, hasMetrics, ...session }) => session)
-  );
+  return rows
+    .map(row => ({
+      id: row.id,
+      student_name: [row.student_first_name, row.student_last_name].filter(Boolean).join(' ').trim() || 'Student',
+      student_id: row.student_id,
+      tutor_id: row.tutor_id,
+      subject_name: subjectMap.get(row.subject_id)?.name ?? 'Subject',
+      scheduled_at: row.scheduled_at,
+      ends_at: row.ends_at,
+      status: row.status,
+      needsProgressReport: row.progress_id === null,
+      needsMetrics: row.metrics_id === null,
+    }))
+    .filter(session => session.needsProgressReport || session.needsMetrics);
 }
 
 export type StudentProgressHistory = {
@@ -474,38 +478,36 @@ export async function getStudentRecentProgress(
   sessionIdToExclude: number,
   limit: number = 5
 ): Promise<StudentProgressHistory[]> {
-  const supabase = createSupabaseServiceClient();
-  const now = new Date().toISOString();
+  try {
+    const db = await getDb();
+    const now = new Date().toISOString();
 
-  const PROGRESS_HISTORY_SELECT = `
-    id,
-    scheduled_at,
-    tutor_id
-  ` as const;
+    const rows = await db
+      .select({
+        id: sessions.id,
+        scheduled_at: sessions.scheduledAt,
+        tutor_id: sessions.tutorId,
+      })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.studentId, studentId),
+          eq(sessions.status, 'Completed'),
+          ne(sessions.id, sessionIdToExclude),
+          lt(sessions.scheduledAt, now)
+        )
+      )
+      .orderBy(desc(sessions.scheduledAt))
+      .limit(limit);
 
-  const { data, error } = await supabase
-    .from('sessions')
-    .select(PROGRESS_HISTORY_SELECT)
-    .eq('student_id', studentId)
-    .eq('status', 'Completed')
-    .neq('id', sessionIdToExclude)
-    .lt('scheduled_at', now)
-    .order('scheduled_at', { ascending: false })
-    .limit(limit);
+    const tutorMap = await getTutorProfileMapByIds(rows.map(session => session.tutor_id));
 
-  if (error || !data) {
-    return [];
-  }
-
-  const tutorMap = await getTutorProfileMapByIds(data.map(session => session.tutor_id));
-
-  const progressHistory: StudentProgressHistory[] = data
-    .filter(session => session.id !== sessionIdToExclude)
-    .map(session => ({
+    return rows.map(session => ({
       sessionId: session.id,
       date: session.scheduled_at,
       tutorName: tutorMap.get(session.tutor_id)?.name ?? 'Unknown Tutor',
     }));
-
-  return progressHistory;
+  } catch {
+    return [];
+  }
 }
