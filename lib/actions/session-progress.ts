@@ -1,6 +1,7 @@
 'use server';
 
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { sessionProgress, sessions, tutors } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -12,23 +13,11 @@ export type ProgressReportFormData = {
   internalNotes: string;
 };
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
-
-export async function submitProgressReport(formData: ProgressReportFormData) {
-  const role = await getUserRole();
-  if (role !== 'tutor') {
-    throw new Error('Only tutors can submit progress reports');
-  }
-
-  const userId = await getCurrentUserID();
-  const db = await getDb();
-
+async function assertTutorCanSubmitProgressReport(sessionId: number, userId: number) {
   const [session] = await db
     .select({ tutorId: sessions.tutorId })
     .from(sessions)
-    .where(eq(sessions.id, formData.sessionId))
+    .where(eq(sessions.id, sessionId))
     .limit(1);
 
   if (!session) {
@@ -44,32 +33,39 @@ export async function submitProgressReport(formData: ProgressReportFormData) {
   if (session.tutorId !== tutor.id) {
     throw new Error('You are not assigned to this session');
   }
+}
 
-  try {
-    await db
-      .insert(sessionProgress)
-      .values({
-        sessionId: formData.sessionId,
+export async function submitProgressReport(formData: ProgressReportFormData) {
+  const role = await getUserRole();
+  if (role !== 'tutor') {
+    throw new Error('Only tutors can submit progress reports');
+  }
+
+  const userId = await getCurrentUserID();
+  await assertTutorCanSubmitProgressReport(formData.sessionId, userId);
+
+  const now = new Date().toISOString();
+
+  await db
+    .insert(sessionProgress)
+    .values({
+      sessionId: formData.sessionId,
+      topics: formData.topics || null,
+      homeworkAssigned: formData.homeworkAssigned || null,
+      publicNotes: formData.publicNotes || null,
+      internalNotes: formData.internalNotes || null,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: sessionProgress.sessionId,
+      set: {
         topics: formData.topics || null,
         homeworkAssigned: formData.homeworkAssigned || null,
         publicNotes: formData.publicNotes || null,
         internalNotes: formData.internalNotes || null,
-      })
-      .onConflictDoUpdate({
-        target: sessionProgress.sessionId,
-        set: {
-          topics: formData.topics || null,
-          homeworkAssigned: formData.homeworkAssigned || null,
-          publicNotes: formData.publicNotes || null,
-          internalNotes: formData.internalNotes || null,
-          updatedAt: new Date().toISOString(),
-        },
-      });
-  } catch (error) {
-    throw new Error(
-      error instanceof Error ? error.message || 'Failed to submit progress report' : 'Failed to submit progress report'
-    );
-  }
+        updatedAt: now,
+      },
+    });
 
   return { success: true };
 }

@@ -1,5 +1,6 @@
 import { forbidden } from 'next/navigation';
 import { isUserRole, type UserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
@@ -46,55 +47,63 @@ const SUBJECT_ERROR_MESSAGES = {
 
 const sortNumberAsc = (a: number, b: number) => a - b;
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
-
 type SubjectRecordRow = {
-  id: number;
-  name: string;
-  slug: string;
-  kind: 'group' | 'leaf';
-  is_active: boolean;
+  id: unknown;
+  name: unknown;
+  slug: unknown;
+  kind: unknown;
+  isActive: unknown;
 };
 
-function mapSubjectRecordRow(row: SubjectRecordRow): SubjectRecord {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    kind: row.kind,
-    is_active: row.is_active,
-  };
-}
+type SubjectOptionJoinRow = SubjectRecordRow & {
+  tutorId: unknown;
+  subjectId: unknown;
+};
 
-function buildSubjectOptionRows(
-  rows: Array<SubjectRecordRow & { tutor_id: number; subject_id: number }>
-): SubjectOptionRow[] {
-  const subjectMap = new Map<number, SubjectOptionRow>();
+type SubjectOptionRowCandidate = ReturnType<typeof mapSubjectRecordRow> & {
+  tutor_subjects: Array<{
+    tutor_id: unknown;
+    subject_id: unknown;
+  }>;
+};
+
+const mapSubjectRecordRow = (row: SubjectRecordRow) => ({
+  id: row.id,
+  name: row.name,
+  slug: row.slug,
+  kind: row.kind,
+  is_active: row.isActive,
+});
+
+const mapSubjectOptionRows = (rows: SubjectOptionJoinRow[]) => {
+  const subjectsById = new Map<number, SubjectOptionRowCandidate>();
 
   for (const row of rows) {
-    const existing = subjectMap.get(row.id);
-    if (existing) {
-      existing.tutor_subjects = [
-        ...(existing.tutor_subjects ?? []),
-        { tutor_id: row.tutor_id, subject_id: row.subject_id },
-      ];
+    const subjectId = Number(row.id);
+    const existingSubject = subjectsById.get(subjectId);
+
+    if (existingSubject) {
+      existingSubject.tutor_subjects ??= [];
+      existingSubject.tutor_subjects.push({
+        tutor_id: row.tutorId as number,
+        subject_id: row.subjectId as number,
+      });
       continue;
     }
 
-    subjectMap.set(row.id, {
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      kind: 'leaf',
-      is_active: true,
-      tutor_subjects: [{ tutor_id: row.tutor_id, subject_id: row.subject_id }],
+    subjectsById.set(subjectId, {
+      ...mapSubjectRecordRow(row),
+      tutor_subjects: [
+        {
+          tutor_id: row.tutorId as number,
+          subject_id: row.subjectId as number,
+        },
+      ],
     });
   }
 
-  return Array.from(subjectMap.values());
-}
+  return Array.from(subjectsById.values());
+};
 
 export const mapSubjectOptions = (subjects: SubjectOptionRow[]) => {
   return subjects
@@ -129,7 +138,6 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
     return new Map<number, SubjectRecord>();
   }
 
-  const db = await getDb();
   let rows: SubjectRecordRow[];
   try {
     rows = await db
@@ -138,10 +146,11 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
         name: subjects.name,
         slug: subjects.slug,
         kind: subjects.kind,
-        is_active: subjects.isActive,
+        isActive: subjects.isActive,
       })
       .from(subjects)
-      .where(inArray(subjects.id, uniqueSubjectIds));
+      .where(inArray(subjects.id, uniqueSubjectIds))
+      .orderBy(asc(subjects.id));
   } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
@@ -162,8 +171,7 @@ export async function getSubjects(role: UserRole) {
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 
-  const db = await getDb();
-  let rows: Array<SubjectRecordRow & { tutor_id: number; subject_id: number }>;
+  let rows: SubjectOptionJoinRow[];
   try {
     rows = await db
       .select({
@@ -171,19 +179,22 @@ export async function getSubjects(role: UserRole) {
         name: subjects.name,
         slug: subjects.slug,
         kind: subjects.kind,
-        is_active: subjects.isActive,
-        tutor_id: tutorSubjects.tutorId,
-        subject_id: tutorSubjects.subjectId,
+        isActive: subjects.isActive,
+        tutorId: tutorSubjects.tutorId,
+        subjectId: tutorSubjects.subjectId,
       })
       .from(subjects)
-      .innerJoin(tutorSubjects, eq(tutorSubjects.subjectId, subjects.id))
+      .innerJoin(
+        tutorSubjects,
+        and(eq(tutorSubjects.subjectId, subjects.id), eq(tutorSubjects.subjectKind, subjects.kind))
+      )
       .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
-      .orderBy(asc(subjects.name), asc(subjects.slug));
+      .orderBy(asc(subjects.name), asc(subjects.slug), asc(tutorSubjects.tutorId), asc(tutorSubjects.subjectId));
   } catch {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['database']);
   }
 
-  const parsedSubjects = SubjectOptionRowListSchema.safeParse(buildSubjectOptionRows(rows));
+  const parsedSubjects = SubjectOptionRowListSchema.safeParse(mapSubjectOptionRows(rows));
   if (!parsedSubjects.success) {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['validation']);
   }
@@ -198,7 +209,6 @@ export type SubjectForGradeForm = {
 };
 
 export async function getSubjectsForGradeForm() {
-  const db = await getDb();
   let rows: SubjectRecordRow[];
   try {
     rows = await db
@@ -207,7 +217,7 @@ export async function getSubjectsForGradeForm() {
         name: subjects.name,
         slug: subjects.slug,
         kind: subjects.kind,
-        is_active: subjects.isActive,
+        isActive: subjects.isActive,
       })
       .from(subjects)
       .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))

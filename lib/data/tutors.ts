@@ -2,10 +2,11 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsListSchema, type TutorWithJoins } from '@/lib/validators/tutors';
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 export { getUserRole } from '@/lib/auth';
 
@@ -34,6 +35,36 @@ const TUTOR_ERROR_MESSAGES = {
   },
 } as const;
 
+type TutorJoinRow = {
+  id: unknown;
+  userId: unknown;
+  verified: unknown;
+  education: unknown;
+  bio: unknown;
+  tagline: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+};
+
+const mapTutorJoinRow = (row: TutorJoinRow): TutorWithJoins => ({
+  id: row.id as number,
+  user_id: row.userId as number,
+  verified: row.verified as boolean,
+  education: row.education as string | null,
+  bio: row.bio as string | null,
+  tagline: row.tagline as string | null,
+  years_experience: row.yearsExperience as number | null,
+  users: {
+    first_name: row.firstName as string | null,
+    last_name: row.lastName as string | null,
+    email: row.email as string,
+    phone: row.phone as string | null,
+  },
+});
+
 const parseTutorUser = (users: TutorWithJoins['users']) => {
   const user = pickFirstEmbedded(users);
 
@@ -61,68 +92,26 @@ const mapTutorRow = (
   };
 };
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
-
-type TutorJoinRow = {
-  id: number;
-  user_id: number;
-  verified: boolean;
-  education: string | null;
-  bio: string | null;
-  tagline: string | null;
-  years_experience: number | null;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-  phone: string | null;
-};
-
-function mapTutorJoinRow(row: TutorJoinRow): TutorWithJoins {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    verified: row.verified,
-    education: row.education,
-    bio: row.bio,
-    tagline: row.tagline,
-    years_experience: row.years_experience,
-    users: {
-      first_name: row.first_name,
-      last_name: row.last_name,
-      email: row.email,
-      phone: row.phone,
-    },
-  };
-}
-
 export async function getTutorProfileMapByIds(tutorIds: number[]) {
   const uniqueTutorIds = [...new Set(tutorIds.filter(id => Number.isInteger(id) && id > 0))];
   if (uniqueTutorIds.length === 0) {
     return new Map<number, TutorProfile>();
   }
 
-  const db = await getDb();
-  let rows: Array<{
-    id: number;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    phone: string | null;
-  }>;
+  let rows: Array<Pick<TutorJoinRow, 'id' | 'firstName' | 'lastName' | 'email' | 'phone'>>;
   try {
     rows = await db
       .select({
         id: tutors.id,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
       })
       .from(tutors)
       .innerJoin(users, eq(tutors.userId, users.id))
-      .where(inArray(tutors.id, uniqueTutorIds));
+      .where(inArray(tutors.id, uniqueTutorIds))
+      .orderBy(asc(tutors.id));
   } catch {
     throw new Error('Tutor data is temporarily unavailable. Please retry in a moment.');
   }
@@ -130,16 +119,16 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
   return new Map(
     rows.map(tutor => {
       const user = pickFirstEmbedded({
-        first_name: tutor.first_name,
-        last_name: tutor.last_name,
-        email: tutor.email,
-        phone: tutor.phone,
+        first_name: tutor.firstName as string | null,
+        last_name: tutor.lastName as string | null,
+        email: tutor.email as string,
+        phone: tutor.phone as string | null,
       });
 
       return [
-        tutor.id,
+        tutor.id as number,
         {
-          id: tutor.id,
+          id: tutor.id as number,
           name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',
           email: user?.email ?? '',
           phone: user?.phone ?? '—',
@@ -158,25 +147,25 @@ export async function getTutors(role: UserRole) {
     forbidden();
   }
 
-  const db = await getDb();
   let rows: TutorJoinRow[];
   try {
     rows = await db
       .select({
         id: tutors.id,
-        user_id: tutors.userId,
+        userId: tutors.userId,
         verified: tutors.verified,
         education: tutors.education,
         bio: tutors.bio,
         tagline: tutors.tagline,
-        years_experience: tutors.yearsExperience,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
       })
       .from(tutors)
-      .innerJoin(users, eq(tutors.userId, users.id));
+      .innerJoin(users, eq(tutors.userId, users.id))
+      .orderBy(asc(tutors.id));
   } catch {
     throw new Error(TUTOR_ERROR_MESSAGES.admin.database);
   }

@@ -2,10 +2,11 @@ import 'server-only';
 import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { availability, tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { EmbeddedOneUserSchema } from '@/lib/validators/shared';
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 export type TutorOption = {
@@ -40,6 +41,20 @@ const TutorOptionQueryRowListSchema = z.array(TutorOptionQueryRowSchema);
 
 type TutorOptionQueryRow = z.infer<typeof TutorOptionQueryRowSchema>;
 type WeekDay = z.infer<typeof WeekDaySchema>;
+
+type TutorOptionJoinRow = {
+  id: unknown;
+  userId: unknown;
+  education: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+  weekDay: unknown;
+  startTime: unknown;
+  endTime: unknown;
+};
 
 const WEEKDAY_ORDER: Record<WeekDay, number> = {
   Monday: 1,
@@ -108,9 +123,52 @@ const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => {
   };
 };
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
+const mapTutorOptionRows = (rows: TutorOptionJoinRow[]) => {
+  const tutorsById = new Map<number, TutorOptionQueryRow>();
+
+  for (const row of rows) {
+    const tutorId = Number(row.id);
+    const existingTutor = tutorsById.get(tutorId);
+
+    if (existingTutor) {
+      if (row.weekDay !== null && row.weekDay !== undefined) {
+        existingTutor.availability ??= [];
+        existingTutor.availability.push({
+          week_day: row.weekDay as WeekDay,
+          start_time: row.startTime as string,
+          end_time: row.endTime as string,
+        });
+      }
+
+      continue;
+    }
+
+    tutorsById.set(tutorId, {
+      id: row.id as number,
+      user_id: row.userId as number,
+      education: row.education as string | null,
+      years_experience: row.yearsExperience as number | null,
+      users: {
+        first_name: row.firstName as string | null,
+        last_name: row.lastName as string | null,
+        email: row.email as string,
+        phone: row.phone as string | null,
+      },
+      availability:
+        row.weekDay === null || row.weekDay === undefined
+          ? []
+          : [
+              {
+                week_day: row.weekDay as WeekDay,
+                start_time: row.startTime as string,
+                end_time: row.endTime as string,
+              },
+            ],
+    });
+  }
+
+  return Array.from(tutorsById.values());
+};
 
 export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
   if (!isValidRole(role)) {
@@ -126,75 +184,32 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
     return [] as TutorOption[];
   }
 
-  const db = await getDb();
-  let rows: Array<{
-    id: number;
-    user_id: number;
-    education: string | null;
-    years_experience: number | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    phone: string | null;
-    week_day: WeekDay | null;
-    start_time: string | null;
-    end_time: string | null;
-  }>;
+  let rows: TutorOptionJoinRow[];
   try {
     rows = await db
       .select({
         id: tutors.id,
-        user_id: tutors.userId,
+        userId: tutors.userId,
         education: tutors.education,
-        years_experience: tutors.yearsExperience,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
-        week_day: availability.weekDay,
-        start_time: availability.startTime,
-        end_time: availability.endTime,
+        weekDay: availability.weekDay,
+        startTime: availability.startTime,
+        endTime: availability.endTime,
       })
       .from(tutors)
       .innerJoin(users, eq(tutors.userId, users.id))
       .leftJoin(availability, eq(availability.tutorId, tutors.id))
-      .where(inArray(tutors.id, uniqueTutorIds));
+      .where(inArray(tutors.id, uniqueTutorIds))
+      .orderBy(asc(tutors.id), asc(availability.weekDay), asc(availability.startTime), asc(availability.endTime));
   } catch {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.database);
   }
 
-  const tutorMap = new Map<number, TutorOptionQueryRow>();
-  for (const row of rows) {
-    const existing = tutorMap.get(row.id);
-    if (existing) {
-      if (row.week_day && row.start_time && row.end_time) {
-        existing.availability = [
-          ...(existing.availability ?? []),
-          { week_day: row.week_day, start_time: row.start_time, end_time: row.end_time },
-        ];
-      }
-      continue;
-    }
-
-    tutorMap.set(row.id, {
-      id: row.id,
-      user_id: row.user_id,
-      education: row.education,
-      years_experience: row.years_experience,
-      users: {
-        first_name: row.first_name,
-        last_name: row.last_name,
-        email: row.email,
-        phone: row.phone,
-      },
-      availability:
-        row.week_day && row.start_time && row.end_time
-          ? [{ week_day: row.week_day, start_time: row.start_time, end_time: row.end_time }]
-          : [],
-    });
-  }
-
-  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(Array.from(tutorMap.values()));
+  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(mapTutorOptionRows(rows));
   if (!parsedTutors.success) {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.validation);
   }

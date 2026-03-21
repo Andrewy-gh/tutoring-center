@@ -22,10 +22,6 @@ export function isUserRole(value: unknown): value is UserRole {
   return value === 'admin' || value === 'parent' || value === 'tutor';
 }
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
-
 export async function getUserRole() {
   const cookieStore = await cookies();
   const role = cookieStore.get(USER_ROLE_COOKIE_NAME)?.value;
@@ -45,81 +41,56 @@ export async function getCurrentUserID() {
   return parseInt(id, 10);
 }
 
-/**
- * Get a real user ID from the database based on the selected role.
- * Returns the first user with the specified role, sorted by user ID for determinism.
- */
 export async function getUserIdByRole(role: UserRole): Promise<string | null> {
-  const db = await getDb();
+  try {
+    const { db } = await import('@/lib/db/client');
 
-  if (role === 'parent') {
-    try {
+    if (role === 'parent') {
       const [parent] = await db.select({ userId: parents.userId }).from(parents).orderBy(asc(parents.userId)).limit(1);
-
       return parent?.userId?.toString() ?? null;
-    } catch {
-      return null;
     }
-  }
 
-  if (role === 'tutor') {
-    try {
+    if (role === 'tutor') {
       const [tutor] = await db.select({ userId: tutors.userId }).from(tutors).orderBy(asc(tutors.userId)).limit(1);
-
       return tutor?.userId?.toString() ?? null;
-    } catch {
-      return null;
     }
-  }
 
-  if (role === 'admin') {
-    try {
-      const [adminRole] = await db.select({ id: roles.id }).from(roles).where(ilike(roles.name, 'admin')).limit(1);
-      if (!adminRole) {
-        return null;
-      }
-
-      const [admin] = await db
+    if (role === 'admin') {
+      const [adminUser] = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.role, adminRole.id))
+        .innerJoin(roles, eq(users.role, roles.id))
+        .where(ilike(roles.name, 'admin'))
         .orderBy(asc(users.id))
         .limit(1);
 
-      return admin?.id?.toString() ?? null;
-    } catch {
-      return null;
+      return adminUser?.id?.toString() ?? null;
     }
-  }
 
-  return null;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Get the current user's name from the database.
- */
 export async function getCurrentUserName(): Promise<string | null> {
   const userId = await getCurrentUserID();
-  const db = await getDb();
-
   try {
+    const { db } = await import('@/lib/db/client');
     const [user] = await db
-      .select({
-        firstName: users.firstName,
-        lastName: users.lastName,
-      })
+      .select({ firstName: users.firstName, lastName: users.lastName })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
-    if (!user) {
-      return null;
+    if (user) {
+      return `${user.firstName} ${user.lastName}`;
     }
-
-    return `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || null;
   } catch {
     return null;
   }
+
+  return null;
 }
 
 export async function login(formData: FormData) {
@@ -130,7 +101,6 @@ export async function login(formData: FormData) {
     throw new Error('Invalid role');
   }
 
-  // Get a real user ID from the database based on role.
   const userId = await getUserIdByRole(role);
 
   // Fallback to temp user if no user found for role

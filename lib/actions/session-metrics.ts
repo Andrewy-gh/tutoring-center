@@ -1,6 +1,7 @@
 'use server';
 
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { sessionMetrics, sessions, tutors } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -12,23 +13,11 @@ export type SessionMetricsFormData = {
   tutorComments: string;
 };
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
-
-export async function submitSessionMetrics(formData: SessionMetricsFormData) {
-  const role = await getUserRole();
-  if (role !== 'tutor') {
-    throw new Error('Only tutors can submit session metrics');
-  }
-
-  const userId = await getCurrentUserID();
-  const db = await getDb();
-
+async function assertTutorCanSubmitSessionMetrics(sessionId: number, userId: number) {
   const [session] = await db
     .select({ tutorId: sessions.tutorId })
     .from(sessions)
-    .where(eq(sessions.id, formData.sessionId))
+    .where(eq(sessions.id, sessionId))
     .limit(1);
 
   if (!session) {
@@ -44,34 +33,42 @@ export async function submitSessionMetrics(formData: SessionMetricsFormData) {
   if (session.tutorId !== tutor.id) {
     throw new Error('You are not assigned to this session');
   }
+}
 
-  try {
-    await db
-      .insert(sessionMetrics)
-      .values({
-        sessionId: formData.sessionId,
-        confidenceScore: formData.confidenceScore,
-        sessionPerformance: formData.sessionPerformance,
-        homeworkCompleted: formData.homeworkCompleted,
-        tutorComments: formData.tutorComments || null,
-        recordedAt: new Date().toISOString(),
-      })
-      .onConflictDoUpdate({
-        target: sessionMetrics.sessionId,
-        set: {
-          confidenceScore: formData.confidenceScore,
-          sessionPerformance: formData.sessionPerformance,
-          homeworkCompleted: formData.homeworkCompleted,
-          tutorComments: formData.tutorComments || null,
-          recordedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      });
-  } catch (error) {
-    throw new Error(
-      error instanceof Error ? error.message || 'Failed to submit session metrics' : 'Failed to submit session metrics'
-    );
+export async function submitSessionMetrics(formData: SessionMetricsFormData) {
+  const role = await getUserRole();
+  if (role !== 'tutor') {
+    throw new Error('Only tutors can submit session metrics');
   }
+
+  const userId = await getCurrentUserID();
+  await assertTutorCanSubmitSessionMetrics(formData.sessionId, userId);
+
+  const now = new Date().toISOString();
+  const values = {
+    sessionId: formData.sessionId,
+    confidenceScore: formData.confidenceScore,
+    sessionPerformance: formData.sessionPerformance,
+    homeworkCompleted: formData.homeworkCompleted,
+    tutorComments: formData.tutorComments || null,
+    recordedAt: now,
+    updatedAt: now,
+  };
+
+  await db
+    .insert(sessionMetrics)
+    .values(values)
+    .onConflictDoUpdate({
+      target: sessionMetrics.sessionId,
+      set: {
+        confidenceScore: values.confidenceScore,
+        sessionPerformance: values.sessionPerformance,
+        homeworkCompleted: values.homeworkCompleted,
+        tutorComments: values.tutorComments,
+        recordedAt: values.recordedAt,
+        updatedAt: values.updatedAt,
+      },
+    });
 
   return { success: true };
 }

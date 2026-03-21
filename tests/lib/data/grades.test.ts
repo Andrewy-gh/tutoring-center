@@ -119,8 +119,8 @@ describe('grade data', () => {
   it('returns only leaf subjects for the grade form', async () => {
     mockDbSelect.mockReturnValueOnce(
       createSelectQuery([
-        { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', is_active: true },
-        { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', is_active: true },
+        { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
+        { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
       ])
     );
 

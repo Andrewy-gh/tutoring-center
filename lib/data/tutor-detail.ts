@@ -1,5 +1,6 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
+import { db } from '@/lib/db/client';
 import { tutors, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsSchema, type TutorWithJoins } from '@/lib/validators/tutors';
@@ -39,38 +40,50 @@ const mapTutorDetail = (tutor: TutorWithJoins): TutorDetailType => {
   };
 };
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
+type TutorDetailRow = {
+  id: unknown;
+  userId: unknown;
+  verified: unknown;
+  education: unknown;
+  bio: unknown;
+  tagline: unknown;
+  yearsExperience: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+};
+
+const mapTutorJoinRow = (row: TutorDetailRow): TutorWithJoins => ({
+  id: row.id as number,
+  user_id: row.userId as number,
+  verified: row.verified as boolean,
+  education: row.education as string | null,
+  bio: row.bio as string | null,
+  tagline: row.tagline as string | null,
+  years_experience: row.yearsExperience as number | null,
+  users: {
+    first_name: row.firstName as string | null,
+    last_name: row.lastName as string | null,
+    email: row.email as string,
+    phone: row.phone as string | null,
+  },
+});
 
 export async function getTutor(id: number): Promise<TutorDetailType> {
-  const db = await getDb();
-
-  let rows: Array<{
-    id: number;
-    user_id: number;
-    verified: boolean;
-    education: string | null;
-    bio: string | null;
-    tagline: string | null;
-    years_experience: number | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    phone: string | null;
-  }>;
+  let row: TutorDetailRow | undefined;
   try {
-    rows = await db
+    [row] = await db
       .select({
         id: tutors.id,
-        user_id: tutors.userId,
+        userId: tutors.userId,
         verified: tutors.verified,
         education: tutors.education,
         bio: tutors.bio,
         tagline: tutors.tagline,
-        years_experience: tutors.yearsExperience,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        yearsExperience: tutors.yearsExperience,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
       })
@@ -82,26 +95,11 @@ export async function getTutor(id: number): Promise<TutorDetailType> {
     notFound();
   }
 
-  const [row] = rows;
   if (!row) {
     notFound();
   }
 
-  const parsedTutor = TutorWithJoinsSchema.safeParse({
-    id: row.id,
-    user_id: row.user_id,
-    verified: row.verified,
-    education: row.education,
-    bio: row.bio,
-    tagline: row.tagline,
-    years_experience: row.years_experience,
-    users: {
-      first_name: row.first_name,
-      last_name: row.last_name,
-      email: row.email,
-      phone: row.phone,
-    },
-  });
+  const parsedTutor = TutorWithJoinsSchema.safeParse(mapTutorJoinRow(row));
   if (!parsedTutor.success) {
     notFound();
   }

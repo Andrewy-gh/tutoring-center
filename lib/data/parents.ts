@@ -1,15 +1,18 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { isValidRole, type UserRole } from '@/lib/auth';
+import { db } from '@/lib/db/client';
 import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
   ParentDetailWithJoinsSchema,
   ParentWithJoinsListSchema,
   type ParentDetailStudent,
+  type ParentDetailWithJoins,
   type ParentWithJoins,
 } from '@/lib/validators/parents';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 const MISSING_VALUE = '\u2014';
 
@@ -101,82 +104,157 @@ const mapParentStudentRow = (student: ParentDetailStudent): ParentStudentRow => 
 const sortByName = <TRow extends { name: string }>(rows: TRow[]) =>
   rows.slice().sort((left, right) => left.name.localeCompare(right.name));
 
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
+const getOptionalNumber = (value: unknown) => {
+  if (typeof value === 'number') {
+    return value;
+  }
 
-type ParentListRow = {
-  id: number;
-  user_id: number;
-  billing_address: string | null;
-  notification_preferences: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-  phone: string | null;
-  amount_available: number | null;
-  student_id: number | null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 };
 
-function buildParentList(rows: ParentListRow[]): ParentWithJoins[] {
-  const parentMap = new Map<number, ParentWithJoins>();
+type ParentListJoinRow = {
+  id: unknown;
+  userId: unknown;
+  billingAddress: unknown;
+  notificationPreferences: unknown;
+  firstName: unknown;
+  lastName: unknown;
+  email: unknown;
+  phone: unknown;
+  amountAvailable: unknown;
+  studentId: unknown;
+};
+
+type ParentDetailJoinRow = ParentListJoinRow & {
+  studentUserId: unknown;
+  studentGrade: unknown;
+  studentFirstName: unknown;
+  studentLastName: unknown;
+  studentEmail: unknown;
+  studentPhone: unknown;
+};
+
+const mapParentBase = (row: ParentListJoinRow) => ({
+  id: row.id as number,
+  user_id: row.userId as number,
+  billing_address: row.billingAddress as string | null,
+  notification_preferences: row.notificationPreferences as string | null,
+  users: {
+    first_name: row.firstName as string | null,
+    last_name: row.lastName as string | null,
+    email: row.email as string,
+    phone: row.phone as string | null,
+  },
+  credit_balances:
+    row.amountAvailable === null || row.amountAvailable === undefined
+      ? null
+      : { amount_available: row.amountAvailable as number },
+});
+
+const mapParentListRows = (rows: ParentListJoinRow[]) => {
+  const parentsById = new Map<number, ParentWithJoins>();
+  const studentIdsByParent = new Map<number, Set<number>>();
 
   for (const row of rows) {
-    const existing = parentMap.get(row.id);
-    if (existing) {
-      if (row.student_id !== null) {
-        existing.students = [...(existing.students ?? []), { id: row.student_id }];
-      }
+    const parentId = Number(row.id);
+    const existingParent = parentsById.get(parentId);
+
+    if (!existingParent) {
+      parentsById.set(parentId, {
+        ...mapParentBase(row),
+        students: [],
+      });
+    }
+
+    const studentId = getOptionalNumber(row.studentId);
+    if (studentId === null) {
       continue;
     }
 
-    parentMap.set(row.id, {
-      id: row.id,
-      user_id: row.user_id,
-      billing_address: row.billing_address,
-      notification_preferences: row.notification_preferences,
+    const parentStudentIds = studentIdsByParent.get(parentId) ?? new Set<number>();
+    if (!studentIdsByParent.has(parentId)) {
+      studentIdsByParent.set(parentId, parentStudentIds);
+    }
+
+    if (parentStudentIds.has(studentId)) {
+      continue;
+    }
+
+    parentStudentIds.add(studentId);
+    parentsById.get(parentId)?.students?.push({ id: row.studentId as number });
+  }
+
+  return Array.from(parentsById.values());
+};
+
+const mapParentDetailRows = (rows: ParentDetailJoinRow[]): ParentDetailWithJoins | null => {
+  const [firstRow] = rows;
+  if (!firstRow) {
+    return null;
+  }
+
+  const parent: ParentDetailWithJoins = {
+    ...mapParentBase(firstRow),
+    students: [],
+  };
+  const studentIds = new Set<number>();
+
+  for (const row of rows) {
+    const studentId = getOptionalNumber(row.studentId);
+    if (studentId === null || studentIds.has(studentId)) {
+      continue;
+    }
+
+    studentIds.add(studentId);
+    parent.students?.push({
+      id: row.studentId as number,
+      user_id: row.studentUserId as number,
+      grade: row.studentGrade as string | null,
       users: {
-        first_name: row.first_name,
-        last_name: row.last_name,
-        email: row.email,
-        phone: row.phone,
+        first_name: row.studentFirstName as string | null,
+        last_name: row.studentLastName as string | null,
+        email: row.studentEmail as string,
+        phone: row.studentPhone as string | null,
       },
-      credit_balances: row.amount_available === null ? null : { amount_available: row.amount_available },
-      students: row.student_id === null ? [] : [{ id: row.student_id }],
     });
   }
 
-  return Array.from(parentMap.values());
-}
+  return parent;
+};
 
 export async function getParents(role: UserRole) {
   ensureAdminRole(role);
 
-  const db = await getDb();
-  let rows: ParentListRow[];
+  let rows: ParentListJoinRow[];
   try {
     rows = await db
       .select({
         id: parents.id,
-        user_id: parents.userId,
-        billing_address: parents.billingAddress,
-        notification_preferences: parents.notificationPreferences,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        userId: parents.userId,
+        billingAddress: parents.billingAddress,
+        notificationPreferences: parents.notificationPreferences,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
-        amount_available: creditBalances.amountAvailable,
-        student_id: students.id,
+        amountAvailable: creditBalances.amountAvailable,
+        studentId: students.id,
       })
       .from(parents)
       .innerJoin(users, eq(parents.userId, users.id))
       .leftJoin(creditBalances, eq(creditBalances.parentId, parents.id))
-      .leftJoin(students, eq(students.parentId, parents.id));
+      .leftJoin(students, eq(students.parentId, parents.id))
+      .orderBy(asc(parents.id), asc(students.id));
   } catch {
     throw new Error(PARENT_ERROR_MESSAGES.admin.database);
   }
 
-  const parsedParents = ParentWithJoinsListSchema.safeParse(buildParentList(rows));
+  const parsedParents = ParentWithJoinsListSchema.safeParse(mapParentListRows(rows));
   if (!parsedParents.success) {
     throw new Error(PARENT_ERROR_MESSAGES.admin.validation);
   }
@@ -187,106 +265,54 @@ export async function getParents(role: UserRole) {
 export async function getParent(userID: number, role: UserRole): Promise<ParentProfileDetail> {
   ensureAdminRole(role);
 
-  const db = await getDb();
-
-  let parentRows: Array<{
-    id: number;
-    user_id: number;
-    billing_address: string | null;
-    notification_preferences: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    phone: string | null;
-    amount_available: number | null;
-  }>;
+  const studentUsers = alias(users, 'student_users');
+  let rows: ParentDetailJoinRow[];
   try {
-    parentRows = await db
+    rows = await db
       .select({
         id: parents.id,
-        user_id: parents.userId,
-        billing_address: parents.billingAddress,
-        notification_preferences: parents.notificationPreferences,
-        first_name: users.firstName,
-        last_name: users.lastName,
+        userId: parents.userId,
+        billingAddress: parents.billingAddress,
+        notificationPreferences: parents.notificationPreferences,
+        firstName: users.firstName,
+        lastName: users.lastName,
         email: users.email,
         phone: users.phone,
-        amount_available: creditBalances.amountAvailable,
+        amountAvailable: creditBalances.amountAvailable,
+        studentId: students.id,
+        studentUserId: students.userId,
+        studentGrade: students.grade,
+        studentFirstName: studentUsers.firstName,
+        studentLastName: studentUsers.lastName,
+        studentEmail: studentUsers.email,
+        studentPhone: studentUsers.phone,
       })
       .from(parents)
       .innerJoin(users, eq(parents.userId, users.id))
       .leftJoin(creditBalances, eq(creditBalances.parentId, parents.id))
+      .leftJoin(students, eq(students.parentId, parents.id))
+      .leftJoin(studentUsers, eq(students.userId, studentUsers.id))
       .where(eq(parents.userId, userID))
-      .limit(1);
+      .orderBy(asc(students.id));
   } catch {
     throw new Error(PARENT_ERROR_MESSAGES.admin.database);
   }
 
-  const [parentRow] = parentRows;
-  if (!parentRow) {
+  const data = mapParentDetailRows(rows);
+  if (!data) {
     notFound();
   }
 
-  let studentRows: Array<{
-    id: number;
-    user_id: number;
-    grade: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string;
-    phone: string | null;
-  }>;
-  try {
-    studentRows = await db
-      .select({
-        id: students.id,
-        user_id: students.userId,
-        grade: students.grade,
-        first_name: users.firstName,
-        last_name: users.lastName,
-        email: users.email,
-        phone: users.phone,
-      })
-      .from(students)
-      .innerJoin(users, eq(students.userId, users.id))
-      .where(eq(students.parentId, parentRow.id));
-  } catch {
-    throw new Error(PARENT_ERROR_MESSAGES.admin.database);
-  }
-
-  const parsedParent = ParentDetailWithJoinsSchema.safeParse({
-    id: parentRow.id,
-    user_id: parentRow.user_id,
-    billing_address: parentRow.billing_address,
-    notification_preferences: parentRow.notification_preferences,
-    users: {
-      first_name: parentRow.first_name,
-      last_name: parentRow.last_name,
-      email: parentRow.email,
-      phone: parentRow.phone,
-    },
-    credit_balances: parentRow.amount_available === null ? null : { amount_available: parentRow.amount_available },
-    students: studentRows.map(student => ({
-      id: student.id,
-      user_id: student.user_id,
-      grade: student.grade,
-      users: {
-        first_name: student.first_name,
-        last_name: student.last_name,
-        email: student.email,
-        phone: student.phone,
-      },
-    })),
-  });
+  const parsedParent = ParentDetailWithJoinsSchema.safeParse(data);
   if (!parsedParent.success) {
     throw new Error(PARENT_ERROR_MESSAGES.admin.validation);
   }
 
   const parent = parsedParent.data;
-  const mappedParent = mapParentRow(parent);
+  const parentRow = mapParentRow(parent);
 
   return {
-    ...mappedParent,
+    ...parentRow,
     billing_address: parent.billing_address ?? MISSING_VALUE,
     notification_preferences: parent.notification_preferences ?? MISSING_VALUE,
     students: sortByName((parent.students ?? []).map(mapParentStudentRow)),

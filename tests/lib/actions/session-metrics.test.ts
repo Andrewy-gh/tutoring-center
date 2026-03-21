@@ -1,11 +1,11 @@
 import { submitSessionMetrics } from '@/lib/actions/session-metrics';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockGetUserRole, mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
+const { mockDbInsert, mockDbSelect, mockGetCurrentUserID, mockGetUserRole } = vi.hoisted(() => ({
+  mockDbInsert: vi.fn(),
+  mockDbSelect: vi.fn(),
   mockGetCurrentUserID: vi.fn(),
   mockGetUserRole: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -15,8 +15,8 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/db/client', () => ({
   db: {
-    select: mockDbSelect,
     insert: mockDbInsert,
+    select: mockDbSelect,
   },
 }));
 
@@ -24,10 +24,7 @@ function createSelectQuery(result: unknown) {
   const query = {
     from: vi.fn(() => query),
     where: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
+    limit: vi.fn().mockResolvedValue(result),
   };
 
   return query;
@@ -40,17 +37,15 @@ describe('submitSessionMetrics', () => {
     mockGetCurrentUserID.mockResolvedValue(44);
   });
 
-  it('inserts metrics without the removed studentId column', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ tutorId: 9 }]))
-      .mockReturnValueOnce(createSelectQuery([{ id: 9 }]));
-
+  it('inserts metrics without the removed student_id column', async () => {
     const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
-    const values = vi.fn(() => ({
-      onConflictDoUpdate,
-    }));
+    const values = vi.fn(() => ({ onConflictDoUpdate }));
 
-    mockDbInsert.mockReturnValue({ values });
+    mockDbSelect.mockImplementationOnce(() => createSelectQuery([{ tutorId: 9 }]));
+    mockDbSelect.mockImplementationOnce(() => createSelectQuery([{ id: 9 }]));
+    mockDbInsert.mockReturnValue({
+      values,
+    });
 
     await expect(
       submitSessionMetrics({
@@ -72,6 +67,10 @@ describe('submitSessionMetrics', () => {
       })
     );
     expect(values).toHaveBeenCalledWith(expect.not.objectContaining({ studentId: expect.anything() }));
-    expect(onConflictDoUpdate).toHaveBeenCalledTimes(1);
+    expect(onConflictDoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        set: expect.not.objectContaining({ studentId: expect.anything() }),
+      })
+    );
   });
 });
