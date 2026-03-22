@@ -42,7 +42,7 @@ So: staged code must pass lint and Prettier, and the commit message must follow 
 
 Every commit message must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<optional scope>): <subject>
 
 <optional body>
@@ -89,12 +89,40 @@ npm run db:migrate
 npm run prepare
 ```
 
+## Local Postgres / Docker
+
+This repo supports a plain local Postgres container for app and schema work. Supabase remains a production dependency, not a required local runtime.
+
+Prerequisites:
+
+- Docker Desktop running
+- `npm install`
+
+Useful commands:
+
+- `npm run db:start` - starts the local Postgres container and waits for health
+- `npm run db:status` - shows container status
+- `npm run db:logs` - tails Postgres logs
+- `npm run db:stop` - stops and removes the local Postgres container
+- `npm run local:db:bootstrap` - starts Postgres, then pushes the Drizzle schema and applies SQL migrations
+- `npm run gate:local` - bootstraps local Postgres, then runs typecheck, lint, Prettier, and build
+
+Notes:
+
+- The local container is pinned to `postgres:17.6`.
+- `DATABASE_URL` for local Docker-backed Postgres is `postgresql://postgres:postgres@127.0.0.1:5432/tutoring_center`.
+- `npm run gate:local` does not cover tests that require the Supabase HTTP API and keys. Those remain a separate integration concern.
+
 ## Scripts
 
 - `npm run dev` — dev server
 - `npm run build` — production build
 - `npm run start` — production server
+- `npm run typecheck` — TypeScript typecheck
 - `npm run db:generate` / `npm run db:migrate` / `npm run db:push` / `npm run db:studio` — schema and database workflows
+- `npm run db:start` / `npm run db:stop` — local Postgres lifecycle
+- `npm run local:db:bootstrap` — local schema + SQL migration bootstrap
+- `npm run gate:local` — local Postgres-backed validation
 - `npm run lint` — ESLint
 - `npm run prettier:check` / `npm run prettier:fix` — Prettier
 - `npm run test` - runs tests
