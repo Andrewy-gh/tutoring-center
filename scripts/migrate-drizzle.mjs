@@ -13,6 +13,8 @@ const sql = postgres(databaseUrl, {
 try {
   const db = drizzle(sql);
   await migrate(db, { migrationsFolder: './drizzle' });
+  // eslint-disable-next-line no-console
+  console.log('Drizzle migrations are up to date.');
 } finally {
   await sql.end({ timeout: 5 });
 }
