@@ -104,13 +104,14 @@ Useful commands:
 - `npm run db:status` - shows container status
 - `npm run db:logs` - tails Postgres logs
 - `npm run db:stop` - stops and removes the local Postgres container
-- `npm run local:db:bootstrap` - starts Postgres, then pushes the Drizzle schema and applies SQL migrations
-- `npm run gate:local` - bootstraps local Postgres, then runs typecheck, lint, Prettier, and build
+- `npm run local:db:bootstrap` - starts Postgres, then applies the tracked Drizzle migrations
+- `npm run gate:local` - bootstraps local Postgres from Drizzle migrations, then runs typecheck, lint, Prettier, and build
 
 Notes:
 
 - The local container is pinned to `postgres:17.6`.
-- `DATABASE_URL` for local Docker-backed Postgres is `postgresql://postgres:postgres@127.0.0.1:5432/tutoring_center`.
+- `DATABASE_URL` for local Docker-backed Postgres is `postgresql://postgres:postgres@127.0.0.1:5433/tutoring_center`.
+- The overlap constraint migration is tracked in `drizzle/0001_booking_invariants.sql`, including `CREATE EXTENSION IF NOT EXISTS btree_gist;`.
 - `npm run gate:local` does not cover tests that require the Supabase HTTP API and keys. Those remain a separate integration concern.
 
 ## Scripts
@@ -121,7 +122,8 @@ Notes:
 - `npm run typecheck` — TypeScript typecheck
 - `npm run db:generate` / `npm run db:migrate` / `npm run db:push` / `npm run db:studio` — schema and database workflows
 - `npm run db:start` / `npm run db:stop` — local Postgres lifecycle
-- `npm run local:db:bootstrap` — local schema + SQL migration bootstrap
+- `npm run db:migrate` — apply tracked Drizzle migrations with the runtime migrator
+- `npm run local:db:bootstrap` — local Drizzle migration bootstrap
 - `npm run gate:local` — local Postgres-backed validation
 - `npm run lint` — ESLint
 - `npm run prettier:check` / `npm run prettier:fix` — Prettier
