@@ -91,7 +91,7 @@ npm run prepare
 
 ## Local Postgres / Docker
 
-This repo supports a plain local Postgres container for app and schema work. Supabase remains a production dependency, not a required local runtime.
+This repo supports a plain local Postgres container for app and schema work.
 
 Prerequisites:
 
@@ -112,7 +112,7 @@ Notes:
 - The local container is pinned to `postgres:17.6`.
 - `DATABASE_URL` for local Docker-backed Postgres is `postgresql://postgres:postgres@127.0.0.1:5433/tutoring_center`.
 - The overlap constraint migration is tracked in `drizzle/0001_booking_invariants.sql`, including `CREATE EXTENSION IF NOT EXISTS btree_gist;`.
-- `npm run gate:local` does not cover tests that require the Supabase HTTP API and keys. Those remain a separate integration concern.
+- `npm run gate:local` does not cover integration tests that depend on external services beyond the local Postgres container.
 
 ## Scripts
 
