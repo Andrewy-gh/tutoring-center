@@ -5,7 +5,8 @@ import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-led
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { creditTransactions, sessionProgress, sessions, type SessionStatus } from '@/lib/db/schema';
+import type { SessionStatus } from '@/lib/db/types';
+import { creditTransactions, sessionProgress, sessions } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
 type AllowedRole = Exclude<UserRole, 'tutor'>;
