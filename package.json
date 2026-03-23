@@ -23,7 +23,7 @@
     "lint": "next lint",
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "prepare": "node -e \"process.exit(process.env.CI ? 0 : 1)\" || husky",
+    "prepare": "node -e \"if (process.env.CI) process.exit(0); try { const huskyBin = require.resolve('husky/bin.js'); require('child_process').execFileSync(process.execPath, [huskyBin], { stdio: 'inherit' }); } catch { process.exit(0); }\"",
     "test": "vitest run"
   },
   "dependencies": {
@@ -70,6 +70,6 @@
     "vitest": "^4.0.18"
   },
   "engines": {
-    "node": "20.x"
+    "node": "^20.19.0 || >=22.12.0"
   }
 }
