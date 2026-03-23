@@ -4,20 +4,16 @@ import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/a
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
 import {
   buildCreditTransactionFilters,
+  createCreditTransaction,
   getCreditTransactionCount,
   getCreditTransactionRows,
   parseCreditTransactionRows,
 } from '@/lib/db/queries/credits/transactions';
-import { creditTransactions } from '@/lib/db/schema';
 import {
   TransactionCreateSchema,
   TransactionListQuerySchema,
   TransactionsWithJoins,
 } from '@/lib/validators/transactions';
-
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -179,33 +175,17 @@ export async function POST(req: Request) {
   } = parsed.data;
 
   try {
-    const db = await getDb();
-    const [transaction] = await db
-      .insert(creditTransactions)
-      .values({
-        parentId: parent_id,
-        sessionId: session_id,
-        availableDelta: available_delta,
-        pendingDelta: pending_delta,
-        availableAfter: available_after,
-        pendingAfter: pending_after,
-        idempotencyKey: idempotency_key,
-        note,
-        type,
-      })
-      .returning({
-        id: creditTransactions.id,
-        parent_id: creditTransactions.parentId,
-        session_id: creditTransactions.sessionId,
-        available_delta: creditTransactions.availableDelta,
-        pending_delta: creditTransactions.pendingDelta,
-        available_after: creditTransactions.availableAfter,
-        pending_after: creditTransactions.pendingAfter,
-        idempotency_key: creditTransactions.idempotencyKey,
-        note: creditTransactions.note,
-        type: creditTransactions.type,
-        created_at: creditTransactions.createdAt,
-      });
+    const transaction = await createCreditTransaction({
+      parent_id,
+      session_id: session_id ?? null,
+      available_delta,
+      pending_delta,
+      available_after,
+      pending_after,
+      idempotency_key,
+      note,
+      type,
+    });
 
     return NextResponse.json({ data: transaction });
   } catch (error) {
