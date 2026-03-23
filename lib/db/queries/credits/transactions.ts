@@ -45,6 +45,32 @@ export type CreditTransactionJoinRow = {
   student_phone: string | null;
 };
 
+export type CreditTransactionInsertInput = {
+  parent_id: number;
+  session_id: number | null;
+  available_delta: number;
+  pending_delta: number;
+  available_after: number;
+  pending_after: number;
+  idempotency_key?: string | null;
+  note?: string | null;
+  type: typeof creditTransactions.$inferSelect.type;
+};
+
+export type CreditTransactionInsertRow = {
+  id: number;
+  parent_id: number;
+  session_id: number | null;
+  available_delta: number;
+  pending_delta: number;
+  available_after: number;
+  pending_after: number;
+  idempotency_key: string | null;
+  note: string | null;
+  type: typeof creditTransactions.$inferSelect.type;
+  created_at: string;
+};
+
 export function buildCreditTransactionFilters({
   parentId,
   studentId,
@@ -131,6 +157,38 @@ export async function getCreditTransactionRows(
   }
 
   return query;
+}
+
+export async function createCreditTransaction(input: CreditTransactionInsertInput) {
+  const db = await getDb();
+  const [transaction] = await db
+    .insert(creditTransactions)
+    .values({
+      parentId: input.parent_id,
+      sessionId: input.session_id,
+      availableDelta: input.available_delta,
+      pendingDelta: input.pending_delta,
+      availableAfter: input.available_after,
+      pendingAfter: input.pending_after,
+      idempotencyKey: input.idempotency_key,
+      note: input.note,
+      type: input.type,
+    })
+    .returning({
+      id: creditTransactions.id,
+      parent_id: creditTransactions.parentId,
+      session_id: creditTransactions.sessionId,
+      available_delta: creditTransactions.availableDelta,
+      pending_delta: creditTransactions.pendingDelta,
+      available_after: creditTransactions.availableAfter,
+      pending_after: creditTransactions.pendingAfter,
+      idempotency_key: creditTransactions.idempotencyKey,
+      note: creditTransactions.note,
+      type: creditTransactions.type,
+      created_at: creditTransactions.createdAt,
+    });
+
+  return transaction ?? null;
 }
 
 export function mapCreditTransactionJoinRows(rows: CreditTransactionJoinRow[]): TransactionsWithJoins[] {

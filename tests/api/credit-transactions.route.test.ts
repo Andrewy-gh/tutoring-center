@@ -1,21 +1,38 @@
 import { GET, POST } from '@/app/api/credit-transactions/route';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
+const {
+  mockCookies,
+  mockGetParentIdByUserId,
+  mockBuildCreditTransactionFilters,
+  mockGetCreditTransactionCount,
+  mockGetCreditTransactionRows,
+  mockParseCreditTransactionRows,
+  mockCreateCreditTransaction,
+} = vi.hoisted(() => ({
   mockCookies: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
+  mockGetParentIdByUserId: vi.fn(),
+  mockBuildCreditTransactionFilters: vi.fn(),
+  mockGetCreditTransactionCount: vi.fn(),
+  mockGetCreditTransactionRows: vi.fn(),
+  mockParseCreditTransactionRows: vi.fn(),
+  mockCreateCreditTransaction: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-    insert: mockDbInsert,
-  },
+vi.mock('@/lib/db/queries/actors', () => ({
+  getParentIdByUserId: mockGetParentIdByUserId,
+}));
+
+vi.mock('@/lib/db/queries/credits/transactions', () => ({
+  buildCreditTransactionFilters: mockBuildCreditTransactionFilters,
+  getCreditTransactionCount: mockGetCreditTransactionCount,
+  getCreditTransactionRows: mockGetCreditTransactionRows,
+  parseCreditTransactionRows: mockParseCreditTransactionRows,
+  createCreditTransaction: mockCreateCreditTransaction,
 }));
 
 function setCookies(role?: string, userId?: string) {
@@ -36,41 +53,12 @@ function makePostRequest(body: Record<string, unknown>) {
   });
 }
 
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    innerJoin: vi.fn(() => query),
-    leftJoin: vi.fn(() => query),
-    where: vi.fn(() => query),
-    orderBy: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    offset: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
-  };
-
-  return query;
-}
-
-function createRejectingSelectQuery(message: string) {
-  const query = createSelectQuery([]);
-  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
-  return query;
-}
-
-function createInsertQuery(result: unknown) {
-  return {
-    values: vi.fn(() => ({
-      returning: vi.fn().mockResolvedValue(result),
-    })),
-  };
-}
-
 describe('credit transactions route auth', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setCookies('parent', '42');
+    mockBuildCreditTransactionFilters.mockReturnValue([]);
+    mockParseCreditTransactionRows.mockReturnValue({ success: true, data: [] });
   });
 
   it('returns 401 for GET when role cookie is missing', async () => {
@@ -84,9 +72,8 @@ describe('credit transactions route auth', () => {
   });
 
   it('derives the parent id for GET when the caller is a parent', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 88 }]))
-      .mockReturnValueOnce(createSelectQuery([{ count: 0 }]));
+    mockGetParentIdByUserId.mockResolvedValueOnce(88);
+    mockGetCreditTransactionCount.mockResolvedValueOnce(0);
 
     const response = await GET(
       new Request('https://example.test/api/credit-transactions?parent_id=999&page=1&page_size=20')
@@ -96,27 +83,31 @@ describe('credit transactions route auth', () => {
     expect(response.status).toBe(200);
     expect(body.data).toEqual([]);
     expect(body.filters.parent_id).toBe(88);
+    expect(mockBuildCreditTransactionFilters).toHaveBeenCalledWith({
+      parentId: 88,
+      studentId: undefined,
+      sessionId: undefined,
+      type: 'all',
+      startDate: undefined,
+      endDate: undefined,
+    });
   });
 
   it('derives the parent id for POST when the caller is a parent', async () => {
-    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
-    mockDbInsert.mockReturnValueOnce(
-      createInsertQuery([
-        {
-          id: 2002,
-          parent_id: 55,
-          session_id: null,
-          available_delta: 4,
-          pending_delta: 0,
-          available_after: 8,
-          pending_after: 1,
-          idempotency_key: null,
-          note: null,
-          type: 'purchase',
-          created_at: '2026-03-20T00:00:00.000Z',
-        },
-      ])
-    );
+    mockGetParentIdByUserId.mockResolvedValueOnce(55);
+    mockCreateCreditTransaction.mockResolvedValueOnce({
+      id: 2002,
+      parent_id: 55,
+      session_id: null,
+      available_delta: 4,
+      pending_delta: 0,
+      available_after: 8,
+      pending_after: 1,
+      idempotency_key: null,
+      note: null,
+      type: 'purchase',
+      created_at: '2026-03-20T00:00:00.000Z',
+    });
 
     const response = await POST(
       makePostRequest({
@@ -140,10 +131,21 @@ describe('credit transactions route auth', () => {
       pending_after: 1,
       type: 'purchase',
     });
+    expect(mockCreateCreditTransaction).toHaveBeenCalledWith({
+      parent_id: 55,
+      session_id: null,
+      available_delta: 4,
+      pending_delta: 0,
+      available_after: 8,
+      pending_after: 1,
+      idempotency_key: undefined,
+      note: undefined,
+      type: 'purchase',
+    });
   });
 
   it('returns a JSON 500 when parent lookup fails during GET', async () => {
-    mockDbSelect.mockReturnValueOnce(createRejectingSelectQuery('lookup failed'));
+    mockGetParentIdByUserId.mockRejectedValueOnce(new Error('lookup failed'));
 
     const response = await GET(new Request('https://example.test/api/credit-transactions?parent_id=9'));
     const body = await response.json();

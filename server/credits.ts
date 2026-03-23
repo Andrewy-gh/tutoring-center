@@ -1,22 +1,11 @@
 import { CreditBalanceNotFoundError, InsufficientCreditsError } from '@/lib/db/book-session';
-import { sql, type SQL } from 'drizzle-orm';
+import {
+  deductCreditBalance,
+  getCreditBalanceByParentId,
+  type CreditBalanceAmounts,
+} from '@/lib/db/queries/credits/balances';
 
-type CreditBalanceRow = {
-  amount_available: number;
-  amount_pending: number;
-};
-
-type SqlExecutor = {
-  execute(query: SQL): Promise<unknown>;
-};
-
-function isSqlExecutor(value: unknown): value is SqlExecutor {
-  return typeof value === 'object' && value !== null && 'execute' in value && typeof value.execute === 'function';
-}
-
-function resolveDatabase(database?: unknown): SqlExecutor | null {
-  return isSqlExecutor(database) ? database : null;
-}
+type CreditBalanceRow = CreditBalanceAmounts;
 
 function normalizeError(error: unknown) {
   return error instanceof Error ? error : new Error('Failed to access credit balance');
@@ -29,16 +18,12 @@ function normalizeError(error: unknown) {
  * @returns the amount available and amount pending for the parent, or an error if the query fails
  */
 export async function getBalance(parent_id: number, database?: unknown) {
-  const client = resolveDatabase(database) ?? (await import('@/lib/db/client')).db;
-
   try {
-    const data = await client.execute(sql`
-      select amount_available, amount_pending
-      from credit_balances
-      where parent_id = ${parent_id}
-    `);
-
-    return { data: data as CreditBalanceRow[], error: null };
+    const balance = await getCreditBalanceByParentId(parent_id, database);
+    return {
+      data: balance ? [{ amount_available: balance.amount_available, amount_pending: balance.amount_pending }] : [],
+      error: null,
+    };
   } catch (error) {
     return { data: null, error: normalizeError(error) };
   }
@@ -52,25 +37,14 @@ export async function getBalance(parent_id: number, database?: unknown) {
  * @returns The updated balance for the parent, or an error if the query fails or if the parent has insufficient credits
  */
 export async function deductCredits(parent_id: number, amount: number, database?: unknown) {
-  const client = resolveDatabase(database) ?? (await import('@/lib/db/client')).db;
-
   try {
-    const [data] = (await client.execute(sql`
-      update credit_balances
-      set
-        amount_available = amount_available - ${amount},
-        amount_pending = amount_pending + ${amount},
-        updated_at = now()
-      where parent_id = ${parent_id}
-        and amount_available >= ${amount}
-      returning amount_available, amount_pending
-    `)) as CreditBalanceRow[];
+    const data = await deductCreditBalance(parent_id, amount, database);
 
     if (data) {
       return { data, error: null };
     }
 
-    const { data: balance, error } = await getBalance(parent_id, client);
+    const { data: balance, error } = await getBalance(parent_id, database);
     if (error) {
       return { data: null, error };
     }

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getCurrentUserID } from '@/lib/auth';
 import { EMPTY_CREDIT_BALANCE } from '@/lib/credit-balances';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { getBalance } from '@/server/credits';
+import { getCreditBalanceByParentId } from '@/lib/db/queries/credits/balances';
 
 async function getCurrentParentId() {
   const userId = await getCurrentUserID();
@@ -18,25 +18,36 @@ async function getCurrentParentId() {
 
 export async function getCurrentParentBalance() {
   const parentId = await getCurrentParentId();
-  const { data, error } = await getBalance(parentId);
+  try {
+    const balance = await getCreditBalanceByParentId(parentId);
+    if (!balance) {
+      return EMPTY_CREDIT_BALANCE;
+    }
 
-  if (error || !data?.length) {
+    return {
+      amount_available: balance.amount_available,
+      amount_pending: balance.amount_pending,
+    };
+  } catch {
     return EMPTY_CREDIT_BALANCE;
   }
-
-  return data[0];
 }
 
 export async function getCurrentParentCredits() {
   const parentId = await getCurrentParentId();
-  const { data, error } = await getBalance(parentId);
+  try {
+    const balance = await getCreditBalanceByParentId(parentId);
 
-  if (error) {
+    return {
+      parentId,
+      balance: balance
+        ? {
+            amount_available: balance.amount_available,
+            amount_pending: balance.amount_pending,
+          }
+        : EMPTY_CREDIT_BALANCE,
+    };
+  } catch {
     throw new Error('Your credit balance is temporarily unavailable. Please try again in a moment.');
   }
-
-  return {
-    parentId,
-    balance: data?.[0] ?? EMPTY_CREDIT_BALANCE,
-  };
 }

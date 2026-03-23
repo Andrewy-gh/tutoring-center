@@ -1,21 +1,32 @@
 import { GET, PUT } from '@/app/api/credit-balances/route';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockDbSelect, mockDbInsert } = vi.hoisted(() => ({
+const {
+  mockCookies,
+  mockGetParentIdByUserId,
+  mockParentExists,
+  mockGetCreditBalanceByParentId,
+  mockUpsertCreditBalance,
+} = vi.hoisted(() => ({
   mockCookies: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
+  mockGetParentIdByUserId: vi.fn(),
+  mockParentExists: vi.fn(),
+  mockGetCreditBalanceByParentId: vi.fn(),
+  mockUpsertCreditBalance: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-    insert: mockDbInsert,
-  },
+vi.mock('@/lib/db/queries/actors', () => ({
+  getParentIdByUserId: mockGetParentIdByUserId,
+  parentExists: mockParentExists,
+}));
+
+vi.mock('@/lib/db/queries/credits/balances', () => ({
+  getCreditBalanceByParentId: mockGetCreditBalanceByParentId,
+  upsertCreditBalance: mockUpsertCreditBalance,
 }));
 
 function setCookies(role?: string, userId?: string) {
@@ -34,45 +45,6 @@ function makePutRequest(body: Record<string, unknown>) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-}
-
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    where: vi.fn(() => query),
-    limit: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
-  };
-
-  return query;
-}
-
-function createRejectingSelectQuery(message: string) {
-  const query = createSelectQuery([]);
-  query.then.mockImplementationOnce((_resolve, reject) => Promise.reject(new Error(message)).then(undefined, reject));
-  return query;
-}
-
-function createInsertQuery(result: unknown) {
-  return {
-    values: vi.fn(() => ({
-      onConflictDoUpdate: vi.fn(() => ({
-        returning: vi.fn().mockResolvedValue(result),
-      })),
-    })),
-  };
-}
-
-function createRejectingInsertQuery(message: string) {
-  return {
-    values: vi.fn(() => ({
-      onConflictDoUpdate: vi.fn(() => ({
-        returning: vi.fn().mockRejectedValue(new Error(message)),
-      })),
-    })),
-  };
 }
 
 describe('credit balances route auth', () => {
@@ -102,9 +74,8 @@ describe('credit balances route auth', () => {
   });
 
   it('derives the parent id for GET when the caller is a parent', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 77 }]))
-      .mockReturnValueOnce(createSelectQuery([{ parent_id: 77, amount_available: 8, amount_pending: 2 }]));
+    mockGetParentIdByUserId.mockResolvedValueOnce(77);
+    mockGetCreditBalanceByParentId.mockResolvedValueOnce({ parent_id: 77, amount_available: 8, amount_pending: 2 });
 
     const response = await GET(new Request('https://example.test/api/credit-balances?parent_id=999'));
     const body = await response.json();
@@ -114,28 +85,37 @@ describe('credit balances route auth', () => {
   });
 
   it('derives the parent id for PUT when the caller is a parent', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
-      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
-    mockDbInsert.mockReturnValueOnce(createInsertQuery([{ parent_id: 55, amount_available: 6, amount_pending: 1 }]));
+    mockGetParentIdByUserId.mockResolvedValueOnce(55);
+    mockParentExists.mockResolvedValueOnce(true);
+    mockUpsertCreditBalance.mockResolvedValueOnce({ parent_id: 55, amount_available: 6, amount_pending: 1 });
 
     const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ parent_id: 55, amount_available: 6, amount_pending: 1 });
+    expect(mockUpsertCreditBalance).toHaveBeenCalledWith(55, { amount_available: 6, amount_pending: 1 });
   });
 
   it('returns a JSON 500 when the balance upsert fails', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]))
-      .mockReturnValueOnce(createSelectQuery([{ id: 55 }]));
-    mockDbInsert.mockReturnValueOnce(createRejectingInsertQuery('upsert failed'));
+    mockGetParentIdByUserId.mockResolvedValueOnce(55);
+    mockParentExists.mockResolvedValueOnce(true);
+    mockUpsertCreditBalance.mockRejectedValueOnce(new Error('upsert failed'));
 
     const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'upsert failed' });
+  });
+
+  it('returns a JSON 500 when parent lookup fails during GET', async () => {
+    mockGetParentIdByUserId.mockRejectedValueOnce(new Error('lookup failed'));
+
+    const response = await GET(new Request('https://example.test/api/credit-balances?parent_id=9'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'lookup failed' });
   });
 });
