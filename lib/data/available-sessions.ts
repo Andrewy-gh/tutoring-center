@@ -1,13 +1,11 @@
 import 'server-only';
 import { SLOT_DURATION_MINS, TIMEZONE } from '@/lib/constants';
 import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
+import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/lib/db/types';
 import {
   availability,
-  FREE_SLOT_STATUSES,
   sessions,
   tutorSubjects,
-  type FreeSlotStatus,
-  type WeekDay,
 } from '@/lib/db/schema';
 import type { AvailableSession } from '@/lib/validators/sessions';
 import { and, eq, gt, lt, notInArray } from 'drizzle-orm';

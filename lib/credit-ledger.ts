@@ -1,4 +1,4 @@
-import type { TransactionType } from '@/lib/db/schema';
+import type { TransactionType } from '@/lib/db/types';
 
 export type CreditLedgerSnapshot = {
   available_after: number;
