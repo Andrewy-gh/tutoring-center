@@ -82,6 +82,10 @@ Run `npm run prepare` after clone so Husky installs these hooks into `.git/hooks
 
 ## Setup
 
+Prerequisites:
+
+- Node `24.14.0` (`.nvmrc` and `.node-version` are pinned to this version)
+
 ```bash
 cp .env.example .env
 npm install
