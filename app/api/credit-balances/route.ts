@@ -1,14 +1,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { creditBalances, parents } from '@/lib/db/schema';
+import { getParentIdByUserId, parentExists } from '@/lib/db/queries/actors';
+import { getCreditBalanceByParentId, upsertCreditBalance } from '@/lib/db/queries/credits/balances';
 import { BalanceQuerySchema, BalanceUpdateSchema } from '@/lib/validators/balances';
-import { eq, sql } from 'drizzle-orm';
-
-async function getDb() {
-  return (await import('@/lib/db/client')).db;
-}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -78,18 +73,7 @@ export async function GET(req: Request) {
   const { parent_id } = parsed.data;
 
   try {
-    const db = await getDb();
-    const rows = await db
-      .select({
-        parent_id: creditBalances.parentId,
-        amount_available: creditBalances.amountAvailable,
-        amount_pending: creditBalances.amountPending,
-      })
-      .from(creditBalances)
-      .where(eq(creditBalances.parentId, parent_id))
-      .limit(1);
-
-    const [balance] = rows;
+    const balance = await getCreditBalanceByParentId(parent_id);
     if (!balance) {
       return NextResponse.json({ error: 'No credit balance found for the given parent_id' }, { status: 404 });
     }
@@ -123,33 +107,11 @@ export async function PUT(req: Request) {
   const { parent_id, amount_available, amount_pending } = parsed.data;
 
   try {
-    const db = await getDb();
-    const [parent] = await db.select({ id: parents.id }).from(parents).where(eq(parents.id, parent_id)).limit(1);
-
-    if (!parent) {
+    if (!(await parentExists(parent_id))) {
       return NextResponse.json({ error: 'Parent not found' }, { status: 404 });
     }
 
-    const [balance] = await db
-      .insert(creditBalances)
-      .values({
-        parentId: parent_id,
-        amountAvailable: amount_available,
-        amountPending: amount_pending,
-      })
-      .onConflictDoUpdate({
-        target: creditBalances.parentId,
-        set: {
-          amountAvailable: amount_available,
-          amountPending: amount_pending,
-          updatedAt: sql`now()`,
-        },
-      })
-      .returning({
-        parent_id: creditBalances.parentId,
-        amount_available: creditBalances.amountAvailable,
-        amount_pending: creditBalances.amountPending,
-      });
+    const balance = await upsertCreditBalance(parent_id, { amount_available, amount_pending });
 
     return NextResponse.json(balance);
   } catch (error) {

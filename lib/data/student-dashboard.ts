@@ -5,19 +5,27 @@ import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-led
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { creditTransactions, sessionProgress, sessions, type SessionStatus } from '@/lib/db/schema';
+import { creditTransactions, sessionProgress, sessions } from '@/lib/db/schema';
+import type { CreditTransactionRecord, SessionStatus } from '@/lib/db/types';
 import { and, desc, eq } from 'drizzle-orm';
 
 type AllowedRole = Exclude<UserRole, 'tutor'>;
-type CreditTransactionRecord = Pick<
-  typeof creditTransactions.$inferSelect,
-  'id' | 'createdAt' | 'type' | 'availableDelta' | 'pendingDelta' | 'availableAfter' | 'pendingAfter' | 'sessionId'
+type CreditHistoryRow = Pick<
+  CreditTransactionRecord,
+  | 'id'
+  | 'created_at'
+  | 'type'
+  | 'available_delta'
+  | 'pending_delta'
+  | 'available_after'
+  | 'pending_after'
+  | 'session_id'
 >;
 
 export type StudentCreditHistoryItem = {
   id: number;
   created_at: string;
-  type: CreditTransactionRecord['type'];
+  type: CreditHistoryRow['type'];
   available_delta: number;
   pending_delta: number;
   available_after: number;
@@ -68,26 +76,11 @@ async function getScopedParentId(role: AllowedRole) {
   return parentId;
 }
 
-function toLedgerRecord(transaction: CreditTransactionRecord) {
+function mapCreditHistoryItem(transaction: CreditHistoryRow): StudentCreditHistoryItem {
   return {
-    id: transaction.id,
-    created_at: transaction.createdAt,
-    type: transaction.type,
-    available_delta: transaction.availableDelta,
-    pending_delta: transaction.pendingDelta,
-    available_after: transaction.availableAfter,
-    pending_after: transaction.pendingAfter,
-    session_id: transaction.sessionId,
-  };
-}
-
-function mapCreditHistoryItem(transaction: CreditTransactionRecord): StudentCreditHistoryItem {
-  const ledgerRecord = toLedgerRecord(transaction);
-
-  return {
-    ...ledgerRecord,
-    net_amount: getNetCreditDelta(ledgerRecord),
-    summary: getCreditTransactionSummary(ledgerRecord),
+    ...transaction,
+    net_amount: getNetCreditDelta(transaction),
+    summary: getCreditTransactionSummary(transaction),
   };
 }
 
@@ -120,13 +113,13 @@ export async function getStudentDashboardDetails(studentId: number, role: UserRo
     db
       .select({
         id: creditTransactions.id,
-        createdAt: creditTransactions.createdAt,
+        created_at: creditTransactions.createdAt,
         type: creditTransactions.type,
-        availableDelta: creditTransactions.availableDelta,
-        pendingDelta: creditTransactions.pendingDelta,
-        availableAfter: creditTransactions.availableAfter,
-        pendingAfter: creditTransactions.pendingAfter,
-        sessionId: creditTransactions.sessionId,
+        available_delta: creditTransactions.availableDelta,
+        pending_delta: creditTransactions.pendingDelta,
+        available_after: creditTransactions.availableAfter,
+        pending_after: creditTransactions.pendingAfter,
+        session_id: creditTransactions.sessionId,
       })
       .from(creditTransactions)
       .innerJoin(sessions, eq(creditTransactions.sessionId, sessions.id))

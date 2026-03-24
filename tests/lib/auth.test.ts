@@ -1,9 +1,10 @@
 import { getCurrentUserName, getUserIdByRole } from '@/lib/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCookies, mockDbSelect, mockRedirect } = vi.hoisted(() => ({
+const { mockCookies, mockGetUserIdForRole, mockGetUserNameById, mockRedirect } = vi.hoisted(() => ({
   mockCookies: vi.fn(),
-  mockDbSelect: vi.fn(),
+  mockGetUserIdForRole: vi.fn(),
+  mockGetUserNameById: vi.fn(),
   mockRedirect: vi.fn(),
 }));
 
@@ -22,23 +23,10 @@ vi.mock('next/server', () => ({
   },
 }));
 
-vi.mock('@/lib/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-  },
+vi.mock('@/lib/db/queries/actors', () => ({
+  getUserIdForRole: mockGetUserIdForRole,
+  getUserNameById: mockGetUserNameById,
 }));
-
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    innerJoin: vi.fn(() => query),
-    where: vi.fn(() => query),
-    orderBy: vi.fn(() => query),
-    limit: vi.fn().mockResolvedValue(result),
-  };
-
-  return query;
-}
 
 describe('auth helpers', () => {
   beforeEach(() => {
@@ -49,25 +37,19 @@ describe('auth helpers', () => {
   });
 
   it('returns the first admin user id via Drizzle', async () => {
-    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 12 }]));
+    mockGetUserIdForRole.mockResolvedValueOnce(12);
 
     await expect(getUserIdByRole('admin')).resolves.toBe('12');
   });
 
   it('returns the current user name via Drizzle', async () => {
-    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ firstName: 'Ada', lastName: 'Lovelace' }]));
+    mockGetUserNameById.mockResolvedValueOnce('Ada Lovelace');
 
     await expect(getCurrentUserName()).resolves.toBe('Ada Lovelace');
   });
 
   it('returns null when a role lookup query fails', async () => {
-    mockDbSelect.mockReturnValueOnce({
-      from: vi.fn(() => ({
-        orderBy: vi.fn(() => ({
-          limit: vi.fn().mockRejectedValue(new Error('db down')),
-        })),
-      })),
-    });
+    mockGetUserIdForRole.mockRejectedValueOnce(new Error('db down'));
 
     await expect(getUserIdByRole('parent')).resolves.toBeNull();
   });

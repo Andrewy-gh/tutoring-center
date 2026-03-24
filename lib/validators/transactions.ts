@@ -1,4 +1,4 @@
-import { TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/schema';
+import { TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/types';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize } from './shared';
 

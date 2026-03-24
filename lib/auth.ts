@@ -2,8 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { parents, roles, tutors, users } from '@/lib/db/schema';
-import { asc, eq, ilike } from 'drizzle-orm';
+import { getUserIdForRole, getUserNameById } from '@/lib/db/queries/actors';
 
 export type UserRole = 'admin' | 'parent' | 'tutor';
 
@@ -43,31 +42,8 @@ export async function getCurrentUserID() {
 
 export async function getUserIdByRole(role: UserRole): Promise<string | null> {
   try {
-    const { db } = await import('@/lib/db/client');
-
-    if (role === 'parent') {
-      const [parent] = await db.select({ userId: parents.userId }).from(parents).orderBy(asc(parents.userId)).limit(1);
-      return parent?.userId?.toString() ?? null;
-    }
-
-    if (role === 'tutor') {
-      const [tutor] = await db.select({ userId: tutors.userId }).from(tutors).orderBy(asc(tutors.userId)).limit(1);
-      return tutor?.userId?.toString() ?? null;
-    }
-
-    if (role === 'admin') {
-      const [adminUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .innerJoin(roles, eq(users.role, roles.id))
-        .where(ilike(roles.name, 'admin'))
-        .orderBy(asc(users.id))
-        .limit(1);
-
-      return adminUser?.id?.toString() ?? null;
-    }
-
-    return null;
+    const userId = await getUserIdForRole(role);
+    return userId?.toString() ?? null;
   } catch {
     return null;
   }
@@ -76,21 +52,10 @@ export async function getUserIdByRole(role: UserRole): Promise<string | null> {
 export async function getCurrentUserName(): Promise<string | null> {
   const userId = await getCurrentUserID();
   try {
-    const { db } = await import('@/lib/db/client');
-    const [user] = await db
-      .select({ firstName: users.firstName, lastName: users.lastName })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (user) {
-      return `${user.firstName} ${user.lastName}`;
-    }
+    return await getUserNameById(userId);
   } catch {
     return null;
   }
-
-  return null;
 }
 
 export async function login(formData: FormData) {

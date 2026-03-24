@@ -2,12 +2,12 @@ import {
   bookSession,
   CreditBalanceNotFoundError,
   InsufficientCreditsError,
+  InvalidSessionTimeError,
+  ParentStudentMismatchError,
   SessionOverlapError,
   type BookSessionInput,
 } from '@/lib/db/book-session';
 import { describe, expect, it, vi } from 'vitest';
-import { deductCredits, getBalance } from '../credits';
-import { InvalidSessionTimeError, placeSession } from '../reservations';
 
 vi.mock('@/lib/db/client', () => ({
   db: {
@@ -54,23 +54,6 @@ type BookingState = {
   }>;
   nextSessionId: number;
 };
-
-function createQueuedExecutor(responses: unknown[]): QueuedExecutor {
-  let index = 0;
-
-  return {
-    async execute<T>() {
-      const response = responses[index];
-      index += 1;
-
-      if (response === undefined) {
-        throw new Error(`Unexpected execute call ${index}`);
-      }
-
-      return response as T;
-    },
-  };
-}
 
 function createBookSessionDatabase(
   input: BookSessionInput,
@@ -188,73 +171,28 @@ const BOOKING_INPUT: BookSessionInput = {
   endsAt: '2026-03-20T11:00:00.000Z',
 };
 
-describe('credits', () => {
-  it('getBalance returns the correct balance for a parent', async () => {
-    const database = createQueuedExecutor([[{ amount_available: 10, amount_pending: 5 }]]);
-
-    const { data, error } = await getBalance(1010, database);
-
-    expect(error).toBeNull();
-    expect(data).toEqual([{ amount_available: 10, amount_pending: 5 }]);
-  });
-
-  it('deductCredits atomically updates the balance', async () => {
-    const database = createQueuedExecutor([[{ amount_available: 7, amount_pending: 8 }]]);
-
-    const { data, error } = await deductCredits(1010, 3, database);
-
-    expect(error).toBeNull();
-    expect(data).toEqual({ amount_available: 7, amount_pending: 8 });
-  });
-
-  it('deductCredits returns an insufficient credits error when the update does not match', async () => {
-    const database = createQueuedExecutor([[], [{ amount_available: 2, amount_pending: 5 }]]);
-
-    const { data, error } = await deductCredits(1010, 3, database);
-
-    expect(data).toBeNull();
-    expect(error).toBeInstanceOf(InsufficientCreditsError);
-    expect(error?.message).toBe('Insufficient credits');
-  });
-
-  it('deductCredits returns a missing balance error when no balance exists', async () => {
-    const database = createQueuedExecutor([[], []]);
-
-    const { data, error } = await deductCredits(9999, 3, database);
-
-    expect(data).toBeNull();
-    expect(error).toBeInstanceOf(CreditBalanceNotFoundError);
-    expect(error?.message).toBe('No credit balance found for parent');
-  });
-});
-
-describe('booking flow', () => {
-  it('placeSession books through the transactional Drizzle path and moves credits to pending', async () => {
+describe('bookSession', () => {
+  it('books a session transactionally and moves credits to pending', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
       balance: { amount_available: 4, amount_pending: 0 },
     });
 
-    const { data, error } = await placeSession(
-      BOOKING_INPUT.parentId,
-      BOOKING_INPUT.studentId,
-      BOOKING_INPUT.tutorId,
-      BOOKING_INPUT.subjectId,
-      BOOKING_INPUT.scheduledAt,
-      BOOKING_INPUT.endsAt,
-      database
-    );
-
-    expect(error).toBeNull();
-    expect(data).toEqual({
-      id: 9001,
-      tutor_id: 1011,
-      student_id: 1012,
-      subject_id: 1,
-      parent_id: 1010,
-      slot_units: 2,
-      scheduled_at: '2026-03-20T10:00:00.000Z',
-      ends_at: '2026-03-20T11:00:00.000Z',
-      status: 'Scheduled',
+    await expect(bookSession(BOOKING_INPUT, database)).resolves.toEqual({
+      session: {
+        id: 9001,
+        tutor_id: 1011,
+        student_id: 1012,
+        subject_id: 1,
+        parent_id: 1010,
+        slot_units: 2,
+        scheduled_at: '2026-03-20T10:00:00.000Z',
+        ends_at: '2026-03-20T11:00:00.000Z',
+        status: 'Scheduled',
+      },
+      balance: {
+        amount_available: 2,
+        amount_pending: 2,
+      },
     });
     expect(state.balance).toEqual({ amount_available: 2, amount_pending: 2 });
     expect(state.sessions).toHaveLength(1);
@@ -295,24 +233,33 @@ describe('booking flow', () => {
     expect(state.creditTransactions).toEqual([]);
   });
 
+  it('rejects bookings when the student does not belong to the parent', async () => {
+    const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
+      studentOwned: false,
+      balance: { amount_available: 4, amount_pending: 0 },
+    });
+
+    await expect(bookSession(BOOKING_INPUT, database)).rejects.toBeInstanceOf(ParentStudentMismatchError);
+    expect(state.balance).toEqual({ amount_available: 4, amount_pending: 0 });
+    expect(state.sessions).toEqual([]);
+    expect(state.creditTransactions).toEqual([]);
+  });
+
   it('returns an explicit invalid time error before opening a transaction', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
       balance: { amount_available: 4, amount_pending: 0 },
     });
 
-    const { data, error } = await placeSession(
-      BOOKING_INPUT.parentId,
-      BOOKING_INPUT.studentId,
-      BOOKING_INPUT.tutorId,
-      BOOKING_INPUT.subjectId,
-      BOOKING_INPUT.endsAt,
-      BOOKING_INPUT.scheduledAt,
-      database
-    );
-
-    expect(data).toBeNull();
-    expect(error).toBeInstanceOf(InvalidSessionTimeError);
-    expect(error?.message).toBe('End time must be after start time');
+    await expect(
+      bookSession(
+        {
+          ...BOOKING_INPUT,
+          scheduledAt: BOOKING_INPUT.endsAt,
+          endsAt: BOOKING_INPUT.scheduledAt,
+        },
+        database
+      )
+    ).rejects.toEqual(new InvalidSessionTimeError('ends_at must be after scheduled_at'));
     expect(state.balance).toEqual({ amount_available: 4, amount_pending: 0 });
     expect(state.sessions).toEqual([]);
     expect(state.creditTransactions).toEqual([]);
