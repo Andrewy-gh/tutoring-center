@@ -173,6 +173,8 @@ export function mapSessionListRow(row: SessionListJoinRow): SessionWithJoins {
         email: row.parentEmail as string,
       },
     },
+    session_progress: null,
+    session_metrics: null,
   };
 }
 

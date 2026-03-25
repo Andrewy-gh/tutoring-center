@@ -3,7 +3,6 @@ import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 import { tutors, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsListSchema, type TutorWithJoins } from '@/lib/validators/tutors';
 import { asc, eq, inArray } from 'drizzle-orm';
 
@@ -69,7 +68,7 @@ const mapTutorJoinRow = (row: TutorJoinRow): TutorWithJoins => ({
 });
 
 const parseTutorUser = (users: TutorWithJoins['users']) => {
-  const user = pickFirstEmbedded(users);
+  const user = users;
 
   return {
     name: [user?.first_name, user?.last_name].filter(Boolean).join(' '),
@@ -122,12 +121,12 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
 
   return new Map(
     rows.map(tutor => {
-      const user = pickFirstEmbedded({
+      const user = {
         first_name: tutor.firstName as string | null,
         last_name: tutor.lastName as string | null,
         email: tutor.email as string,
         phone: tutor.phone as string | null,
-      });
+      };
 
       return [
         tutor.id as number,

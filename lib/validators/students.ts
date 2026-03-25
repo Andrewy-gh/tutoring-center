@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { StatusSchema } from './sessions';
-import { EmbeddedOneUserSchema } from './shared';
+import { EmbeddedUserSchema } from './shared';
 
 export const StudentWithJoinsSchema = z.object({
   id: z.number(),
@@ -9,7 +9,7 @@ export const StudentWithJoinsSchema = z.object({
   birth_date: z.string().nullable(),
   grade: z.string().nullable(),
   learning_goals: z.string().nullable(),
-  users: EmbeddedOneUserSchema,
+  users: EmbeddedUserSchema,
 });
 
 export const StudentWithJoinsListSchema = z.array(StudentWithJoinsSchema);

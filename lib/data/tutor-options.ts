@@ -3,8 +3,7 @@ import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 import { availability, tutors, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
-import { EmbeddedOneUserSchema } from '@/lib/validators/shared';
+import { EmbeddedUserSchema } from '@/lib/validators/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -37,7 +36,7 @@ const TutorOptionQueryRowSchema = z.object({
   user_id: z.number(),
   education: z.string().nullable(),
   years_experience: z.number().nullable(),
-  users: EmbeddedOneUserSchema,
+  users: EmbeddedUserSchema,
   availability: z.array(AvailabilityRowSchema).nullable().optional(),
 });
 const TutorOptionQueryRowListSchema = z.array(TutorOptionQueryRowSchema);
@@ -113,8 +112,7 @@ const toAvailabilitySummary = (availability: TutorOptionQueryRow['availability']
 };
 
 const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => {
-  const user = pickFirstEmbedded(tutor.users);
-  const name = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim();
+  const name = [tutor.users.first_name, tutor.users.last_name].filter(Boolean).join(' ').trim();
 
   return {
     id: tutor.id,

@@ -1,7 +1,6 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
 import { tutors, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import { TutorWithJoinsSchema, type TutorWithJoins } from '@/lib/validators/tutors';
 import { eq } from 'drizzle-orm';
 
@@ -26,7 +25,7 @@ export type TutorDetailType = {
 };
 
 const mapTutorDetail = (tutor: TutorWithJoins): TutorDetailType => {
-  const user = pickFirstEmbedded(tutor.users);
+  const user = tutor.users;
 
   return {
     id: tutor.id,

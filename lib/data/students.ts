@@ -108,11 +108,10 @@ function mapStudentJoinRow(row: StudentJoinRow): StudentWithJoins {
 }
 
 const parseStudentUser = (users: StudentWithJoins['users']) => {
-  const user = Array.isArray(users) ? users[0] : users;
-
+  const user = users;
   return {
-    name: [user?.first_name, user?.last_name].filter(Boolean).join(' '),
-    email: user?.email ?? '',
+    name: [users.first_name, users.last_name].filter(Boolean).join(' '),
+    email: users.email,
     phone: user?.phone ?? '—',
   };
 };

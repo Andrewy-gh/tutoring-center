@@ -59,9 +59,45 @@ export type SessionCreateInput = z.infer<typeof SessionCreateSchema>;
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 export type SessionUpdateInput = z.infer<typeof SessionUpdateSchema>;
 
-// Output validation for sessions + joins
-const EmbeddedRecordSchema = z.record(z.unknown());
-const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordSchema), z.null()]).optional();
+const SessionStudentSchema = z.object({
+  id: z.number(),
+  parent_id: z.number().nullable(),
+  learning_goals: z.string().nullable(),
+  users: z.object({
+    first_name: z.string().nullable(),
+    last_name: z.string().nullable(),
+    email: z.string(),
+  }),
+});
+
+const SessionParentSchema = z.object({
+  id: z.number(),
+  billing_address: z.string().nullable(),
+  notification_preferences: z.string().nullable(),
+  users: z.object({
+    first_name: z.string().nullable(),
+    last_name: z.string().nullable(),
+    email: z.string(),
+  }),
+});
+
+const SessionProgressSchema = z.object({
+  id: z.number(),
+  session_id: z.number(),
+  topics: z.string().nullable(),
+  homework_assigned: z.string().nullable(),
+  public_notes: z.string().nullable(),
+  internal_notes: z.string().nullable(),
+});
+
+const SessionMetricsSchema = z.object({
+  id: z.number(),
+  session_id: z.number(),
+  confidence_score: z.number().nullable(),
+  session_performance: z.number().nullable(),
+  homework_completed: z.boolean().nullable(),
+  tutor_comments: z.string().nullable(),
+});
 
 export const SessionWithJoinsSchema = z.object({
   id: z.number(),
@@ -74,10 +110,10 @@ export const SessionWithJoinsSchema = z.object({
   ends_at: z.string(),
   status: StatusSchema,
 
-  student: EmbeddedOneSchema,
-  parent: EmbeddedOneSchema,
-  session_progress: EmbeddedOneSchema,
-  session_metrics: EmbeddedOneSchema,
+  student: SessionStudentSchema,
+  parent: SessionParentSchema,
+  session_progress: SessionProgressSchema.nullable(),
+  session_metrics: SessionMetricsSchema.nullable(),
 });
 
 export const SessionWithJoinsListSchema = z.array(SessionWithJoinsSchema);

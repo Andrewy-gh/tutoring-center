@@ -8,6 +8,14 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
+function assertPresent<T>(value: T | null, message: string): T {
+  if (value === null) {
+    throw new Error(message);
+  }
+
+  return value;
+}
+
 export type CreditTransactionListFilters = {
   parentId?: number;
   studentId?: number;
@@ -198,12 +206,12 @@ export function mapCreditTransactionJoinRows(rows: CreditTransactionJoinRow[]): 
         ? null
         : {
             id: row.student_id,
-            user_id: row.student_user_id,
+            user_id: assertPresent(row.student_user_id, 'Transaction student user is required when session exists'),
             grade: row.student_grade,
             users: {
               first_name: row.student_first_name,
               last_name: row.student_last_name,
-              email: row.student_email,
+              email: assertPresent(row.student_email, 'Transaction student email is required when session exists'),
               phone: row.student_phone,
             },
           };
@@ -213,13 +221,13 @@ export function mapCreditTransactionJoinRows(rows: CreditTransactionJoinRow[]): 
         ? null
         : {
             id: row.session_id,
-            subject_id: row.session_subject_id,
-            tutor_id: row.session_tutor_id,
-            scheduled_at: row.scheduled_at,
-            ends_at: row.ends_at,
-            status: row.status,
-            student_id: row.student_id,
-            student,
+            subject_id: assertPresent(row.session_subject_id, 'Transaction session subject is required'),
+            tutor_id: assertPresent(row.session_tutor_id, 'Transaction session tutor is required'),
+            scheduled_at: assertPresent(row.scheduled_at, 'Transaction session scheduled_at is required'),
+            ends_at: assertPresent(row.ends_at, 'Transaction session ends_at is required'),
+            status: assertPresent(row.status, 'Transaction session status is required'),
+            student_id: assertPresent(row.student_id, 'Transaction session student is required'),
+            student: assertPresent(student, 'Transaction session student details are required'),
           };
 
     return {

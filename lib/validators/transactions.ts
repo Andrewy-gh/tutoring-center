@@ -1,6 +1,7 @@
 import { TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/types';
 import { z } from 'zod';
-import { id, isoDateTime, page, pageSize } from './shared';
+import { EmbeddedUserSchema, id, isoDateTime, page, pageSize } from './shared';
+import { StatusSchema } from './sessions';
 
 export { TRANSACTION_TYPE_OPTIONS };
 export type { TransactionType };
@@ -51,9 +52,30 @@ export const TransactionListQuerySchema = z.object({
   page_size: pageSize,
 });
 
-// Output validation for sessions + joins, wasn't exported so i copied it here for transactions. Should probably be moved to a shared file if we need it in multiple places
-const EmbeddedRecordSchema = z.record(z.unknown());
-const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordSchema), z.null()]).optional();
+const TransactionParentSchema = z.object({
+  users: z.object({
+    first_name: z.string().nullable(),
+    last_name: z.string().nullable(),
+  }),
+});
+
+const TransactionStudentSchema = z.object({
+  id: z.number(),
+  user_id: z.number(),
+  grade: z.string().nullable(),
+  users: EmbeddedUserSchema,
+});
+
+const TransactionSessionSchema = z.object({
+  id: z.number(),
+  subject_id: z.number(),
+  tutor_id: z.number(),
+  scheduled_at: z.string(),
+  ends_at: z.string(),
+  status: StatusSchema,
+  student_id: z.number(),
+  student: TransactionStudentSchema,
+});
 
 export const TransactionsWithJoinsSchema = z.object({
   id: z.number(),
@@ -68,8 +90,8 @@ export const TransactionsWithJoinsSchema = z.object({
   idempotency_key: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
 
-  parent: EmbeddedOneSchema,
-  session: EmbeddedOneSchema,
+  parent: TransactionParentSchema,
+  session: TransactionSessionSchema.nullable(),
 });
 
 export type TransactionCreateInput = z.infer<typeof TransactionCreateSchema>;

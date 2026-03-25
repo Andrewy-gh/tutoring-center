@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EmbeddedOneOf, EmbeddedOneUserSchema } from './shared';
+import { EmbeddedUserSchema } from './shared';
 
 const EmbeddedCreditBalanceSchema = z.object({
   amount_available: z.number(),
@@ -14,8 +14,8 @@ export const ParentWithJoinsSchema = z.object({
   user_id: z.number(),
   billing_address: z.string().nullable(),
   notification_preferences: z.string().nullable(),
-  users: EmbeddedOneUserSchema,
-  credit_balances: EmbeddedOneOf(EmbeddedCreditBalanceSchema),
+  users: EmbeddedUserSchema,
+  credit_balances: EmbeddedCreditBalanceSchema.nullable(),
   students: z.array(ParentListStudentSchema).nullable().optional(),
 });
 
@@ -27,7 +27,7 @@ export const ParentDetailStudentSchema = z.object({
   id: z.number(),
   user_id: z.number(),
   grade: z.string().nullable(),
-  users: EmbeddedOneUserSchema,
+  users: EmbeddedUserSchema,
 });
 
 export type ParentDetailStudent = z.infer<typeof ParentDetailStudentSchema>;

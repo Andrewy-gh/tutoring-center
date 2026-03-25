@@ -176,12 +176,7 @@ async function getDb() {
 const parseStudentUser = (student: SessionWithJoins['student']) => {
   if (!student) return { name: '—' };
 
-  const studentData = Array.isArray(student) ? student[0] : student;
-  const user = studentData?.users
-    ? Array.isArray(studentData.users)
-      ? studentData.users[0]
-      : studentData.users
-    : null;
+  const user = student.users;
 
   return {
     name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',

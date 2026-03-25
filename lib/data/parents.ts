@@ -2,7 +2,6 @@ import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { isValidRole, type UserRole } from '@/lib/auth';
 import { creditBalances, parents, students, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
 import {
   ParentDetailWithJoinsSchema,
   ParentWithJoinsListSchema,
@@ -65,7 +64,7 @@ const parseName = (firstName: string | null | undefined, lastName: string | null
   [firstName, lastName].filter(Boolean).join(' ') || MISSING_VALUE;
 
 const parseParentUser = (users: ParentWithJoins['users']) => {
-  const user = pickFirstEmbedded(users);
+  const user = users;
 
   return {
     name: parseName(user?.first_name, user?.last_name),
@@ -75,7 +74,7 @@ const parseParentUser = (users: ParentWithJoins['users']) => {
 };
 
 const getAvailableCredits = (creditBalances: ParentWithJoins['credit_balances']) =>
-  pickFirstEmbedded(creditBalances)?.amount_available ?? 0;
+  creditBalances?.amount_available ?? 0;
 
 const mapParentRow = (parent: ParentWithJoins): ParentRow => {
   const user = parseParentUser(parent.users);
@@ -92,7 +91,7 @@ const mapParentRow = (parent: ParentWithJoins): ParentRow => {
 };
 
 const mapParentStudentRow = (student: ParentDetailStudent): ParentStudentRow => {
-  const user = pickFirstEmbedded(student.users);
+  const user = student.users;
 
   return {
     id: student.id,

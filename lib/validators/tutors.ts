@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EmbeddedOneUserSchema } from './shared';
+import { EmbeddedUserSchema } from './shared';
 
 export const TutorWithJoinsSchema = z.object({
   id: z.number(),
@@ -9,7 +9,7 @@ export const TutorWithJoinsSchema = z.object({
   bio: z.string().nullable(),
   tagline: z.string().nullable(),
   years_experience: z.number().nullable(),
-  users: EmbeddedOneUserSchema,
+  users: EmbeddedUserSchema,
 });
 
 export const TutorWithJoinsListSchema = z.array(TutorWithJoinsSchema);
