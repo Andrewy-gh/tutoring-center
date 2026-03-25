@@ -11,19 +11,15 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 })
 
-const nextConfig = [
+const eslintConfig = defineConfig(
   ...compat.extends('eslint-config-next/core-web-vitals', 'eslint-config-next/typescript'),
   { rules: eslintConfigPrettier.rules },
   {
     rules: {
-      'no-console': 'warn',
+      'no-console': 'warn' as const,
     },
   },
-]
-
-const eslintConfig = defineConfig([
-  ...nextConfig,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
-])
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts'])
+)
 
 export default eslintConfig
