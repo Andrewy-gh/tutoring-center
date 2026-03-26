@@ -93,6 +93,21 @@ describe('credit transactions route auth', () => {
     });
   });
 
+  it('returns a generic malformed-join 500 when transaction join parsing fails', async () => {
+    mockGetParentIdByUserId.mockResolvedValueOnce(88);
+    mockGetCreditTransactionCount.mockResolvedValueOnce(1);
+    mockGetCreditTransactionRows.mockResolvedValueOnce([{ id: 1 }]);
+    mockParseCreditTransactionRows.mockReturnValueOnce({ success: false });
+
+    const response = await GET(
+      new Request('https://example.test/api/credit-transactions?parent_id=999&page=1&page_size=20')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Unexpected sessions join shape returned from the database' });
+  });
+
   it('derives the parent id for POST when the caller is a parent', async () => {
     mockGetParentIdByUserId.mockResolvedValueOnce(55);
     mockCreateCreditTransaction.mockResolvedValueOnce({
