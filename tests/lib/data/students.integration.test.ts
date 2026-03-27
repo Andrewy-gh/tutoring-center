@@ -8,9 +8,8 @@ const { mockGetCurrentUserID } = vi.hoisted(() => ({
   mockGetCurrentUserID: vi.fn(),
 }));
 
-vi.mock('@/lib/mock-api', () => ({
+vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
-  getUserRole: vi.fn(),
 }));
 
 const HAS_DB_ENV = Boolean(process.env.DATABASE_URL);
