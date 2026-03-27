@@ -24,7 +24,7 @@ vi.mock('recharts', () => ({
 }));
 
 vi.mock('date-fns', () => ({
-  format: vi.fn((date: Date) => 'Jan 15'),
+  format: vi.fn(() => 'Jan 15'),
 }));
 
 const mockPerformanceData: PerformanceDataPoint[] = [

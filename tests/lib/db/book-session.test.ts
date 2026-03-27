@@ -71,7 +71,7 @@ function createBookSessionDatabase(
   };
 
   const database = {
-    async execute<T>() {
+    async execute() {
       throw new Error('Unexpected non-transactional execute');
     },
     async transaction<T>(callback: (tx: QueuedExecutor) => Promise<T>) {

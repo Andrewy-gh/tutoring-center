@@ -6,7 +6,6 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 type AvailabilityLike = { week_day: string; start_time: string; end_time: string };
-type SessionLike = { scheduled_at: string; ends_at: string; status?: string | null };
 
 const RANGE_FROM = '2026-03-02';
 const RANGE_TO = '2026-03-03';

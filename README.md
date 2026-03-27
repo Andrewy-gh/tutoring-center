@@ -22,7 +22,7 @@ This repo is a minimal **Next.js 15 App Router + TypeScript** app with enforced 
 
 ## Linting
 
-- **ESLint** — Runs the Next.js config (core-web-vitals, TypeScript) plus Prettier compatibility. Catches bugs, accessibility issues, and style problems. Rule `no-console` is set to `warn`.
+- **ESLint** — Runs the ESLint CLI with the Next.js config (core-web-vitals, TypeScript) plus Prettier compatibility. Catches bugs, accessibility issues, and style problems. Rule `no-console` is set to `warn`, and warnings fail the lint script.
 - **Prettier** — Enforces consistent formatting (quotes, semicolons, line length, import order). Use `prettier:check` to verify and `prettier:fix` to fix.
 
 Both run in CI and locally via the scripts below.
@@ -84,7 +84,7 @@ Run `npm run prepare` after clone so Husky installs these hooks into `.git/hooks
 
 Prerequisites:
 
-- Node `24.14.0` (`.nvmrc` and `.node-version` are pinned to this version)
+- Node `24.14.0` (`.nvmrc` and `.node-version` are pinned to this version, and install/gate scripts enforce it)
 
 ```bash
 cp .env.example .env
@@ -109,7 +109,7 @@ Useful commands:
 - `npm run db:logs` - tails Postgres logs
 - `npm run db:stop` - stops and removes the local Postgres container
 - `npm run local:db:bootstrap` - starts Postgres, then applies the tracked Drizzle migrations
-- `npm run gate:local` - bootstraps local Postgres from Drizzle migrations, then runs typecheck, lint, Prettier, and build
+- `npm run gate:local` - verifies the pinned Node runtime, bootstraps local Postgres from Drizzle migrations, then runs typecheck, lint, tests, Prettier, and build
 
 Notes:
 
@@ -123,6 +123,7 @@ Notes:
 - `npm run dev` — dev server
 - `npm run build` — production build
 - `npm run start` — production server
+- `npm run check:node-version` — verifies the shell runtime matches `.node-version`
 - `npm run typecheck` — TypeScript typecheck
 - `npm run db:generate` / `npm run db:migrate` / `npm run db:push` / `npm run db:studio` — schema and database workflows
 - `npm run db:start` / `npm run db:stop` — local Postgres lifecycle
