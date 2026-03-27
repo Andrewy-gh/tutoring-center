@@ -1,39 +1,48 @@
 import { z } from 'zod';
-import { EmbeddedOneOf, EmbeddedOneUserSchema } from './shared';
 
-const EmbeddedCreditBalanceSchema = z.object({
-  amount_available: z.number(),
-});
-
-const ParentListStudentSchema = z.object({
+const ParentBaseJoinRowSchema = z.object({
   id: z.number(),
+  userId: z.number(),
+  billingAddress: z.string().nullable(),
+  notificationPreferences: z.string().nullable(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  amountAvailable: z.number().nullable(),
 });
 
-export const ParentWithJoinsSchema = z.object({
-  id: z.number(),
-  user_id: z.number(),
-  billing_address: z.string().nullable(),
-  notification_preferences: z.string().nullable(),
-  users: EmbeddedOneUserSchema,
-  credit_balances: EmbeddedOneOf(EmbeddedCreditBalanceSchema),
-  students: z.array(ParentListStudentSchema).nullable().optional(),
+export const ParentListJoinRowSchema = ParentBaseJoinRowSchema.extend({
+  studentId: z.number().nullable(),
 });
 
-export const ParentWithJoinsListSchema = z.array(ParentWithJoinsSchema);
+export const ParentListJoinRowListSchema = z.array(ParentListJoinRowSchema);
+export type ParentListJoinRow = z.infer<typeof ParentListJoinRowSchema>;
 
-export type ParentWithJoins = z.infer<typeof ParentWithJoinsSchema>;
-
-export const ParentDetailStudentSchema = z.object({
-  id: z.number(),
-  user_id: z.number(),
-  grade: z.string().nullable(),
-  users: EmbeddedOneUserSchema,
+const ParentStudentDetailAbsentSchema = z.object({
+  studentId: z.null(),
+  studentUserId: z.null(),
+  studentGrade: z.null(),
+  studentFirstName: z.null(),
+  studentLastName: z.null(),
+  studentEmail: z.null(),
+  studentPhone: z.null(),
 });
 
-export type ParentDetailStudent = z.infer<typeof ParentDetailStudentSchema>;
-
-export const ParentDetailWithJoinsSchema = ParentWithJoinsSchema.extend({
-  students: z.array(ParentDetailStudentSchema).nullable().optional(),
+const ParentStudentDetailPresentSchema = z.object({
+  studentId: z.number(),
+  studentUserId: z.number(),
+  studentGrade: z.string().nullable(),
+  studentFirstName: z.string().nullable(),
+  studentLastName: z.string().nullable(),
+  studentEmail: z.string(),
+  studentPhone: z.string().nullable(),
 });
 
-export type ParentDetailWithJoins = z.infer<typeof ParentDetailWithJoinsSchema>;
+export const ParentDetailJoinRowSchema = z.intersection(
+  ParentBaseJoinRowSchema,
+  z.union([ParentStudentDetailAbsentSchema, ParentStudentDetailPresentSchema])
+);
+
+export const ParentDetailJoinRowListSchema = z.array(ParentDetailJoinRowSchema);
+export type ParentDetailJoinRow = z.infer<typeof ParentDetailJoinRowSchema>;

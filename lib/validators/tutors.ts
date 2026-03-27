@@ -1,17 +1,18 @@
 import { z } from 'zod';
-import { EmbeddedOneUserSchema } from './shared';
 
-export const TutorWithJoinsSchema = z.object({
+export const TutorJoinRowSchema = z.object({
   id: z.number(),
-  user_id: z.number(),
-  verified: z.boolean().default(false),
+  userId: z.number(),
+  verified: z.boolean(),
   education: z.string().nullable(),
   bio: z.string().nullable(),
   tagline: z.string().nullable(),
-  years_experience: z.number().nullable(),
-  users: EmbeddedOneUserSchema,
+  yearsExperience: z.number().nullable(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  email: z.string(),
+  phone: z.string().nullable(),
 });
 
-export const TutorWithJoinsListSchema = z.array(TutorWithJoinsSchema);
-
-export type TutorWithJoins = z.infer<typeof TutorWithJoinsSchema>;
+export const TutorJoinRowListSchema = z.array(TutorJoinRowSchema);
+export type TutorJoinRow = z.infer<typeof TutorJoinRowSchema>;
