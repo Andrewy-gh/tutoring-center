@@ -1,15 +1,11 @@
-import { GET, PATCH, POST } from '@/app/api/sessions/route';
+import { PATCH, POST } from '@/app/api/sessions/route';
 import { USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  mockBuildSessionListFilters,
   mockCookies,
   mockDbUpdate,
   mockGetParentIdByUserId,
-  mockGetSessionListCount,
-  mockGetSessionListRows,
-  mockParseSessionListRows,
   mockBookSession,
   mockRevalidatePath,
   MockCreditBalanceNotFoundError,
@@ -46,13 +42,9 @@ const {
   }
 
   return {
-    mockBuildSessionListFilters: vi.fn(),
     mockCookies: vi.fn(),
     mockDbUpdate: vi.fn(),
     mockGetParentIdByUserId: vi.fn(),
-    mockGetSessionListCount: vi.fn(),
-    mockGetSessionListRows: vi.fn(),
-    mockParseSessionListRows: vi.fn(),
     mockBookSession: vi.fn(),
     mockRevalidatePath: vi.fn(),
     MockCreditBalanceNotFoundError,
@@ -78,13 +70,6 @@ vi.mock('@/lib/db/client', () => ({
 
 vi.mock('@/lib/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
-}));
-
-vi.mock('@/lib/db/queries/sessions/list', () => ({
-  buildSessionListFilters: mockBuildSessionListFilters,
-  getSessionListCount: mockGetSessionListCount,
-  getSessionListRows: mockGetSessionListRows,
-  parseSessionListRows: mockParseSessionListRows,
 }));
 
 vi.mock('@/lib/db/book-session', () => ({
@@ -131,97 +116,6 @@ function createUpdateQuery(result: unknown) {
 
   return query;
 }
-
-describe('GET /api/sessions', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    mockBuildSessionListFilters.mockReturnValue(['session-filters']);
-  });
-
-  it('returns paginated normalized rows for valid requests', async () => {
-    mockGetSessionListCount.mockResolvedValueOnce(1);
-    mockGetSessionListRows.mockResolvedValueOnce([{ id: 9 }]);
-    mockParseSessionListRows.mockReturnValueOnce({
-      success: true,
-      data: [
-        {
-          id: 9,
-          tutor_id: 11,
-          student_id: 22,
-          subject_id: 33,
-          parent_id: 44,
-          slot_units: 1,
-          scheduled_at: '2026-03-02T15:00:00.000Z',
-          ends_at: '2026-03-02T16:00:00.000Z',
-          status: 'Scheduled',
-          student_parent_id: 44,
-          student_learning_goals: 'Decimals',
-          student_first_name: 'Ada',
-          student_last_name: 'Student',
-          student_email: 'ada@example.com',
-          parent_billing_address: '123 Main St',
-          parent_notification_preferences: 'email',
-          parent_first_name: 'Pat',
-          parent_last_name: 'Parent',
-          parent_email: 'pat@example.com',
-        },
-      ],
-    });
-
-    const response = await GET(
-      new Request('https://example.test/api/sessions?kind=all&page=1&page_size=20&student_id=22&status=Scheduled')
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      data: [
-        {
-          id: 9,
-          tutor_id: 11,
-          student_id: 22,
-          subject_id: 33,
-          parent_id: 44,
-          slot_units: 1,
-          scheduled_at: '2026-03-02T15:00:00.000Z',
-          ends_at: '2026-03-02T16:00:00.000Z',
-          status: 'Scheduled',
-          student_parent_id: 44,
-          student_learning_goals: 'Decimals',
-          student_first_name: 'Ada',
-          student_last_name: 'Student',
-          student_email: 'ada@example.com',
-          parent_billing_address: '123 Main St',
-          parent_notification_preferences: 'email',
-          parent_first_name: 'Pat',
-          parent_last_name: 'Parent',
-          parent_email: 'pat@example.com',
-        },
-      ],
-      page: 1,
-      page_size: 20,
-      total: 1,
-      totalPages: 1,
-      hasNextPage: false,
-      hasPrevPage: false,
-      filters: {
-        kind: 'all',
-        student_id: 22,
-        status: 'Scheduled',
-      },
-    });
-  });
-
-  it('returns a JSON 500 when the session count query fails', async () => {
-    mockGetSessionListCount.mockRejectedValueOnce(new Error('count failed'));
-
-    const response = await GET(new Request('https://example.test/api/sessions?page=1&page_size=20'));
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'count failed' });
-  });
-});
 
 describe('POST /api/sessions', () => {
   beforeEach(() => {

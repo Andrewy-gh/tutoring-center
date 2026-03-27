@@ -2,14 +2,8 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import {
-  buildCreditTransactionFilters,
-  createCreditTransaction,
-  getCreditTransactionCount,
-  getCreditTransactionRows,
-  parseCreditTransactionRows,
-} from '@/lib/db/queries/credits/transactions';
-import { TransactionCreateSchema, TransactionListQuerySchema } from '@/lib/validators/transactions';
+import { createCreditTransaction } from '@/lib/db/queries/credits/transactions';
+import { TransactionCreateSchema } from '@/lib/validators/transactions';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -54,81 +48,6 @@ async function resolveParentId(requestedParentId?: number, options?: { requirePa
   }
 
   return { parentId: parent.id };
-}
-
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const parentIdRaw = url.searchParams.get('parent_id');
-  const requestedParentId = parentIdRaw ? Number.parseInt(parentIdRaw, 10) : undefined;
-  const resolvedParent = await resolveParentId(requestedParentId);
-  if (resolvedParent.response) {
-    return resolvedParent.response;
-  }
-
-  const parsed = TransactionListQuerySchema.safeParse({
-    parent_id: resolvedParent.parentId,
-    student_id: url.searchParams.get('student_id') ?? undefined,
-    session_id: url.searchParams.get('session_id') ?? undefined,
-    type: url.searchParams.get('type') ?? undefined,
-    start_date: url.searchParams.get('start_date') ?? undefined,
-    end_date: url.searchParams.get('end_date') ?? undefined,
-    page: url.searchParams.get('page') ?? undefined,
-    page_size: url.searchParams.get('page_size') ?? undefined,
-  });
-
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Bad request', issues: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const { parent_id, student_id, session_id, type, start_date, end_date, page, page_size } = parsed.data;
-  const from = (page - 1) * page_size;
-  const filterInput = {
-    parentId: parent_id,
-    studentId: student_id,
-    sessionId: session_id,
-    type,
-    startDate: start_date,
-    endDate: end_date,
-  };
-  const filters = buildCreditTransactionFilters(filterInput);
-
-  try {
-    const total = await getCreditTransactionCount(filters);
-    const totalPages = total === 0 ? 0 : Math.ceil(total / page_size);
-
-    if (total === 0 || from >= total) {
-      return NextResponse.json({
-        data: [],
-        page,
-        page_size,
-        total,
-        totalPages,
-        hasNextPage: false,
-        hasPrevPage: page > 1,
-        filters: { parent_id, student_id, session_id, type, start_date, end_date },
-      });
-    }
-
-    const joinRows = await getCreditTransactionRows(filters, { from, pageSize: page_size });
-    const joinParsed = parseCreditTransactionRows(joinRows);
-
-    if (!joinParsed.success) {
-      return NextResponse.json({ error: 'Unexpected sessions join shape returned from the database' }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      data: joinParsed.data,
-      page,
-      page_size,
-      total,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1,
-      filters: { parent_id, student_id, session_id, type, start_date, end_date },
-    });
-  } catch (error) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
-  }
 }
 
 export async function POST(req: Request) {
