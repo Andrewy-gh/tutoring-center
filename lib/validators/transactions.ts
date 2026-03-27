@@ -1,4 +1,4 @@
-import { TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/types';
+import { SESSION_STATUS_OPTIONS, TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/types';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize } from './shared';
 
@@ -51,11 +51,9 @@ export const TransactionListQuerySchema = z.object({
   page_size: pageSize,
 });
 
-// Output validation for sessions + joins, wasn't exported so i copied it here for transactions. Should probably be moved to a shared file if we need it in multiple places
-const EmbeddedRecordSchema = z.record(z.unknown());
-const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordSchema), z.null()]).optional();
+const SessionStatusSchema = z.enum(SESSION_STATUS_OPTIONS);
 
-export const TransactionsWithJoinsSchema = z.object({
+export const CreditTransactionListQueryRowSchema = z.object({
   id: z.number(),
   parent_id: z.number(),
   session_id: z.number().nullable(),
@@ -65,15 +63,26 @@ export const TransactionsWithJoinsSchema = z.object({
   pending_after: z.number().nonnegative().int(),
   type: TransactionTypeSchema,
   created_at: z.string(), // ISO date string
-  idempotency_key: z.string().nullable().optional(),
-  note: z.string().nullable().optional(),
-
-  parent: EmbeddedOneSchema,
-  session: EmbeddedOneSchema,
+  idempotency_key: z.string().nullable(),
+  note: z.string().nullable(),
+  parent_first_name: z.string().nullable(),
+  parent_last_name: z.string().nullable(),
+  session_subject_id: z.number().nullable(),
+  session_tutor_id: z.number().nullable(),
+  scheduled_at: z.string().nullable(),
+  ends_at: z.string().nullable(),
+  status: SessionStatusSchema.nullable(),
+  student_id: z.number().nullable(),
+  student_user_id: z.number().nullable(),
+  student_grade: z.string().nullable(),
+  student_first_name: z.string().nullable(),
+  student_last_name: z.string().nullable(),
+  student_email: z.string().nullable(),
+  student_phone: z.string().nullable(),
 });
 
 export type TransactionCreateInput = z.infer<typeof TransactionCreateSchema>;
 export type TransactionListQueryInput = z.infer<typeof TransactionListQuerySchema>;
 
-export const TransactionsWithJoinsListSchema = z.array(TransactionsWithJoinsSchema);
-export type TransactionsWithJoins = z.infer<typeof TransactionsWithJoinsSchema>;
+export const CreditTransactionListQueryRowListSchema = z.array(CreditTransactionListQueryRowSchema);
+export type CreditTransactionListQueryRow = z.infer<typeof CreditTransactionListQueryRowSchema>;

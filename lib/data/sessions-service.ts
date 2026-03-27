@@ -3,14 +3,9 @@ import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId, getTutorIdByUserId } from '@/lib/db/queries/actors';
-import {
-  buildSessionListFilters,
-  getSessionListRows,
-  parseSessionListRows,
-  type SessionListJoinRow,
-} from '@/lib/db/queries/sessions/list';
+import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/lib/db/queries/sessions/list';
 import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/lib/db/schema';
-import { type SessionWithJoins } from '@/lib/validators/sessions';
+import { type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -135,7 +130,7 @@ export type SessionDataServiceDeps = {
   getCurrentUserID: () => Promise<number>;
   getParentIdByUserId: (userId: number) => Promise<number | null>;
   getTutorIdByUserId: (userId: number) => Promise<number | null>;
-  getSessionListRows: (filters: ReturnType<typeof buildSessionListFilters>) => Promise<SessionListJoinRow[]>;
+  getSessionListRows: (filters: ReturnType<typeof buildSessionListFilters>) => Promise<SessionListQueryRow[]>;
   getSubjectMapByIds: (ids: number[]) => Promise<Map<number, SubjectSummary>>;
   getTutorProfileMapByIds: (ids: number[]) => Promise<Map<number, TutorSummary>>;
   getSessionDetail: (id: number) => Promise<SessionDetailRow | null>;
@@ -173,33 +168,17 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
-const parseStudentUser = (student: SessionWithJoins['student']) => {
-  if (!student) return { name: '—' };
-
-  const studentData = Array.isArray(student) ? student[0] : student;
-  const user = studentData?.users
-    ? Array.isArray(studentData.users)
-      ? studentData.users[0]
-      : studentData.users
-    : null;
-
-  return {
-    name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—',
-  };
-};
-
 const mapSessionRow = (
-  session: SessionWithJoins,
+  session: SessionListQueryRow,
   subjectMap: Map<number, SubjectSummary>,
   tutorMap: Map<number, Pick<TutorSummary, 'name' | 'email'>>
 ): SessionRow => {
-  const student = parseStudentUser(session.student);
   const tutor = tutorMap.get(session.tutor_id) ?? { name: '—', email: '' };
   const subjectName = subjectMap.get(session.subject_id)?.name ?? 'Unknown';
 
   return {
     id: session.id,
-    student_name: student.name,
+    student_name: [session.student_first_name, session.student_last_name].filter(Boolean).join(' ') || '—',
     tutor_id: session.tutor_id,
     tutor_name: tutor.name,
     tutor_email: tutor.email,
