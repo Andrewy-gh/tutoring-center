@@ -10,12 +10,7 @@ import {
   parseSessionListRows,
 } from '@/lib/db/queries/sessions/list';
 import { sessions } from '@/lib/db/schema';
-import {
-  SessionCreateSchema,
-  SessionListQuerySchema,
-  SessionUpdateSchema,
-  type SessionWithJoins,
-} from '@/lib/validators/sessions';
+import { SessionCreateSchema, SessionListQuerySchema, SessionUpdateSchema } from '@/lib/validators/sessions';
 import { eq } from 'drizzle-orm';
 
 async function getDb() {
@@ -25,11 +20,6 @@ async function getDb() {
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
 }
-
-type SessionApiRow = Omit<SessionWithJoins, 'student' | 'parent'> & {
-  student: Record<string, unknown> | null;
-  parent: Record<string, unknown> | null;
-};
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -84,19 +74,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unexpected sessions join shape returned from the database' }, { status: 500 });
     }
 
-    const normalized: SessionApiRow[] = joinedParsed.data.map((row: SessionWithJoins) => {
-      const student = row.student && !Array.isArray(row.student) ? row.student : null;
-      const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
-
-      return {
-        ...row,
-        student,
-        parent,
-      };
-    });
-
     return NextResponse.json({
-      data: normalized,
+      data: joinedParsed.data,
       page,
       page_size,
       total,

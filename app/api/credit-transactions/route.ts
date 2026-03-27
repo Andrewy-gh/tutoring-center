@@ -9,11 +9,7 @@ import {
   getCreditTransactionRows,
   parseCreditTransactionRows,
 } from '@/lib/db/queries/credits/transactions';
-import {
-  TransactionCreateSchema,
-  TransactionListQuerySchema,
-  TransactionsWithJoins,
-} from '@/lib/validators/transactions';
+import { TransactionCreateSchema, TransactionListQuerySchema } from '@/lib/validators/transactions';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -120,16 +116,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unexpected sessions join shape returned from the database' }, { status: 500 });
     }
 
-    const normalizedData = joinParsed.data.map((row: TransactionsWithJoins) => {
-      const session = row.session && !Array.isArray(row.session) ? row.session : null;
-      const parent = row.parent && !Array.isArray(row.parent) ? row.parent : null;
-      const student = session?.student && !Array.isArray(session.student) ? session.student : null;
-
-      return { ...row, parent, student, session };
-    });
-
     return NextResponse.json({
-      data: normalizedData,
+      data: joinParsed.data,
       page,
       page_size,
       total,

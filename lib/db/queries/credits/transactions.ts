@@ -1,6 +1,9 @@
 import 'server-only';
 import { creditTransactions, parents, sessions, students, users } from '@/lib/db/schema';
-import { TransactionsWithJoinsListSchema, type TransactionsWithJoins } from '@/lib/validators/transactions';
+import {
+  CreditTransactionListQueryRowListSchema,
+  type CreditTransactionListQueryRow,
+} from '@/lib/validators/transactions';
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -15,34 +18,6 @@ export type CreditTransactionListFilters = {
   type?: typeof creditTransactions.$inferSelect.type | 'all';
   startDate?: string;
   endDate?: string;
-};
-
-export type CreditTransactionJoinRow = {
-  id: number;
-  parent_id: number;
-  session_id: number | null;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
-  type: typeof creditTransactions.$inferSelect.type;
-  created_at: string;
-  idempotency_key: string | null;
-  note: string | null;
-  parent_first_name: string | null;
-  parent_last_name: string | null;
-  session_subject_id: number | null;
-  session_tutor_id: number | null;
-  scheduled_at: string | null;
-  ends_at: string | null;
-  status: typeof sessions.$inferSelect.status | null;
-  student_id: number | null;
-  student_user_id: number | null;
-  student_grade: string | null;
-  student_first_name: string | null;
-  student_last_name: string | null;
-  student_email: string | null;
-  student_phone: string | null;
 };
 
 export type CreditTransactionInsertInput = {
@@ -191,60 +166,6 @@ export async function createCreditTransaction(input: CreditTransactionInsertInpu
   return transaction ?? null;
 }
 
-export function mapCreditTransactionJoinRows(rows: CreditTransactionJoinRow[]): TransactionsWithJoins[] {
-  return rows.map(row => {
-    const student =
-      row.student_id === null
-        ? null
-        : {
-            id: row.student_id,
-            user_id: row.student_user_id,
-            grade: row.student_grade,
-            users: {
-              first_name: row.student_first_name,
-              last_name: row.student_last_name,
-              email: row.student_email,
-              phone: row.student_phone,
-            },
-          };
-
-    const session =
-      row.session_id === null
-        ? null
-        : {
-            id: row.session_id,
-            subject_id: row.session_subject_id,
-            tutor_id: row.session_tutor_id,
-            scheduled_at: row.scheduled_at,
-            ends_at: row.ends_at,
-            status: row.status,
-            student_id: row.student_id,
-            student,
-          };
-
-    return {
-      id: row.id,
-      parent_id: row.parent_id,
-      session_id: row.session_id,
-      available_delta: row.available_delta,
-      pending_delta: row.pending_delta,
-      available_after: row.available_after,
-      pending_after: row.pending_after,
-      type: row.type,
-      created_at: row.created_at,
-      idempotency_key: row.idempotency_key,
-      note: row.note,
-      parent: {
-        users: {
-          first_name: row.parent_first_name,
-          last_name: row.parent_last_name,
-        },
-      },
-      session,
-    };
-  });
-}
-
-export function parseCreditTransactionRows(rows: CreditTransactionJoinRow[]) {
-  return TransactionsWithJoinsListSchema.safeParse(mapCreditTransactionJoinRows(rows));
+export function parseCreditTransactionRows(rows: CreditTransactionListQueryRow[]) {
+  return CreditTransactionListQueryRowListSchema.safeParse(rows);
 }

@@ -59,11 +59,7 @@ export type SessionCreateInput = z.infer<typeof SessionCreateSchema>;
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 export type SessionUpdateInput = z.infer<typeof SessionUpdateSchema>;
 
-// Output validation for sessions + joins
-const EmbeddedRecordSchema = z.record(z.unknown());
-const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordSchema), z.null()]).optional();
-
-export const SessionWithJoinsSchema = z.object({
+export const SessionListQueryRowSchema = z.object({
   id: z.number(),
   tutor_id: z.number(),
   student_id: z.number(),
@@ -73,15 +69,20 @@ export const SessionWithJoinsSchema = z.object({
   scheduled_at: z.string(),
   ends_at: z.string(),
   status: StatusSchema,
-
-  student: EmbeddedOneSchema,
-  parent: EmbeddedOneSchema,
-  session_progress: EmbeddedOneSchema,
-  session_metrics: EmbeddedOneSchema,
+  student_parent_id: z.number().nullable(),
+  student_learning_goals: z.string().nullable(),
+  student_first_name: z.string().nullable(),
+  student_last_name: z.string().nullable(),
+  student_email: z.string(),
+  parent_billing_address: z.string().nullable(),
+  parent_notification_preferences: z.string().nullable(),
+  parent_first_name: z.string().nullable(),
+  parent_last_name: z.string().nullable(),
+  parent_email: z.string(),
 });
 
-export const SessionWithJoinsListSchema = z.array(SessionWithJoinsSchema);
-export type SessionWithJoins = z.infer<typeof SessionWithJoinsSchema>;
+export const SessionListQueryRowListSchema = z.array(SessionListQueryRowSchema);
+export type SessionListQueryRow = z.infer<typeof SessionListQueryRowSchema>;
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD');
 
