@@ -3,8 +3,6 @@ import { forbidden } from 'next/navigation';
 import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 import { availability, tutors, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
-import { EmbeddedOneUserSchema } from '@/lib/validators/shared';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -32,32 +30,49 @@ const AvailabilityRowSchema = z.object({
   start_time: z.string(),
   end_time: z.string(),
 });
+
+const TutorOptionJoinRowSchema = z.intersection(
+  z.object({
+    id: z.number(),
+    userId: z.number(),
+    education: z.string().nullable(),
+    yearsExperience: z.number().nullable(),
+    firstName: z.string().nullable(),
+    lastName: z.string().nullable(),
+    email: z.string(),
+    phone: z.string().nullable(),
+  }),
+  z.union([
+    z.object({
+      weekDay: z.null(),
+      startTime: z.null(),
+      endTime: z.null(),
+    }),
+    z.object({
+      weekDay: WeekDaySchema,
+      startTime: z.string(),
+      endTime: z.string(),
+    }),
+  ])
+);
+
+const TutorOptionJoinRowListSchema = z.array(TutorOptionJoinRowSchema);
+
 const TutorOptionQueryRowSchema = z.object({
   id: z.number(),
   user_id: z.number(),
   education: z.string().nullable(),
   years_experience: z.number().nullable(),
-  users: EmbeddedOneUserSchema,
-  availability: z.array(AvailabilityRowSchema).nullable().optional(),
+  first_name: z.string().nullable(),
+  last_name: z.string().nullable(),
+  availability: z.array(AvailabilityRowSchema),
 });
+
 const TutorOptionQueryRowListSchema = z.array(TutorOptionQueryRowSchema);
 
+type TutorOptionJoinRow = z.infer<typeof TutorOptionJoinRowSchema>;
 type TutorOptionQueryRow = z.infer<typeof TutorOptionQueryRowSchema>;
 type WeekDay = z.infer<typeof WeekDaySchema>;
-
-type TutorOptionJoinRow = {
-  id: unknown;
-  userId: unknown;
-  education: unknown;
-  yearsExperience: unknown;
-  firstName: unknown;
-  lastName: unknown;
-  email: unknown;
-  phone: unknown;
-  weekDay: unknown;
-  startTime: unknown;
-  endTime: unknown;
-};
 
 const WEEKDAY_ORDER: Record<WeekDay, number> = {
   Monday: 1,
@@ -79,6 +94,8 @@ const WEEKDAY_SHORT: Record<WeekDay, string> = {
   Sunday: 'Sun',
 };
 
+const MISSING_VALUE = '—';
+
 const formatTime = (time: string) => {
   const match = /^(\d{1,2}):(\d{2})/.exec(time);
   if (!match) return time;
@@ -97,7 +114,7 @@ const formatTime = (time: string) => {
 };
 
 const toAvailabilitySummary = (availability: TutorOptionQueryRow['availability']) => {
-  const rows = (availability ?? []).slice().sort((left, right) => {
+  const rows = availability.slice().sort((left, right) => {
     const weekdayCompare = WEEKDAY_ORDER[left.week_day] - WEEKDAY_ORDER[right.week_day];
     if (weekdayCompare !== 0) return weekdayCompare;
     return left.start_time.localeCompare(right.start_time);
@@ -112,59 +129,48 @@ const toAvailabilitySummary = (availability: TutorOptionQueryRow['availability']
   return `${chunks.slice(0, 2).join(' • ')} +${chunks.length - 2} more`;
 };
 
-const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => {
-  const user = pickFirstEmbedded(tutor.users);
-  const name = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim();
+const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => ({
+  id: tutor.id,
+  user_id: tutor.user_id,
+  name: [tutor.first_name, tutor.last_name].filter(Boolean).join(' ').trim() || MISSING_VALUE,
+  education: tutor.education,
+  years_experience: tutor.years_experience,
+  typicalAvailability: toAvailabilitySummary(tutor.availability),
+});
 
-  return {
-    id: tutor.id,
-    user_id: tutor.user_id,
-    name: name || '—',
-    education: tutor.education,
-    years_experience: tutor.years_experience,
-    typicalAvailability: toAvailabilitySummary(tutor.availability),
-  };
-};
-
-const mapTutorOptionRows = (rows: TutorOptionJoinRow[]) => {
+const groupTutorOptions = (rows: TutorOptionJoinRow[]): TutorOptionQueryRow[] => {
   const tutorsById = new Map<number, TutorOptionQueryRow>();
 
   for (const row of rows) {
-    const tutorId = Number(row.id);
-    const existingTutor = tutorsById.get(tutorId);
+    const existingTutor = tutorsById.get(row.id);
 
     if (existingTutor) {
-      if (row.weekDay !== null && row.weekDay !== undefined) {
-        existingTutor.availability ??= [];
+      if (row.weekDay !== null) {
         existingTutor.availability.push({
-          week_day: row.weekDay as WeekDay,
-          start_time: row.startTime as string,
-          end_time: row.endTime as string,
+          week_day: row.weekDay,
+          start_time: row.startTime,
+          end_time: row.endTime,
         });
       }
 
       continue;
     }
 
-    tutorsById.set(tutorId, {
-      id: row.id as number,
-      user_id: row.userId as number,
-      education: row.education as string | null,
-      years_experience: row.yearsExperience as number | null,
-      users: {
-        first_name: row.firstName as string | null,
-        last_name: row.lastName as string | null,
-        email: row.email as string,
-        phone: row.phone as string | null,
-      },
+    tutorsById.set(row.id, {
+      id: row.id,
+      user_id: row.userId,
+      education: row.education,
+      years_experience: row.yearsExperience,
+      first_name: row.firstName,
+      last_name: row.lastName,
       availability:
-        row.weekDay === null || row.weekDay === undefined
+        row.weekDay === null
           ? []
           : [
               {
-                week_day: row.weekDay as WeekDay,
-                start_time: row.startTime as string,
-                end_time: row.endTime as string,
+                week_day: row.weekDay,
+                start_time: row.startTime,
+                end_time: row.endTime,
               },
             ],
     });
@@ -187,10 +193,10 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
     return [] as TutorOption[];
   }
 
-  let rows: TutorOptionJoinRow[];
+  let rawRows: unknown;
   try {
     const db = await getDb();
-    rows = await db
+    rawRows = await db
       .select({
         id: tutors.id,
         userId: tutors.userId,
@@ -213,7 +219,12 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.database);
   }
 
-  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(mapTutorOptionRows(rows));
+  const parsedJoinRows = TutorOptionJoinRowListSchema.safeParse(rawRows);
+  if (!parsedJoinRows.success) {
+    throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.validation);
+  }
+
+  const parsedTutors = TutorOptionQueryRowListSchema.safeParse(groupTutorOptions(parsedJoinRows.data));
   if (!parsedTutors.success) {
     throw new Error(TUTOR_OPTIONS_ERROR_MESSAGES.validation);
   }

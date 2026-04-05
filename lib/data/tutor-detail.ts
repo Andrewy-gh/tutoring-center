@@ -1,8 +1,7 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
 import { tutors, users } from '@/lib/db/schema';
-import { pickFirstEmbedded } from '@/lib/utils/normalize';
-import { TutorWithJoinsSchema, type TutorWithJoins } from '@/lib/validators/tutors';
+import { TutorJoinRowSchema, type TutorJoinRow } from '@/lib/validators/tutors';
 import { eq } from 'drizzle-orm';
 
 async function getDb() {
@@ -25,59 +24,27 @@ export type TutorDetailType = {
   years_experience: number;
 };
 
-const mapTutorDetail = (tutor: TutorWithJoins): TutorDetailType => {
-  const user = pickFirstEmbedded(tutor.users);
+const MISSING_VALUE = '—';
 
-  return {
-    id: tutor.id,
-    user_id: tutor.user_id,
-    first_name: user?.first_name ?? '',
-    last_name: user?.last_name ?? '',
-    email: user?.email ?? '',
-    phone: user?.phone ?? '—',
-    education: tutor.education ?? '—',
-    bio: tutor.bio ?? '—',
-    tagline: tutor.tagline ?? '—',
-    verified: tutor.verified,
-    years_experience: tutor.years_experience ?? 0,
-  };
-};
-
-type TutorDetailRow = {
-  id: unknown;
-  userId: unknown;
-  verified: unknown;
-  education: unknown;
-  bio: unknown;
-  tagline: unknown;
-  yearsExperience: unknown;
-  firstName: unknown;
-  lastName: unknown;
-  email: unknown;
-  phone: unknown;
-};
-
-const mapTutorJoinRow = (row: TutorDetailRow): TutorWithJoins => ({
-  id: row.id as number,
-  user_id: row.userId as number,
-  verified: row.verified as boolean,
-  education: row.education as string | null,
-  bio: row.bio as string | null,
-  tagline: row.tagline as string | null,
-  years_experience: row.yearsExperience as number | null,
-  users: {
-    first_name: row.firstName as string | null,
-    last_name: row.lastName as string | null,
-    email: row.email as string,
-    phone: row.phone as string | null,
-  },
+const mapTutorDetail = (tutor: TutorJoinRow): TutorDetailType => ({
+  id: tutor.id,
+  user_id: tutor.userId,
+  first_name: tutor.firstName ?? '',
+  last_name: tutor.lastName ?? '',
+  email: tutor.email,
+  phone: tutor.phone ?? MISSING_VALUE,
+  education: tutor.education ?? MISSING_VALUE,
+  bio: tutor.bio ?? MISSING_VALUE,
+  tagline: tutor.tagline ?? MISSING_VALUE,
+  verified: tutor.verified,
+  years_experience: tutor.yearsExperience ?? 0,
 });
 
 export async function getTutor(id: number): Promise<TutorDetailType> {
-  let row: TutorDetailRow | undefined;
+  let rawRow: unknown;
   try {
     const db = await getDb();
-    [row] = await db
+    [rawRow] = await db
       .select({
         id: tutors.id,
         userId: tutors.userId,
@@ -99,11 +66,7 @@ export async function getTutor(id: number): Promise<TutorDetailType> {
     notFound();
   }
 
-  if (!row) {
-    notFound();
-  }
-
-  const parsedTutor = TutorWithJoinsSchema.safeParse(mapTutorJoinRow(row));
+  const parsedTutor = TutorJoinRowSchema.safeParse(rawRow);
   if (!parsedTutor.success) {
     notFound();
   }

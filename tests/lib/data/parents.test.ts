@@ -112,6 +112,48 @@ describe('getParents', () => {
     expect(query.orderBy).toHaveBeenCalledTimes(1);
   });
 
+  it('counts each student once when flat join rows repeat', async () => {
+    const query = createSelectQuery([
+      {
+        id: 2,
+        userId: 22,
+        billingAddress: null,
+        notificationPreferences: null,
+        firstName: 'Alex',
+        lastName: 'Brown',
+        email: 'alex@example.com',
+        phone: null,
+        amountAvailable: 6,
+        studentId: 8,
+      },
+      {
+        id: 2,
+        userId: 22,
+        billingAddress: null,
+        notificationPreferences: null,
+        firstName: 'Alex',
+        lastName: 'Brown',
+        email: 'alex@example.com',
+        phone: null,
+        amountAvailable: 6,
+        studentId: 8,
+      },
+    ]);
+    mockDbSelect.mockReturnValueOnce(query);
+
+    await expect(getParents('admin')).resolves.toEqual([
+      {
+        id: 2,
+        user_id: 22,
+        name: 'Alex Brown',
+        email: 'alex@example.com',
+        phone: '\u2014',
+        student_count: 1,
+        credit_balance_info: 6,
+      },
+    ]);
+  });
+
   it('rejects missing roles before querying', async () => {
     await expect(getParents(undefined as unknown as UserRole)).rejects.toThrow('Role is required to fetch parents.');
     expect(mockDbSelect).not.toHaveBeenCalled();
