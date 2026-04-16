@@ -147,16 +147,20 @@ async function insertSessions(
   const insertedRows = await db
     .insert(sessions)
     .values(
-      rows.map(row => ({
-        tutorId: fixture.tutorId,
-        subjectId: fixture.subjectId,
-        parentId: fixture.parentId,
-        studentId: fixture.studentId,
-        scheduledAt: row.scheduled_at,
-        endsAt: row.ends_at,
-        status: row.status,
-        slotUnits: 1,
-      }))
+      rows.map(row => {
+        const durationMinutes = (new Date(row.ends_at).getTime() - new Date(row.scheduled_at).getTime()) / (60 * 1000);
+
+        return {
+          tutorId: fixture.tutorId,
+          subjectId: fixture.subjectId,
+          parentId: fixture.parentId,
+          studentId: fixture.studentId,
+          scheduledAt: row.scheduled_at,
+          endsAt: row.ends_at,
+          status: row.status,
+          slotUnits: durationMinutes / 30,
+        };
+      })
     )
     .returning({ id: sessions.id });
 

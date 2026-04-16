@@ -4,7 +4,7 @@ import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso 
 import { availability, sessions, tutorSubjects } from '@/lib/db/schema';
 import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/lib/db/types';
 import type { AvailableSession } from '@/lib/validators/sessions';
-import { and, eq, gt, lt, notInArray } from 'drizzle-orm';
+import { and, eq, gt, lt, ne } from 'drizzle-orm';
 
 function generateSlots(dateStr: string, startTime: string, endTime: string, timezone = TIMEZONE) {
   const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -92,7 +92,8 @@ async function listBookedSessions(tutorId: number, fromUtc: string, toUtc: strin
     .where(
       and(
         eq(sessions.tutorId, tutorId),
-        notInArray(sessions.status, [...FREE_SLOT_STATUSES]),
+        ne(sessions.status, FREE_SLOT_STATUSES[0]),
+        ne(sessions.status, FREE_SLOT_STATUSES[1]),
         lt(sessions.scheduledAt, toUtc),
         gt(sessions.endsAt, fromUtc)
       )
@@ -143,11 +144,22 @@ export function buildAvailableSlots(
 }
 
 function filterActiveBookedSessions(rows: BookedRowWithStatus[] | null, fromUtc: string, toUtc: string) {
+  const fromMs = new Date(fromUtc).getTime();
+  const toMs = new Date(toUtc).getTime();
+
   return (rows ?? [])
-    .filter(
-      row =>
-        !FREE_SLOT_STATUSES.includes(row.status as FreeSlotStatus) && row.scheduled_at < toUtc && row.ends_at > fromUtc
-    )
+    .filter(row => {
+      const scheduledAtMs = new Date(row.scheduled_at).getTime();
+      const endsAtMs = new Date(row.ends_at).getTime();
+
+      return (
+        !FREE_SLOT_STATUSES.includes(row.status as FreeSlotStatus) &&
+        Number.isFinite(scheduledAtMs) &&
+        Number.isFinite(endsAtMs) &&
+        scheduledAtMs < toMs &&
+        endsAtMs > fromMs
+      );
+    })
     .map(({ scheduled_at, ends_at }) => ({ scheduled_at, ends_at }));
 }
 

@@ -27,6 +27,9 @@ vi.mock('date-fns', () => ({
   format: vi.fn(() => 'Jan 15'),
 }));
 
+import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
+import { HomeworkChart } from '@/components/charts/homework-chart';
+
 const mockPerformanceData: PerformanceDataPoint[] = [
   { date: '2026-01-15T10:00:00Z', score: 3, sessionId: 1, subject: 'Mathematics', subjectSlug: 'mathematics' },
   { date: '2026-02-15T10:00:00Z', score: 4, sessionId: 2, subject: 'Mathematics', subjectSlug: 'mathematics' },
@@ -42,51 +45,43 @@ const mockHomeworkData: HomeworkDataPoint[] = [
 ];
 
 describe('Chart Components', () => {
-  it('PerformanceChart exports are valid', async () => {
-    const { PerformanceChart } = await import('@/components/charts/performance-chart');
+  it('PerformanceChart exports are valid', () => {
     expect(PerformanceChart).toBeDefined();
     expect(typeof PerformanceChart).toBe('function');
   });
 
-  it('ConfidenceChart exports are valid', async () => {
-    const { ConfidenceChart } = await import('@/components/charts/performance-chart');
+  it('ConfidenceChart exports are valid', () => {
     expect(ConfidenceChart).toBeDefined();
     expect(typeof ConfidenceChart).toBe('function');
   });
 
-  it('HomeworkChart exports are valid', async () => {
-    const { HomeworkChart } = await import('@/components/charts/homework-chart');
+  it('HomeworkChart exports are valid', () => {
     expect(HomeworkChart).toBeDefined();
     expect(typeof HomeworkChart).toBe('function');
   });
 
   it('PerformanceChart renders with data', async () => {
     (globalThis as { React?: unknown }).React = await import('react');
-    const { PerformanceChart } = await import('@/components/charts/performance-chart');
     expect(() => PerformanceChart({ data: mockPerformanceData })).not.toThrow();
   });
 
   it('PerformanceChart renders empty state', async () => {
     (globalThis as { React?: unknown }).React = await import('react');
-    const { PerformanceChart } = await import('@/components/charts/performance-chart');
     expect(() => PerformanceChart({ data: [] })).not.toThrow();
   });
 
   it('ConfidenceChart renders with data', async () => {
     (globalThis as { React?: unknown }).React = await import('react');
-    const { ConfidenceChart } = await import('@/components/charts/performance-chart');
     expect(() => ConfidenceChart({ data: mockConfidenceData })).not.toThrow();
   });
 
   it('HomeworkChart renders with data', async () => {
     (globalThis as { React?: unknown }).React = await import('react');
-    const { HomeworkChart } = await import('@/components/charts/homework-chart');
     expect(() => HomeworkChart({ data: mockHomeworkData })).not.toThrow();
   });
 
   it('HomeworkChart renders empty state', async () => {
     (globalThis as { React?: unknown }).React = await import('react');
-    const { HomeworkChart } = await import('@/components/charts/homework-chart');
     expect(() => HomeworkChart({ data: [] })).not.toThrow();
   });
 });

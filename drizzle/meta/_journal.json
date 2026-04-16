@@ -12,6 +12,20 @@
     {
       "idx": 1,
       "version": "7",
+      "when": 1774208469000,
+      "tag": "0001_sql_schema_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774208471000,
+      "tag": "0001_credit_transaction_delta_shapes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
       "when": 1774208472370,
       "tag": "0001_booking_invariants",
       "breakpoints": true

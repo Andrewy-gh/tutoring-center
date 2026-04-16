@@ -123,8 +123,13 @@ SELECT
   last_updated_at AS updated_at
 FROM slugged_subjects;
 
-CREATE TEMP TABLE inserted_subjects AS
-INSERT INTO subjects (name, slug, kind, parent_subject_id, parent_subject_kind, is_active, created_at, updated_at)
+CREATE TEMP TABLE inserted_subjects (
+  id integer NOT NULL,
+  slug text NOT NULL
+);
+
+WITH inserted_rows AS (
+  INSERT INTO subjects (name, slug, kind, parent_subject_id, parent_subject_kind, is_active, created_at, updated_at)
 SELECT
   name,
   slug,
@@ -135,7 +140,11 @@ SELECT
   created_at,
   updated_at
 FROM canonical_subjects
-RETURNING id, slug;
+  RETURNING id, slug
+)
+INSERT INTO inserted_subjects (id, slug)
+SELECT id, slug
+FROM inserted_rows;
 
 ALTER TABLE canonical_subjects
   ADD COLUMN subject_id integer;
@@ -196,6 +205,7 @@ WHERE students.id = inferred_student_parents.student_id
 
 ALTER TABLE sessions
   DROP CONSTRAINT IF EXISTS sessions_subject_id_fkey,
+  DROP CONSTRAINT IF EXISTS sessions_subject_id_subjects_id_fk,
   DROP CONSTRAINT IF EXISTS sessions_tutor_id_fkey,
   DROP CONSTRAINT IF EXISTS sessions_student_id_fkey,
   DROP CONSTRAINT IF EXISTS sessions_tutor_id_subject_id_fkey,
