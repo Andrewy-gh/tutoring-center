@@ -67,11 +67,8 @@ export async function login(formData: FormData) {
   }
 
   const userId = await getUserIdByRole(role);
-
-  // Fallback to temp user if no user found for role
-  let finalUserId = userId;
-  if (!finalUserId) {
-    finalUserId = '2'; // Fallback temp user
+  if (!userId) {
+    return redirect(`/login?error=missing-local-user&role=${role}`);
   }
 
   const cookieStore = await cookies();
@@ -83,7 +80,7 @@ export async function login(formData: FormData) {
     secure: process.env.NODE_ENV === 'production',
   });
 
-  cookieStore.set(USER_ID_COOKIE_NAME, finalUserId, {
+  cookieStore.set(USER_ID_COOKIE_NAME, userId, {
     httpOnly: true,
     maxAge: USER_ID_COOKIE_MAX_AGE,
     path: '/',
@@ -91,7 +88,7 @@ export async function login(formData: FormData) {
     secure: process.env.NODE_ENV === 'production',
   });
 
-  redirect('/dashboard');
+  return redirect('/dashboard');
 }
 
 export function middleware(request: NextRequest) {

@@ -15,7 +15,18 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { login } from '@/lib/auth';
 import { ArrowLeft, GraduationCap, UserRound, UserRoundCog } from 'lucide-react';
 
-export default function LoginPage() {
+const ERROR_MESSAGES = {
+  'missing-local-user': 'No local account exists for that role yet. Run the local database bootstrap to seed placeholder users.',
+} as const;
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: keyof typeof ERROR_MESSAGES }>;
+}) {
+  const params = await searchParams;
+  const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
+
   return (
     <main className='min-h-screen flex'>
       <div className='hidden lg:block lg:w-1/2 relative'>
@@ -46,6 +57,12 @@ export default function LoginPage() {
                 <FieldDescription className='text-lg text-center'>
                   Log in to your Momentum Learning account.
                 </FieldDescription>
+
+                {errorMessage && (
+                  <p className='rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900'>
+                    {errorMessage}
+                  </p>
+                )}
 
                 <RoleField />
               </FieldSet>
