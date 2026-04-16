@@ -33,6 +33,16 @@ export const SessionCreateSchema = z
         message: 'ends_at must be after scheduled_at',
         path: ['ends_at'],
       });
+      return;
+    }
+
+    const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+    if (durationMinutes !== v.slot_units * 30) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'slot_units must match the scheduled time range',
+        path: ['slot_units'],
+      });
     }
   });
 

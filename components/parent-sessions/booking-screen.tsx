@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/components/add-credits';
 import {
+  getSessionSlotUnits,
   selectTutorsForSubject,
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
@@ -46,7 +47,6 @@ type BookingScreenProps = {
 };
 
 const getFirstName = (fullName: string) => fullName.trim().split(/\s+/)[0] || '';
-const BOOKING_CREDIT_COST = 1;
 
 export function BookingScreen({
   parentId,
@@ -87,6 +87,8 @@ export function BookingScreen({
     ) : null;
 
   async function createSession(reservation: Reservation) {
+    const slotUnits = getSessionSlotUnits(reservation.session);
+
     const response = await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,7 +96,7 @@ export function BookingScreen({
         tutor_id: reservation.tutor.id,
         student_id: reservation.student.id,
         subject_id: reservation.subject.id,
-        slot_units: 1,
+        slot_units: slotUnits,
         scheduled_at: reservation.session.scheduled_at,
         ends_at: reservation.session.ends_at,
       }),
@@ -114,11 +116,13 @@ export function BookingScreen({
   }
 
   async function completeBooking(reservation: Reservation, purchase?: CreditsPurchase, warning?: string) {
+    const slotUnits = getSessionSlotUnits(reservation.session);
+
     setCheckoutError(null);
     await createSession(reservation);
     setBalance(currentBalance => ({
-      amount_available: currentBalance.amount_available - BOOKING_CREDIT_COST,
-      amount_pending: currentBalance.amount_pending + BOOKING_CREDIT_COST,
+      amount_available: currentBalance.amount_available - slotUnits,
+      amount_pending: currentBalance.amount_pending + slotUnits,
     }));
 
     setBookingState({
@@ -207,6 +211,7 @@ export function BookingScreen({
                 setBookingState({ step: 'tutor', student: bookingState.student, selection: bookingState.selection })
               }
               onConfirmAction={session => {
+                const requiredCredits = getSessionSlotUnits(session);
                 const reservation: Reservation = {
                   student: bookingState.student,
                   subject: {
@@ -218,7 +223,7 @@ export function BookingScreen({
                   session,
                 };
 
-                if (shouldBlockForCredits(balance.amount_available)) {
+                if (shouldBlockForCredits(balance.amount_available, requiredCredits)) {
                   setBookingState({ step: 'credits', reservation, selection: bookingState.selection });
                   return;
                 }
@@ -233,7 +238,8 @@ export function BookingScreen({
           </main>
         </>
       );
-    case 'credits':
+    case 'credits': {
+      const creditsRequired = getSessionSlotUnits(bookingState.reservation.session);
       return (
         <>
           {lowCreditsToast}
@@ -287,13 +293,18 @@ export function BookingScreen({
                 <p>When: {formatSessionDateTime(new Date(bookingState.reservation.session.scheduled_at))}</p>
                 <p>Subject: {bookingState.reservation.subject.name}</p>
                 <p>Tutor: {bookingState.reservation.tutor.name}</p>
+                <p>
+                  Credits required: {creditsRequired} {creditsRequired === 1 ? 'credit' : 'credits'}
+                </p>
               </CardContent>
             </Card>
           </AddCredits>
         </>
       );
+    }
     case 'success': {
       const wasPurchased = Boolean(bookingState.purchase);
+      const reservedCredits = getSessionSlotUnits(bookingState.reservation.session);
       return (
         <>
           {lowCreditsToast}
@@ -304,8 +315,8 @@ export function BookingScreen({
           >
             <p className='text-muted-foreground'>
               {wasPurchased
-                ? 'Your credits purchase and session reservation both succeeded. We reserved 1 credit for this booking.'
-                : 'Your session reservation succeeded and 1 credit is now reserved for this booking.'}
+                ? `Your credits purchase and session reservation both succeeded. We reserved ${reservedCredits} ${reservedCredits === 1 ? 'credit' : 'credits'} for this booking.`
+                : `Your session reservation succeeded and ${reservedCredits} ${reservedCredits === 1 ? 'credit is' : 'credits are'} now reserved for this booking.`}
             </p>
             {bookingState.warning ? (
               <p className='w-full rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800'>

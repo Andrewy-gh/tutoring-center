@@ -84,7 +84,7 @@ const BASE_BODY = {
   tutor_id: 11,
   student_id: 22,
   subject_id: 33,
-  slot_units: 1,
+  slot_units: 2,
   scheduled_at: '2026-03-02T15:00:00.000Z',
   ends_at: '2026-03-02T16:00:00.000Z',
 };
@@ -164,12 +164,23 @@ describe('POST /api/sessions', () => {
       studentId: 22,
       subjectId: 33,
       parentId: 77,
-      slotUnits: 1,
+      slotUnits: 2,
       scheduledAt: '2026-03-02T15:00:00.000Z',
       endsAt: '2026-03-02T16:00:00.000Z',
       status: undefined,
     });
     expect(body.data).toEqual({ id: 1001 });
+  });
+
+  it('returns 400 when slot units do not match the scheduled time range', async () => {
+    const response = await POST(
+      makeJsonRequest('https://example.test/api/sessions', 'POST', { ...BASE_BODY, slot_units: 1, parent_id: 999 })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid body');
+    expect(mockBookSession).not.toHaveBeenCalled();
   });
 
   it('returns 400 for admin requests without parent_id', async () => {

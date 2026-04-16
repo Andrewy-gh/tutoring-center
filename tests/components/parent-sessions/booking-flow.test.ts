@@ -1,4 +1,5 @@
 import {
+  getSessionSlotUnits,
   selectTutorsForSubject,
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
@@ -30,8 +31,27 @@ describe('booking-flow helpers', () => {
     expect(result.map(tutor => tutor.id)).toEqual([20, 30]);
   });
 
-  it('blocks booking when available credits are zero', () => {
-    expect(shouldBlockForCredits(0)).toBe(true);
-    expect(shouldBlockForCredits(1)).toBe(false);
+  it('blocks booking when available credits are below the session requirement', () => {
+    expect(shouldBlockForCredits(0, 2)).toBe(true);
+    expect(shouldBlockForCredits(1, 2)).toBe(true);
+    expect(shouldBlockForCredits(2, 2)).toBe(false);
+  });
+
+  it('derives slot units from the selected session range', () => {
+    expect(
+      getSessionSlotUnits({
+        scheduled_at: '2026-03-02T15:00:00.000Z',
+        ends_at: '2026-03-02T16:00:00.000Z',
+      })
+    ).toBe(2);
+  });
+
+  it('rejects selected sessions that are not multiples of 30 minutes', () => {
+    expect(() =>
+      getSessionSlotUnits({
+        scheduled_at: '2026-03-02T15:00:00.000Z',
+        ends_at: '2026-03-02T15:45:00.000Z',
+      })
+    ).toThrow('Selected session duration must be a positive multiple of 30 minutes');
   });
 });
