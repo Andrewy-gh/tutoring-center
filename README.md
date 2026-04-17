@@ -113,7 +113,7 @@ Useful commands:
 
 Notes:
 
-- The local container is pinned to `postgres:17.6`.
+- The local container tracks `postgres:17` to stay aligned with Supabase's current Postgres major version while letting local patch updates land naturally.
 - `DATABASE_URL` for local Docker-backed Postgres is `postgresql://postgres:postgres@127.0.0.1:5433/tutoring_center`.
 - The overlap constraint migration is tracked in `drizzle/0001_booking_invariants.sql`, including `CREATE EXTENSION IF NOT EXISTS btree_gist;`.
 - `npm run gate:local` does not cover integration tests that depend on external services beyond the local Postgres container.

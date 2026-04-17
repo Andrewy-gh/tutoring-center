@@ -1,7 +1,8 @@
 services:
   db:
-    image: postgres:17.6
+    image: postgres:17
     container_name: tutoring-center-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: tutoring_center
       POSTGRES_USER: postgres
