@@ -15,10 +15,10 @@ type CreditHistoryRow = Pick<
   | 'id'
   | 'created_at'
   | 'type'
-  | 'available_delta'
-  | 'pending_delta'
-  | 'available_after'
-  | 'pending_after'
+  | 'available_delta_minutes'
+  | 'pending_delta_minutes'
+  | 'available_after_minutes'
+  | 'pending_after_minutes'
   | 'session_id'
 >;
 
@@ -26,10 +26,10 @@ export type StudentCreditHistoryItem = {
   id: number;
   created_at: string;
   type: CreditHistoryRow['type'];
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   net_amount: number;
   summary: string;
   session_id: number | null;
@@ -115,10 +115,10 @@ export async function getStudentDashboardDetails(studentId: number, role: UserRo
         id: creditTransactions.id,
         created_at: creditTransactions.createdAt,
         type: creditTransactions.type,
-        available_delta: creditTransactions.availableDelta,
-        pending_delta: creditTransactions.pendingDelta,
-        available_after: creditTransactions.availableAfter,
-        pending_after: creditTransactions.pendingAfter,
+        available_delta_minutes: creditTransactions.availableDeltaMinutes,
+        pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+        available_after_minutes: creditTransactions.availableAfterMinutes,
+        pending_after_minutes: creditTransactions.pendingAfterMinutes,
         session_id: creditTransactions.sessionId,
       })
       .from(creditTransactions)

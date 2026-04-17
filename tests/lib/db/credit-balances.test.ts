@@ -32,12 +32,12 @@ function createQueuedExecutor(responses: unknown[]): QueuedExecutor {
 
 describe('credit balance queries', () => {
   it('returns the current credit balance row for a parent', async () => {
-    const database = createQueuedExecutor([[{ parent_id: 1010, amount_available: 10, amount_pending: 5 }]]);
+    const database = createQueuedExecutor([[{ parent_id: 1010, available_minutes: 10, pending_minutes: 5 }]]);
 
     await expect(getCreditBalanceByParentId(1010, database)).resolves.toEqual({
       parent_id: 1010,
-      amount_available: 10,
-      amount_pending: 5,
+      available_minutes: 10,
+      pending_minutes: 5,
     });
   });
 
@@ -48,11 +48,11 @@ describe('credit balance queries', () => {
   });
 
   it('updates the balance row when sufficient credits are available', async () => {
-    const database = createQueuedExecutor([[{ amount_available: 7, amount_pending: 8 }]]);
+    const database = createQueuedExecutor([[{ available_minutes: 7, pending_minutes: 8 }]]);
 
     await expect(deductCreditBalance(1010, 3, database)).resolves.toEqual({
-      amount_available: 7,
-      amount_pending: 8,
+      available_minutes: 7,
+      pending_minutes: 8,
     });
   });
 

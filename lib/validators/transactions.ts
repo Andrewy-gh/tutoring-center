@@ -27,17 +27,17 @@ export const TransactionCreateSchema = z
   .object({
     parent_id: id,
     session_id: id.optional(),
-    available_delta: z.number().int(),
-    pending_delta: z.number().int(),
-    available_after: z.number().nonnegative().int(),
-    pending_after: z.number().nonnegative().int(),
+    available_delta_minutes: z.number().int(),
+    pending_delta_minutes: z.number().int(),
+    available_after_minutes: z.number().nonnegative().int(),
+    pending_after_minutes: z.number().nonnegative().int(),
     idempotency_key: z.string().min(1).optional(),
     note: z.string().min(1).optional(),
     type: TransactionTypeSchema,
   })
-  .refine(input => input.available_delta !== 0 || input.pending_delta !== 0, {
+  .refine(input => input.available_delta_minutes !== 0 || input.pending_delta_minutes !== 0, {
     message: 'At least one ledger delta must be non-zero',
-    path: ['available_delta'],
+    path: ['available_delta_minutes'],
   });
 
 export const TransactionListQuerySchema = z.object({
@@ -57,10 +57,10 @@ export const CreditTransactionListQueryRowSchema = z.object({
   id: z.number(),
   parent_id: z.number(),
   session_id: z.number().nullable(),
-  available_delta: z.number().int(),
-  pending_delta: z.number().int(),
-  available_after: z.number().nonnegative().int(),
-  pending_after: z.number().nonnegative().int(),
+  available_delta_minutes: z.number().int(),
+  pending_delta_minutes: z.number().int(),
+  available_after_minutes: z.number().nonnegative().int(),
+  pending_after_minutes: z.number().nonnegative().int(),
   type: TransactionTypeSchema,
   created_at: z.string(), // ISO date string
   idempotency_key: z.string().nullable(),

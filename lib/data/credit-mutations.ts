@@ -1,4 +1,5 @@
 import { type CreditBalance } from '@/lib/credit-balances';
+import { creditsToMinutes } from '@/lib/billing-units';
 
 export type CreditMutationResult = {
   balance: CreditBalance;
@@ -6,10 +7,10 @@ export type CreditMutationResult = {
 };
 
 type CreditTransactionPayload = {
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   parent_id: number;
   session_id?: number;
   idempotency_key?: string;
@@ -23,8 +24,8 @@ type CreditBalanceResponse = Partial<CreditBalance> & {
 
 function normalizeCreditBalance(balance: Partial<CreditBalance> | null | undefined) {
   return {
-    amount_available: typeof balance?.amount_available === 'number' ? balance.amount_available : 0,
-    amount_pending: typeof balance?.amount_pending === 'number' ? balance.amount_pending : 0,
+    available_minutes: typeof balance?.available_minutes === 'number' ? balance.available_minutes : 0,
+    pending_minutes: typeof balance?.pending_minutes === 'number' ? balance.pending_minutes : 0,
   };
 }
 
@@ -34,8 +35,8 @@ async function saveCreditBalance(parentId: number, balance: CreditBalance) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       parent_id: parentId,
-      amount_available: balance.amount_available,
-      amount_pending: balance.amount_pending,
+      available_minutes: balance.available_minutes,
+      pending_minutes: balance.pending_minutes,
     }),
   });
 
@@ -61,19 +62,20 @@ async function saveCreditTransaction(input: CreditTransactionPayload) {
 }
 
 export async function purchaseParentCredits(parentId: number, credits: number, currentBalance: CreditBalance) {
+  const purchasedMinutes = creditsToMinutes(credits);
   const nextBalance = {
-    amount_available: currentBalance.amount_available + credits,
-    amount_pending: currentBalance.amount_pending,
+    available_minutes: currentBalance.available_minutes + purchasedMinutes,
+    pending_minutes: currentBalance.pending_minutes,
   };
 
   const balance = await saveCreditBalance(parentId, nextBalance);
 
   try {
     await saveCreditTransaction({
-      available_delta: credits,
-      pending_delta: 0,
-      available_after: balance.amount_available,
-      pending_after: balance.amount_pending,
+      available_delta_minutes: purchasedMinutes,
+      pending_delta_minutes: 0,
+      available_after_minutes: balance.available_minutes,
+      pending_after_minutes: balance.pending_minutes,
       parent_id: parentId,
       type: 'purchase',
     });

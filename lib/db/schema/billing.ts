@@ -20,15 +20,15 @@ export const creditBalances = pgTable(
     parentId: integer('parent_id')
       .notNull()
       .references(() => parents.id),
-    amountAvailable: integer('amount_available').notNull().default(0),
-    amountPending: integer('amount_pending').notNull().default(0),
+    availableMinutes: integer('available_minutes').notNull().default(0),
+    pendingMinutes: integer('pending_minutes').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   table => [
     unique('credit_balances_parent_id_unique').on(table.parentId),
-    check('credit_balances_available_nonnegative', sql`${table.amountAvailable} >= 0`),
-    check('credit_balances_pending_nonnegative', sql`${table.amountPending} >= 0`),
+    check('credit_balances_available_minutes_nonnegative', sql`${table.availableMinutes} >= 0`),
+    check('credit_balances_pending_minutes_nonnegative', sql`${table.pendingMinutes} >= 0`),
   ]
 );
 
@@ -40,10 +40,10 @@ export const creditTransactions = pgTable(
       .notNull()
       .references(() => parents.id),
     sessionId: integer('session_id').references(() => sessions.id),
-    availableDelta: integer('available_delta').notNull().default(0),
-    pendingDelta: integer('pending_delta').notNull().default(0),
-    availableAfter: integer('available_after').notNull(),
-    pendingAfter: integer('pending_after').notNull(),
+    availableDeltaMinutes: integer('available_delta_minutes').notNull().default(0),
+    pendingDeltaMinutes: integer('pending_delta_minutes').notNull().default(0),
+    availableAfterMinutes: integer('available_after_minutes').notNull(),
+    pendingAfterMinutes: integer('pending_after_minutes').notNull(),
     type: transactionTypeEnum('type').notNull(),
     idempotencyKey: text('idempotency_key'),
     note: text('note'),
@@ -51,19 +51,27 @@ export const creditTransactions = pgTable(
   },
   table => [
     unique('credit_transactions_idempotency_key_unique').on(table.idempotencyKey),
-    check('credit_transactions_nonzero_delta', sql`${table.availableDelta} <> 0 or ${table.pendingDelta} <> 0`),
-    check('credit_transactions_available_after_nonnegative', sql`${table.availableAfter} >= 0`),
-    check('credit_transactions_pending_after_nonnegative', sql`${table.pendingAfter} >= 0`),
     check(
-      'credit_transactions_valid_delta_shape_by_type',
+      'credit_transactions_nonzero_delta_minutes',
+      sql`${table.availableDeltaMinutes} <> 0 or ${table.pendingDeltaMinutes} <> 0`
+    ),
+    check('credit_transactions_available_after_minutes_nonnegative', sql`${table.availableAfterMinutes} >= 0`),
+    check('credit_transactions_pending_after_minutes_nonnegative', sql`${table.pendingAfterMinutes} >= 0`),
+    check(
+      'credit_transactions_valid_delta_shape_by_type_minutes',
       sql`case
-        when ${table.type} = 'purchase' then ${table.availableDelta} > 0 and ${table.pendingDelta} = 0
+        when ${table.type} = 'purchase' then ${table.availableDeltaMinutes} > 0 and ${table.pendingDeltaMinutes} = 0
         when ${table.type} = 'reservation'
-          then ${table.availableDelta} < 0 and ${table.pendingDelta} > 0 and ${table.availableDelta} + ${table.pendingDelta} = 0
+          then ${table.availableDeltaMinutes} < 0
+            and ${table.pendingDeltaMinutes} > 0
+            and ${table.availableDeltaMinutes} + ${table.pendingDeltaMinutes} = 0
         when ${table.type} = 'reservation_release'
-          then ${table.availableDelta} > 0 and ${table.pendingDelta} < 0 and ${table.availableDelta} + ${table.pendingDelta} = 0
-        when ${table.type} = 'session_debit' then ${table.availableDelta} = 0 and ${table.pendingDelta} < 0
-        when ${table.type} = 'cancellation_fee' then ${table.availableDelta} = 0 and ${table.pendingDelta} < 0
+          then ${table.availableDeltaMinutes} > 0
+            and ${table.pendingDeltaMinutes} < 0
+            and ${table.availableDeltaMinutes} + ${table.pendingDeltaMinutes} = 0
+        when ${table.type} = 'session_debit' then ${table.availableDeltaMinutes} = 0 and ${table.pendingDeltaMinutes} < 0
+        when ${table.type} = 'cancellation_fee'
+          then ${table.availableDeltaMinutes} = 0 and ${table.pendingDeltaMinutes} < 0
         else true
       end`
     ),

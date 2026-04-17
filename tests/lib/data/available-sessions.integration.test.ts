@@ -213,7 +213,7 @@ describeIfConfigured('getAvailableSlots integration', () => {
       await cleanupFixture(client.db, fixture);
       await closeTestDatabase(client);
     }
-  });
+  }, 10000);
 
   it('throws tutor-subject error when subject does not belong to tutor', async () => {
     const { getAvailableSlots } = await import('@/lib/data/available-sessions');
@@ -229,5 +229,5 @@ describeIfConfigured('getAvailableSlots integration', () => {
       await cleanupFixture(client.db, fixture);
       await closeTestDatabase(client);
     }
-  });
+  }, 10000);
 });

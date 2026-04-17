@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getUserRole } from '@/lib/auth';
+import { formatHours, minutesToHours } from '@/lib/billing-units';
 import { TIMEZONE } from '@/lib/constants';
 import { formatSignedCredits } from '@/lib/credit-ledger';
 import { getCreditTransaction } from '@/lib/data/credit-transactions';
@@ -95,19 +96,19 @@ export default async function SingleCreditTransactionPage({ params }: { params: 
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Available Delta</p>
-                  <p className='font-medium'>{formatSignedCredits(transaction.available_delta)}</p>
+                  <p className='font-medium'>{formatSignedCredits(transaction.available_delta_minutes)}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Pending Delta</p>
-                  <p className='font-medium'>{formatSignedCredits(transaction.pending_delta)}</p>
+                  <p className='font-medium'>{formatSignedCredits(transaction.pending_delta_minutes)}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Available After</p>
-                  <p className='font-medium'>{transaction.available_after}</p>
+                  <p className='font-medium'>{formatHours(minutesToHours(transaction.available_after_minutes))}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Pending After</p>
-                  <p className='font-medium'>{transaction.pending_after}</p>
+                  <p className='font-medium'>{formatHours(minutesToHours(transaction.pending_after_minutes))}</p>
                 </div>
                 <div>
                   <p className='uppercase text-muted-foreground'>Transaction Type</p>

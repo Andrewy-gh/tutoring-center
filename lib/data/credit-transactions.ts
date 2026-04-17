@@ -31,10 +31,10 @@ export type CreditTransactionRow = {
   id: number;
   created_at: string;
   type: typeof creditTransactions.$inferSelect.type;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   net_amount: number;
   parent_name: string;
   student_name: string;
@@ -45,10 +45,10 @@ export type CreditTransactionDetail = {
   id: number;
   created_at: string;
   type: typeof creditTransactions.$inferSelect.type;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   net_amount: number;
   session_id: number | null;
   note: string | null;
@@ -116,10 +116,10 @@ function mapTransactionRow(row: {
   id: number;
   created_at: string;
   type: typeof creditTransactions.$inferSelect.type;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   session_id: number | null;
   parent_first_name: string | null;
   parent_last_name: string | null;
@@ -131,10 +131,10 @@ function mapTransactionRow(row: {
     id: row.id,
     created_at: row.created_at,
     type: row.type,
-    available_delta: row.available_delta,
-    pending_delta: row.pending_delta,
-    available_after: row.available_after,
-    pending_after: row.pending_after,
+    available_delta_minutes: row.available_delta_minutes,
+    pending_delta_minutes: row.pending_delta_minutes,
+    available_after_minutes: row.available_after_minutes,
+    pending_after_minutes: row.pending_after_minutes,
     net_amount: getNetCreditDelta(row),
     parent_name: getDisplayName(row.parent_first_name, row.parent_last_name),
     student_name: getDisplayName(row.student_first_name, row.student_last_name),
@@ -190,10 +190,10 @@ export async function getCreditTransaction(id: number, role: UserRole): Promise<
       id: creditTransactions.id,
       created_at: creditTransactions.createdAt,
       type: creditTransactions.type,
-      available_delta: creditTransactions.availableDelta,
-      pending_delta: creditTransactions.pendingDelta,
-      available_after: creditTransactions.availableAfter,
-      pending_after: creditTransactions.pendingAfter,
+      available_delta_minutes: creditTransactions.availableDeltaMinutes,
+      pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+      available_after_minutes: creditTransactions.availableAfterMinutes,
+      pending_after_minutes: creditTransactions.pendingAfterMinutes,
       session_id: creditTransactions.sessionId,
       note: creditTransactions.note,
       parent_id: parents.id,
@@ -236,10 +236,10 @@ export async function getCreditTransaction(id: number, role: UserRole): Promise<
     id: detail.id,
     created_at: detail.created_at,
     type: detail.type,
-    available_delta: detail.available_delta,
-    pending_delta: detail.pending_delta,
-    available_after: detail.available_after,
-    pending_after: detail.pending_after,
+    available_delta_minutes: detail.available_delta_minutes,
+    pending_delta_minutes: detail.pending_delta_minutes,
+    available_after_minutes: detail.available_after_minutes,
+    pending_after_minutes: detail.pending_after_minutes,
     net_amount: getNetCreditDelta(detail),
     session_id: detail.session_id,
     note: detail.note,

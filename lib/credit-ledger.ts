@@ -1,25 +1,42 @@
 import type { TransactionType } from '@/lib/db/types';
+import { formatHours, minutesToHours } from '@/lib/billing-units';
 
 export type CreditLedgerSnapshot = {
-  available_after: number;
-  pending_after: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
 };
 
 export type CreditLedgerDelta = CreditLedgerSnapshot & {
-  available_delta: number;
-  pending_delta: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
   type: TransactionType;
 };
 
 export function getNetCreditDelta({
-  available_delta,
-  pending_delta,
-}: Pick<CreditLedgerDelta, 'available_delta' | 'pending_delta'>) {
-  return available_delta + pending_delta;
+  available_delta_minutes,
+  pending_delta_minutes,
+}: Pick<CreditLedgerDelta, 'available_delta_minutes' | 'pending_delta_minutes'>) {
+  return available_delta_minutes + pending_delta_minutes;
 }
 
 export function formatSignedCredits(value: number) {
-  return value > 0 ? `+${value}` : `${value}`;
+  const hours = minutesToHours(value);
+  const formatted = formatHours(Math.abs(hours));
+
+  if (hours > 0) {
+    return `+${formatted}`;
+  }
+
+  if (hours < 0) {
+    return `-${formatted}`;
+  }
+
+  return '0';
+}
+
+function formatCreditLabelFromMinutes(minutes: number) {
+  const hours = minutesToHours(Math.abs(minutes));
+  return `${formatHours(hours)} credit${hours === 1 ? '' : 's'}`;
 }
 
 export function getCreditTransactionSummary(transaction: CreditLedgerDelta) {
@@ -27,24 +44,24 @@ export function getCreditTransactionSummary(transaction: CreditLedgerDelta) {
 
   switch (transaction.type) {
     case 'purchase':
-      return `Added ${Math.abs(netAmount)} credit${Math.abs(netAmount) === 1 ? '' : 's'}`;
+      return `Added ${formatCreditLabelFromMinutes(netAmount)}`;
     case 'reservation':
-      return `Reserved ${Math.abs(transaction.pending_delta)} credit${Math.abs(transaction.pending_delta) === 1 ? '' : 's'}`;
+      return `Reserved ${formatCreditLabelFromMinutes(transaction.pending_delta_minutes)}`;
     case 'reservation_release':
-      return `Released ${Math.abs(transaction.available_delta)} credit${Math.abs(transaction.available_delta) === 1 ? '' : 's'}`;
+      return `Released ${formatCreditLabelFromMinutes(transaction.available_delta_minutes)}`;
     case 'session_debit':
-      return `Used ${Math.abs(netAmount)} credit${Math.abs(netAmount) === 1 ? '' : 's'}`;
+      return `Used ${formatCreditLabelFromMinutes(netAmount)}`;
     case 'refund':
-      return `Refunded ${Math.abs(netAmount)} credit${Math.abs(netAmount) === 1 ? '' : 's'}`;
+      return `Refunded ${formatCreditLabelFromMinutes(netAmount)}`;
     case 'cancellation_fee':
-      return `Charged ${Math.abs(netAmount)} credit${Math.abs(netAmount) === 1 ? '' : 's'}`;
+      return `Charged ${formatCreditLabelFromMinutes(netAmount)}`;
     case 'adjustment':
       if (netAmount > 0) {
-        return `Adjusted +${netAmount} credits`;
+        return `Adjusted +${formatHours(minutesToHours(netAmount))} credits`;
       }
 
       if (netAmount < 0) {
-        return `Adjusted ${netAmount} credits`;
+        return `Adjusted ${formatHours(minutesToHours(netAmount))} credits`;
       }
 
       return 'Adjusted credits';

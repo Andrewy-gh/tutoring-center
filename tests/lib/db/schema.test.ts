@@ -73,18 +73,20 @@ describe('db schema exports', () => {
 
   it('defines credit transaction delta columns and the type-specific shape check', () => {
     const tableConfig = getTableConfig(creditTransactions);
-    const shapeCheck = tableConfig.checks.find(check => check.name === 'credit_transactions_valid_delta_shape_by_type');
+    const shapeCheck = tableConfig.checks.find(
+      check => check.name === 'credit_transactions_valid_delta_shape_by_type_minutes'
+    );
     const dialect = new PgDialect();
 
-    expect(creditTransactions.availableDelta.name).toBe('available_delta');
-    expect(creditTransactions.pendingDelta.name).toBe('pending_delta');
-    expect(tableConfig.checks.map(check => check.name)).toContain('credit_transactions_valid_delta_shape_by_type');
+    expect(creditTransactions.availableDeltaMinutes.name).toBe('available_delta_minutes');
+    expect(creditTransactions.pendingDeltaMinutes.name).toBe('pending_delta_minutes');
+    expect(tableConfig.checks.map(check => check.name)).toContain('credit_transactions_valid_delta_shape_by_type_minutes');
     expect(shapeCheck).toBeDefined();
     expect(dialect.sqlToQuery(shapeCheck!.value).sql).toContain(
       `when "credit_transactions"."type" = 'cancellation_fee'`
     );
     expect(dialect.sqlToQuery(shapeCheck!.value).sql).toContain(
-      '"credit_transactions"."available_delta" = 0 and "credit_transactions"."pending_delta" < 0'
+      '"credit_transactions"."available_delta_minutes" = 0 and "credit_transactions"."pending_delta_minutes" < 0'
     );
   });
 
@@ -99,10 +101,10 @@ describe('db schema exports', () => {
     expect(sessions.subjectId.name).toBe('subject_id');
     expect(studentGrades.subjectId.name).toBe('subject_id');
     expect(studentGrades.subjectKind.name).toBe('subject_kind');
-    expect(creditTransactions.availableDelta.name).toBe('available_delta');
-    expect(creditTransactions.pendingDelta.name).toBe('pending_delta');
-    expect(creditTransactions.availableAfter.name).toBe('available_after');
-    expect(creditTransactions.pendingAfter.name).toBe('pending_after');
+    expect(creditTransactions.availableDeltaMinutes.name).toBe('available_delta_minutes');
+    expect(creditTransactions.pendingDeltaMinutes.name).toBe('pending_delta_minutes');
+    expect(creditTransactions.availableAfterMinutes.name).toBe('available_after_minutes');
+    expect(creditTransactions.pendingAfterMinutes.name).toBe('pending_after_minutes');
     expect(creditTransactions.idempotencyKey.name).toBe('idempotency_key');
   });
 });

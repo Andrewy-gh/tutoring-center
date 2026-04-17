@@ -5,6 +5,7 @@ import { DataTable, DataTableFilter, DataTableToolbar } from '@/components/data-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { UserRole } from '@/lib/auth';
+import { formatHours, minutesToHours } from '@/lib/billing-units';
 import { formatSignedCredits } from '@/lib/credit-ledger';
 import type { CreditTransactionRow } from '@/lib/data/credit-transactions';
 import {
@@ -70,28 +71,28 @@ export function getColumns(role: UserRole): ColumnDef<CreditTransactionRow>[] {
       },
     },
     {
-      id: 'available_delta',
-      accessorKey: 'available_delta',
+      id: 'available_delta_minutes',
+      accessorKey: 'available_delta_minutes',
       header: () => <div>Available Delta</div>,
-      cell: ({ row }) => <div>{formatSignedCredits(row.original.available_delta)}</div>,
+      cell: ({ row }) => <div>{formatSignedCredits(row.original.available_delta_minutes)}</div>,
     },
     {
-      id: 'pending_delta',
-      accessorKey: 'pending_delta',
+      id: 'pending_delta_minutes',
+      accessorKey: 'pending_delta_minutes',
       header: () => <div>Pending Delta</div>,
-      cell: ({ row }) => <div>{formatSignedCredits(row.original.pending_delta)}</div>,
+      cell: ({ row }) => <div>{formatSignedCredits(row.original.pending_delta_minutes)}</div>,
     },
     {
-      id: 'available_after',
-      accessorKey: 'available_after',
+      id: 'available_after_minutes',
+      accessorKey: 'available_after_minutes',
       header: () => <div>Available After</div>,
-      cell: ({ row }) => <div>{row.original.available_after}</div>,
+      cell: ({ row }) => <div>{formatHours(minutesToHours(row.original.available_after_minutes))}</div>,
     },
     {
-      id: 'pending_after',
-      accessorKey: 'pending_after',
+      id: 'pending_after_minutes',
+      accessorKey: 'pending_after_minutes',
       header: () => <div>Pending After</div>,
-      cell: ({ row }) => <div>{row.original.pending_after}</div>,
+      cell: ({ row }) => <div>{formatHours(minutesToHours(row.original.pending_after_minutes))}</div>,
     },
     {
       id: 'actions',

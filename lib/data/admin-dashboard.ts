@@ -1,5 +1,6 @@
 import 'server-only';
 import { creditBalances, creditTransactions, parents, sessions, users } from '@/lib/db/schema';
+import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/lib/billing-units';
 import { and, asc, eq, gte, isNotNull, lt, lte, sql } from 'drizzle-orm';
 
 export type AdminMetrics = {
@@ -16,10 +17,12 @@ export type AtRiskParent = {
   parent_id: number;
   name: string;
   email: string;
-  amount_available: number;
+  available_minutes: number;
+  available_hours: string;
 };
 
 export const AT_RISK_THRESHOLD = 2;
+const AT_RISK_THRESHOLD_MINUTES = creditsToMinutes(AT_RISK_THRESHOLD);
 
 async function getDb() {
   return (await import('@/lib/db/client')).db;
@@ -55,7 +58,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
       .where(eq(sessions.status, 'Pending-Notes')),
     db
       .select({
-        pending_delta: creditTransactions.pendingDelta,
+        pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
       })
       .from(creditTransactions)
       .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId))),
@@ -76,11 +79,17 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
         count: sql<number>`cast(count(*) as int)`,
       })
       .from(creditBalances)
-      .where(lt(creditBalances.amountAvailable, AT_RISK_THRESHOLD)),
+      .where(lt(creditBalances.availableMinutes, AT_RISK_THRESHOLD_MINUTES)),
   ]);
 
-  const pendingNotesCreditsAtRisk = pendingNotes.reduce((sum, session) => sum + session.slot_units, 0);
-  const creditsCaptured = debitTransactions.reduce((sum, tx) => sum + Math.abs(tx.pending_delta), 0);
+  const pendingNotesCreditsAtRisk = pendingNotes.reduce(
+    (sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slot_units)),
+    0
+  );
+  const creditsCaptured = debitTransactions.reduce(
+    (sum, tx) => sum + minutesToHours(Math.abs(tx.pending_delta_minutes)),
+    0
+  );
   const completedSessions = new Map<number, { slotUnits: number; hasDebit: boolean }>();
 
   for (const row of completedSessionRows) {
@@ -98,7 +107,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
 
   const creditsLeaked = Array.from(completedSessions.values())
     .filter(session => !session.hasDebit)
-    .reduce((sum, session) => sum + session.slotUnits, 0);
+    .reduce((sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slotUnits)), 0);
   const leakageRate = creditsCaptured + creditsLeaked > 0 ? creditsLeaked / (creditsCaptured + creditsLeaked) : 0;
 
   return {
@@ -121,19 +130,20 @@ export async function getAtRiskParents(): Promise<AtRiskParent[]> {
         first_name: users.firstName,
         last_name: users.lastName,
         email: users.email,
-        amount_available: creditBalances.amountAvailable,
+        available_minutes: creditBalances.availableMinutes,
       })
       .from(creditBalances)
       .innerJoin(parents, eq(creditBalances.parentId, parents.id))
       .innerJoin(users, eq(parents.userId, users.id))
-      .where(lt(creditBalances.amountAvailable, AT_RISK_THRESHOLD))
-      .orderBy(asc(creditBalances.amountAvailable));
+      .where(lt(creditBalances.availableMinutes, AT_RISK_THRESHOLD_MINUTES))
+      .orderBy(asc(creditBalances.availableMinutes));
 
     return rows.map(row => ({
       parent_id: row.parent_id,
       name: [row.first_name, row.last_name].filter(Boolean).join(' ') || '—',
       email: row.email,
-      amount_available: row.amount_available,
+      available_minutes: row.available_minutes,
+      available_hours: formatHours(minutesToHours(row.available_minutes)),
     }));
   } catch {
     return [];

@@ -6,6 +6,7 @@ import { PaymentForm } from '@/components/add-credits/payment-form';
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { formatHours } from '@/lib/billing-units';
 import type { Route } from 'next';
 
 const PACKAGES: Package[] = [
@@ -76,7 +77,7 @@ export function AddCredits({
         ) : null}
         <Separator className='my-1 w-full' />
         <ul className='w-full space-y-1 text-sm text-muted-foreground text-left list-disc list-inside'>
-          <li>Each credit covers one hour of tutoring.</li>
+          <li>Each credit covers {formatHours(1)} hour of tutoring.</li>
           <li>Credits are automatically deducted when a session is completed.</li>
           <li>Unused credits never expire and carry over month to month.</li>
           <li>Refunds and adjustments are reflected in your credit history.</li>

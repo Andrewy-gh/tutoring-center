@@ -23,10 +23,10 @@ export type CreditTransactionListFilters = {
 export type CreditTransactionInsertInput = {
   parent_id: number;
   session_id: number | null;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   idempotency_key?: string | null;
   note?: string | null;
   type: typeof creditTransactions.$inferSelect.type;
@@ -36,10 +36,10 @@ export type CreditTransactionInsertRow = {
   id: number;
   parent_id: number;
   session_id: number | null;
-  available_delta: number;
-  pending_delta: number;
-  available_after: number;
-  pending_after: number;
+  available_delta_minutes: number;
+  pending_delta_minutes: number;
+  available_after_minutes: number;
+  pending_after_minutes: number;
   idempotency_key: string | null;
   note: string | null;
   type: typeof creditTransactions.$inferSelect.type;
@@ -95,10 +95,10 @@ export async function getCreditTransactionRows(
       id: creditTransactions.id,
       parent_id: creditTransactions.parentId,
       session_id: creditTransactions.sessionId,
-      available_delta: creditTransactions.availableDelta,
-      pending_delta: creditTransactions.pendingDelta,
-      available_after: creditTransactions.availableAfter,
-      pending_after: creditTransactions.pendingAfter,
+      available_delta_minutes: creditTransactions.availableDeltaMinutes,
+      pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+      available_after_minutes: creditTransactions.availableAfterMinutes,
+      pending_after_minutes: creditTransactions.pendingAfterMinutes,
       type: creditTransactions.type,
       created_at: creditTransactions.createdAt,
       idempotency_key: creditTransactions.idempotencyKey,
@@ -141,10 +141,10 @@ export async function createCreditTransaction(input: CreditTransactionInsertInpu
     .values({
       parentId: input.parent_id,
       sessionId: input.session_id,
-      availableDelta: input.available_delta,
-      pendingDelta: input.pending_delta,
-      availableAfter: input.available_after,
-      pendingAfter: input.pending_after,
+      availableDeltaMinutes: input.available_delta_minutes,
+      pendingDeltaMinutes: input.pending_delta_minutes,
+      availableAfterMinutes: input.available_after_minutes,
+      pendingAfterMinutes: input.pending_after_minutes,
       idempotencyKey: input.idempotency_key,
       note: input.note,
       type: input.type,
@@ -153,10 +153,10 @@ export async function createCreditTransaction(input: CreditTransactionInsertInpu
       id: creditTransactions.id,
       parent_id: creditTransactions.parentId,
       session_id: creditTransactions.sessionId,
-      available_delta: creditTransactions.availableDelta,
-      pending_delta: creditTransactions.pendingDelta,
-      available_after: creditTransactions.availableAfter,
-      pending_after: creditTransactions.pendingAfter,
+      available_delta_minutes: creditTransactions.availableDeltaMinutes,
+      pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+      available_after_minutes: creditTransactions.availableAfterMinutes,
+      pending_after_minutes: creditTransactions.pendingAfterMinutes,
       idempotency_key: creditTransactions.idempotencyKey,
       note: creditTransactions.note,
       type: creditTransactions.type,

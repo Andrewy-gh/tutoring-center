@@ -6,7 +6,7 @@ describe('credit mutations', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ amount_available: 12, amount_pending: 1 }), {
+        new Response(JSON.stringify({ available_minutes: 180, pending_minutes: 60 }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -19,10 +19,10 @@ describe('credit mutations', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(purchaseParentCredits(44, 3, { amount_available: 9, amount_pending: 1 })).resolves.toEqual({
+    await expect(purchaseParentCredits(44, 3, { available_minutes: 0, pending_minutes: 60 })).resolves.toEqual({
       balance: {
-        amount_available: 12,
-        amount_pending: 1,
+        available_minutes: 180,
+        pending_minutes: 60,
       },
     });
 
@@ -46,15 +46,15 @@ describe('credit mutations', () => {
 
     expect(updateBody).toEqual({
       parent_id: 44,
-      amount_available: 12,
-      amount_pending: 1,
+      available_minutes: 180,
+      pending_minutes: 60,
     });
     expect(transactionBody).toEqual({
       parent_id: 44,
-      available_delta: 3,
-      pending_delta: 0,
-      available_after: 12,
-      pending_after: 1,
+      available_delta_minutes: 180,
+      pending_delta_minutes: 0,
+      available_after_minutes: 180,
+      pending_after_minutes: 60,
       type: 'purchase',
     });
   });
@@ -63,7 +63,7 @@ describe('credit mutations', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ amount_available: 7, amount_pending: 0 }), {
+        new Response(JSON.stringify({ available_minutes: 180, pending_minutes: 0 }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -76,10 +76,10 @@ describe('credit mutations', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(purchaseParentCredits(21, 2, { amount_available: 5, amount_pending: 0 })).resolves.toEqual({
+    await expect(purchaseParentCredits(21, 2, { available_minutes: 60, pending_minutes: 0 })).resolves.toEqual({
       balance: {
-        amount_available: 7,
-        amount_pending: 0,
+        available_minutes: 180,
+        pending_minutes: 0,
       },
       warning: 'Credits were added, but the purchase entry could not be recorded in credit history.',
     });

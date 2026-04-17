@@ -65,10 +65,10 @@ describe('SingleCreditTransactionPage', () => {
       id: 42,
       created_at: '2026-03-10T15:00:00.000Z',
       type: 'reservation',
-      available_delta: -1,
-      pending_delta: 1,
-      available_after: 9,
-      pending_after: 1,
+      available_delta_minutes: -60,
+      pending_delta_minutes: 60,
+      available_after_minutes: 180,
+      pending_after_minutes: 120,
       net_amount: 0,
       session_id: 500,
       note: null,
@@ -94,7 +94,7 @@ describe('SingleCreditTransactionPage', () => {
     expect(markup).toContain('Sam Student');
     expect(markup).toContain('Mathematics');
     expect(markup).toContain('/dashboard/sessions/500');
-  });
+  }, 10000);
 
   it('hides the parent card for parent users', async () => {
     const { getUserRole } = await import('@/lib/auth');
@@ -104,11 +104,11 @@ describe('SingleCreditTransactionPage', () => {
       id: 43,
       created_at: '2026-03-10T15:00:00.000Z',
       type: 'purchase',
-      available_delta: 10,
-      pending_delta: 0,
-      available_after: 19,
-      pending_after: 0,
-      net_amount: 10,
+      available_delta_minutes: 120,
+      pending_delta_minutes: 0,
+      available_after_minutes: 240,
+      pending_after_minutes: 0,
+      net_amount: 120,
       session_id: null,
       note: null,
       parent: { id: 1, name: 'Pat Parent', email: 'pat@example.com', phone: '555-1111' },

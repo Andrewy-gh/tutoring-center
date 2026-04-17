@@ -1,4 +1,5 @@
 import 'server-only';
+import { slotUnitsToMinutes } from '@/lib/billing-units';
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from './client';
 import { DEFAULT_SESSION_STATUS, FREE_SLOT_STATUSES, type SessionStatus } from './schema';
@@ -106,6 +107,7 @@ function mapInvalidSessionConstraint(constraint?: string) {
 export async function bookSession(input: BookSessionInput, database: BookSessionDatabase = db as BookSessionDatabase) {
   validateSessionInput(input);
   const status = input.status ?? DEFAULT_SESSION_STATUS;
+  const sessionMinutes = slotUnitsToMinutes(input.slotUnits);
 
   try {
     return await database.transaction(async tx => {
@@ -171,13 +173,13 @@ export async function bookSession(input: BookSessionInput, database: BookSession
       const [balance] = (await tx.execute(sql`
         update credit_balances
         set
-          amount_available = amount_available - ${input.slotUnits},
-          amount_pending = amount_pending + ${input.slotUnits},
+          available_minutes = available_minutes - ${sessionMinutes},
+          pending_minutes = pending_minutes + ${sessionMinutes},
           updated_at = now()
         where parent_id = ${input.parentId}
-          and amount_available >= ${input.slotUnits}
-        returning amount_available, amount_pending
-      `)) as Array<{ amount_available: number; amount_pending: number }>;
+          and available_minutes >= ${sessionMinutes}
+        returning available_minutes, pending_minutes
+      `)) as Array<{ available_minutes: number; pending_minutes: number }>;
 
       if (!balance) {
         const existingBalance = (await tx.execute(sql`
@@ -198,19 +200,19 @@ export async function bookSession(input: BookSessionInput, database: BookSession
         insert into credit_transactions (
           parent_id,
           session_id,
-          available_delta,
-          pending_delta,
-          available_after,
-          pending_after,
+          available_delta_minutes,
+          pending_delta_minutes,
+          available_after_minutes,
+          pending_after_minutes,
           type
         )
         values (
           ${input.parentId},
           ${session.id},
-          ${input.slotUnits * -1},
-          ${input.slotUnits},
-          ${balance.amount_available},
-          ${balance.amount_pending},
+          ${sessionMinutes * -1},
+          ${sessionMinutes},
+          ${balance.available_minutes},
+          ${balance.pending_minutes},
           'reservation'
         )
       `);
@@ -218,8 +220,8 @@ export async function bookSession(input: BookSessionInput, database: BookSession
       return {
         session,
         balance: {
-          amount_available: balance.amount_available,
-          amount_pending: balance.amount_pending,
+          available_minutes: balance.available_minutes,
+          pending_minutes: balance.pending_minutes,
         },
       };
     });

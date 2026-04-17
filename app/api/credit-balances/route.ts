@@ -104,14 +104,14 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Bad request', issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { parent_id, amount_available, amount_pending } = parsed.data;
+  const { parent_id, available_minutes, pending_minutes } = parsed.data;
 
   try {
     if (!(await parentExists(parent_id))) {
       return NextResponse.json({ error: 'Parent not found' }, { status: 404 });
     }
 
-    const balance = await upsertCreditBalance(parent_id, { amount_available, amount_pending });
+    const balance = await upsertCreditBalance(parent_id, { available_minutes, pending_minutes });
 
     return NextResponse.json(balance);
   } catch (error) {

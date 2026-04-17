@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/components/add-credits';
+import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import {
+  getSessionDurationMinutes,
   getSessionSlotUnits,
   selectTutorsForSubject,
   shouldBlockForCredits,
@@ -68,19 +70,19 @@ export function BookingScreen({
   });
 
   useEffect(() => {
-    if (balance.amount_available > 0) {
+    if (balance.available_minutes > 0) {
       setIsLowCreditsToastDismissed(false);
     }
-  }, [balance.amount_available]);
+  }, [balance.available_minutes]);
 
   if (students.length === 0) {
     return <main className='mx-auto max-w-3xl p-6'>No students found.</main>;
   }
 
   const lowCreditsToast =
-    balance.amount_available === 0 && !isLowCreditsToastDismissed ? (
+    balance.available_minutes === 0 && !isLowCreditsToastDismissed ? (
       <LowCreditsToast
-        credits={balance.amount_available}
+        availableMinutes={balance.available_minutes}
         onAddCredits={() => router.push('/dashboard/add-credits')}
         onDismiss={() => setIsLowCreditsToastDismissed(true)}
       />
@@ -116,13 +118,13 @@ export function BookingScreen({
   }
 
   async function completeBooking(reservation: Reservation, purchase?: CreditsPurchase, warning?: string) {
-    const slotUnits = getSessionSlotUnits(reservation.session);
+    const reservedMinutes = getSessionDurationMinutes(reservation.session);
 
     setCheckoutError(null);
     await createSession(reservation);
     setBalance(currentBalance => ({
-      amount_available: currentBalance.amount_available - slotUnits,
-      amount_pending: currentBalance.amount_pending + slotUnits,
+      available_minutes: currentBalance.available_minutes - reservedMinutes,
+      pending_minutes: currentBalance.pending_minutes + reservedMinutes,
     }));
 
     setBookingState({
@@ -211,7 +213,7 @@ export function BookingScreen({
                 setBookingState({ step: 'tutor', student: bookingState.student, selection: bookingState.selection })
               }
               onConfirmAction={session => {
-                const requiredCredits = getSessionSlotUnits(session);
+                const requiredMinutes = getSessionDurationMinutes(session);
                 const reservation: Reservation = {
                   student: bookingState.student,
                   subject: {
@@ -223,7 +225,7 @@ export function BookingScreen({
                   session,
                 };
 
-                if (shouldBlockForCredits(balance.amount_available, requiredCredits)) {
+                if (shouldBlockForCredits(balance.available_minutes, requiredMinutes)) {
                   setBookingState({ step: 'credits', reservation, selection: bookingState.selection });
                   return;
                 }
@@ -239,7 +241,7 @@ export function BookingScreen({
         </>
       );
     case 'credits': {
-      const creditsRequired = getSessionSlotUnits(bookingState.reservation.session);
+      const creditsRequired = minutesToCredits(getSessionDurationMinutes(bookingState.reservation.session));
       return (
         <>
           {lowCreditsToast}
@@ -304,7 +306,7 @@ export function BookingScreen({
     }
     case 'success': {
       const wasPurchased = Boolean(bookingState.purchase);
-      const reservedCredits = getSessionSlotUnits(bookingState.reservation.session);
+      const reservedCredits = minutesToCredits(slotUnitsToMinutes(getSessionSlotUnits(bookingState.reservation.session)));
       return (
         <>
           {lowCreditsToast}

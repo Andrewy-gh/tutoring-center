@@ -75,26 +75,26 @@ describe('credit balances route auth', () => {
 
   it('derives the parent id for GET when the caller is a parent', async () => {
     mockGetParentIdByUserId.mockResolvedValueOnce(77);
-    mockGetCreditBalanceByParentId.mockResolvedValueOnce({ parent_id: 77, amount_available: 8, amount_pending: 2 });
+    mockGetCreditBalanceByParentId.mockResolvedValueOnce({ parent_id: 77, available_minutes: 8, pending_minutes: 2 });
 
     const response = await GET(new Request('https://example.test/api/credit-balances?parent_id=999'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ parent_id: 77, amount_available: 8, amount_pending: 2 });
+    expect(body).toEqual({ parent_id: 77, available_minutes: 8, pending_minutes: 2 });
   });
 
   it('derives the parent id for PUT when the caller is a parent', async () => {
     mockGetParentIdByUserId.mockResolvedValueOnce(55);
     mockParentExists.mockResolvedValueOnce(true);
-    mockUpsertCreditBalance.mockResolvedValueOnce({ parent_id: 55, amount_available: 6, amount_pending: 1 });
+    mockUpsertCreditBalance.mockResolvedValueOnce({ parent_id: 55, available_minutes: 6, pending_minutes: 1 });
 
-    const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
+    const response = await PUT(makePutRequest({ parent_id: 999, available_minutes: 6, pending_minutes: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ parent_id: 55, amount_available: 6, amount_pending: 1 });
-    expect(mockUpsertCreditBalance).toHaveBeenCalledWith(55, { amount_available: 6, amount_pending: 1 });
+    expect(body).toEqual({ parent_id: 55, available_minutes: 6, pending_minutes: 1 });
+    expect(mockUpsertCreditBalance).toHaveBeenCalledWith(55, { available_minutes: 6, pending_minutes: 1 });
   });
 
   it('returns a JSON 500 when the balance upsert fails', async () => {
@@ -102,7 +102,7 @@ describe('credit balances route auth', () => {
     mockParentExists.mockResolvedValueOnce(true);
     mockUpsertCreditBalance.mockRejectedValueOnce(new Error('upsert failed'));
 
-    const response = await PUT(makePutRequest({ parent_id: 999, amount_available: 6, amount_pending: 1 }));
+    const response = await PUT(makePutRequest({ parent_id: 999, available_minutes: 6, pending_minutes: 1 }));
     const body = await response.json();
 
     expect(response.status).toBe(500);

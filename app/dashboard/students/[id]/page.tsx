@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getUserRole } from '@/lib/auth';
+import { formatHours, minutesToHours } from '@/lib/billing-units';
 import { formatSignedCredits } from '@/lib/credit-ledger';
 import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
 import { getStudent } from '@/lib/data/students';
@@ -207,7 +208,8 @@ export default async function SingleStudentPage({ params }: { params: Promise<{ 
                         </div>
                         <p className='font-medium'>{transaction.summary}</p>
                         <p className='text-xs text-muted-foreground'>
-                          Available after: {transaction.available_after}, Pending after: {transaction.pending_after}
+                          Available after: {formatHours(minutesToHours(transaction.available_after_minutes))}, Pending after:{' '}
+                          {formatHours(minutesToHours(transaction.pending_after_minutes))}
                         </p>
                       </div>
                       <div className='text-right'>

@@ -49,10 +49,10 @@ describe('credit transactions route auth', () => {
       id: 2002,
       parent_id: 55,
       session_id: null,
-      available_delta: 4,
-      pending_delta: 0,
-      available_after: 8,
-      pending_after: 1,
+      available_delta_minutes: 4,
+      pending_delta_minutes: 0,
+      available_after_minutes: 8,
+      pending_after_minutes: 1,
       idempotency_key: null,
       note: null,
       type: 'purchase',
@@ -62,10 +62,10 @@ describe('credit transactions route auth', () => {
     const response = await POST(
       makePostRequest({
         parent_id: 999,
-        available_delta: 4,
-        pending_delta: 0,
-        available_after: 8,
-        pending_after: 1,
+        available_delta_minutes: 4,
+        pending_delta_minutes: 0,
+        available_after_minutes: 8,
+        pending_after_minutes: 1,
         type: 'purchase',
       })
     );
@@ -75,19 +75,19 @@ describe('credit transactions route auth', () => {
     expect(body.data).toMatchObject({
       id: 2002,
       parent_id: 55,
-      available_delta: 4,
-      pending_delta: 0,
-      available_after: 8,
-      pending_after: 1,
+      available_delta_minutes: 4,
+      pending_delta_minutes: 0,
+      available_after_minutes: 8,
+      pending_after_minutes: 1,
       type: 'purchase',
     });
     expect(mockCreateCreditTransaction).toHaveBeenCalledWith({
       parent_id: 55,
       session_id: null,
-      available_delta: 4,
-      pending_delta: 0,
-      available_after: 8,
-      pending_after: 1,
+      available_delta_minutes: 4,
+      pending_delta_minutes: 0,
+      available_after_minutes: 8,
+      pending_after_minutes: 1,
       idempotency_key: undefined,
       note: undefined,
       type: 'purchase',
@@ -100,10 +100,10 @@ describe('credit transactions route auth', () => {
     const response = await POST(
       makePostRequest({
         parent_id: 9,
-        available_delta: 4,
-        pending_delta: 0,
-        available_after: 8,
-        pending_after: 1,
+        available_delta_minutes: 4,
+        pending_delta_minutes: 0,
+        available_after_minutes: 8,
+        pending_after_minutes: 1,
         type: 'purchase',
       })
     );

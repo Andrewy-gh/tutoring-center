@@ -39,13 +39,13 @@ describe('parent credits data', () => {
   it('returns the current parent balance from the shared balance query', async () => {
     mockGetCreditBalanceByParentId.mockResolvedValueOnce({
       parent_id: 77,
-      amount_available: 8,
-      amount_pending: 2,
+      available_minutes: 8,
+      pending_minutes: 2,
     });
 
     await expect(getCurrentParentBalance()).resolves.toEqual({
-      amount_available: 8,
-      amount_pending: 2,
+      available_minutes: 8,
+      pending_minutes: 2,
     });
   });
 

@@ -103,7 +103,7 @@ describe('getSessions', () => {
         subject_name: 'Mathematics',
         scheduled_at: '2026-04-01T10:00:00Z',
         ends_at: '2026-04-01T11:00:00Z',
-        hours: 2,
+        hours: 1,
         status: 'Scheduled',
       },
     ]);

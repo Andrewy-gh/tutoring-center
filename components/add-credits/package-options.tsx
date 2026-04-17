@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { formatHours } from '@/lib/billing-units';
 import { cn } from '@/lib/utils';
 import { CircleCheck, Clock } from 'lucide-react';
 
@@ -50,7 +51,7 @@ export function PackageOptions({ packages, selectedPkg, onSelect }: PackageOptio
 
           <div className='hidden sm:flex sm:items-center sm:gap-1.5 sm:mb-3'>
             <Clock className='w-3.5 h-3.5' />
-            <span className='text-sm text-muted-foreground'>{p.credits} hours of tutoring</span>
+            <span className='text-sm text-muted-foreground'>{formatHours(p.credits)} hours of tutoring</span>
           </div>
 
           <div className='sm:flex sm:w-full sm:items-center sm:justify-between sm:border-t-2 sm:border-border sm:pt-3'>

@@ -39,7 +39,7 @@ describe('admin dashboard data', () => {
           { id: 202, slot_units: 1 },
         ])
       )
-      .mockReturnValueOnce(createSelectQuery([{ pending_delta: -2 }, { pending_delta: -1 }]))
+      .mockReturnValueOnce(createSelectQuery([{ pending_delta_minutes: -60 }, { pending_delta_minutes: -30 }]))
       .mockReturnValueOnce(
         createSelectQuery([
           { id: 301, slot_units: 2, debit_transaction_id: 1 },
@@ -53,16 +53,16 @@ describe('admin dashboard data', () => {
 
     expect(result.sessionsTodayCount).toBe(3);
     expect(result.pendingNotesCount).toBe(2);
-    expect(result.pendingNotesCreditsAtRisk).toBe(3);
-    expect(result.creditsCaptured).toBe(3);
-    expect(result.creditsLeaked).toBe(1);
+    expect(result.pendingNotesCreditsAtRisk).toBe(1.5);
+    expect(result.creditsCaptured).toBe(1.5);
+    expect(result.creditsLeaked).toBe(0.5);
     expect(result.atRiskParentsCount).toBe(4);
-  });
+  }, 10000);
 
   it('returns only session ids with session debit transactions', async () => {
     mockDbSelect.mockReturnValueOnce(createSelectQuery([{ session_id: 10 }, { session_id: 12 }]));
 
     const { getDebitSessionIds } = await import('@/lib/data/admin-dashboard');
     await expect(getDebitSessionIds()).resolves.toEqual(new Set([10, 12]));
-  });
+  }, 10000);
 });

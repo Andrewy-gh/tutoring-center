@@ -8,14 +8,14 @@ vi.mock('@/lib/data/admin-dashboard', () => ({
   getAdminMetrics: vi.fn(async () => ({
     sessionsTodayCount: 3,
     pendingNotesCount: 2,
-    pendingNotesCreditsAtRisk: 4,
+    pendingNotesCreditsAtRisk: 2,
     atRiskParentsCount: 1,
-    creditsCaptured: 8,
-    creditsLeaked: 1,
-    leakageRate: 1 / 9,
+    creditsCaptured: 4,
+    creditsLeaked: 0.5,
+    leakageRate: 0.5 / 4.5,
   })),
   getAtRiskParents: vi.fn(async () => [
-    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', amount_available: 1 },
+    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', available_minutes: 60, available_hours: '1' },
   ]),
   getDebitSessionIds: vi.fn(async () => new Set([101])),
 }));
@@ -100,7 +100,7 @@ describe('AdminDashboardContent', () => {
 
     expect(markup).toContain('Sessions Today:3');
     expect(markup).toContain('Pending Notes:1:contact');
-    expect(markup).toContain('Sessions Billed:8');
+    expect(markup).toContain('Sessions Billed:4');
   });
 
   it('renders the at-risk accounts view', async () => {

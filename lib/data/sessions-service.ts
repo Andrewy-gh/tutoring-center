@@ -5,6 +5,7 @@ import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId, getTutorIdByUserId } from '@/lib/db/queries/actors';
 import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/lib/db/queries/sessions/list';
 import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/lib/db/schema';
+import { slotUnitsToHours } from '@/lib/billing-units';
 import { type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -187,7 +188,7 @@ const mapSessionRow = (
     subject_name: subjectName,
     scheduled_at: session.scheduled_at,
     ends_at: session.ends_at,
-    hours: session.slot_units,
+    hours: slotUnitsToHours(session.slot_units),
     status: session.status,
   };
 };

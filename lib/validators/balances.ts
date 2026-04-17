@@ -7,8 +7,8 @@ export const BalanceQuerySchema = z.object({
 
 export const BalanceUpdateSchema = z.object({
   parent_id: id,
-  amount_available: z.number().int().nonnegative(),
-  amount_pending: z.number().int().nonnegative(),
+  available_minutes: z.number().int().nonnegative(),
+  pending_minutes: z.number().int().nonnegative(),
 });
 
 export type BalanceQueryInput = z.infer<typeof BalanceQuerySchema>;

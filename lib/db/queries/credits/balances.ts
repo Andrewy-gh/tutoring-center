@@ -2,8 +2,8 @@ import 'server-only';
 import { sql, type SQL } from 'drizzle-orm';
 
 export type CreditBalanceAmounts = {
-  amount_available: number;
-  amount_pending: number;
+  available_minutes: number;
+  pending_minutes: number;
 };
 
 export type CreditBalanceRow = CreditBalanceAmounts & {
@@ -29,7 +29,7 @@ async function getExecutor(database?: unknown) {
 export async function getCreditBalanceByParentId(parentId: number, database?: unknown) {
   const db = await getExecutor(database);
   const rows = await db.execute<CreditBalanceRow[]>(sql`
-    select parent_id, amount_available, amount_pending
+    select parent_id, available_minutes, pending_minutes
     from credit_balances
     where parent_id = ${parentId}
     limit 1
@@ -43,20 +43,20 @@ export async function upsertCreditBalance(parentId: number, amounts: CreditBalan
   const rows = await db.execute<CreditBalanceRow[]>(sql`
     insert into credit_balances (
       parent_id,
-      amount_available,
-      amount_pending
+      available_minutes,
+      pending_minutes
     )
     values (
       ${parentId},
-      ${amounts.amount_available},
-      ${amounts.amount_pending}
+      ${amounts.available_minutes},
+      ${amounts.pending_minutes}
     )
     on conflict (parent_id)
     do update set
-      amount_available = ${amounts.amount_available},
-      amount_pending = ${amounts.amount_pending},
+      available_minutes = ${amounts.available_minutes},
+      pending_minutes = ${amounts.pending_minutes},
       updated_at = now()
-    returning parent_id, amount_available, amount_pending
+    returning parent_id, available_minutes, pending_minutes
   `);
 
   return rows[0] ?? null;
@@ -67,12 +67,12 @@ export async function deductCreditBalance(parentId: number, amount: number, data
   const rows = await db.execute<CreditBalanceAmounts[]>(sql`
     update credit_balances
     set
-      amount_available = amount_available - ${amount},
-      amount_pending = amount_pending + ${amount},
+      available_minutes = available_minutes - ${amount},
+      pending_minutes = pending_minutes + ${amount},
       updated_at = now()
     where parent_id = ${parentId}
-      and amount_available >= ${amount}
-    returning amount_available, amount_pending
+      and available_minutes >= ${amount}
+    returning available_minutes, pending_minutes
   `);
 
   return rows[0] ?? null;

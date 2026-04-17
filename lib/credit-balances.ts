@@ -1,9 +1,9 @@
 export type CreditBalance = {
-  amount_available: number;
-  amount_pending: number;
+  available_minutes: number;
+  pending_minutes: number;
 };
 
 export const EMPTY_CREDIT_BALANCE: CreditBalance = {
-  amount_available: 0,
-  amount_pending: 0,
+  available_minutes: 0,
+  pending_minutes: 0,
 };

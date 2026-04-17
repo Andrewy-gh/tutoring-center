@@ -1,6 +1,7 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { isValidRole, type UserRole } from '@/lib/auth';
+import { minutesToCredits } from '@/lib/billing-units';
 import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import {
   ParentDetailJoinRowListSchema,
@@ -92,7 +93,7 @@ const mapParentRow = (parent: ParentListJoinRow, studentCount: number): ParentRo
   email: parent.email,
   phone: parent.phone ?? MISSING_VALUE,
   student_count: studentCount,
-  credit_balance_info: parent.amountAvailable ?? 0,
+  credit_balance_info: minutesToCredits(parent.availableMinutes ?? 0),
 });
 
 const mapParentStudentRow = (row: Extract<ParentDetailJoinRow, { studentId: number }>): ParentStudentRow => ({
@@ -144,7 +145,7 @@ export async function getParents(role: UserRole) {
         lastName: users.lastName,
         email: users.email,
         phone: users.phone,
-        amountAvailable: creditBalances.amountAvailable,
+        availableMinutes: creditBalances.availableMinutes,
         studentId: students.id,
       })
       .from(parents)
@@ -192,7 +193,7 @@ export async function getParent(userID: number, role: UserRole): Promise<ParentP
         lastName: users.lastName,
         email: users.email,
         phone: users.phone,
-        amountAvailable: creditBalances.amountAvailable,
+        availableMinutes: creditBalances.availableMinutes,
         studentId: students.id,
         studentUserId: students.userId,
         studentGrade: students.grade,

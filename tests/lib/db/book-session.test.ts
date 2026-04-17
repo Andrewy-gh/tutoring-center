@@ -7,6 +7,7 @@ import {
   SessionOverlapError,
   type BookSessionInput,
 } from '@/lib/db/book-session';
+import { slotUnitsToMinutes } from '@/lib/billing-units';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db/client', () => ({
@@ -21,8 +22,8 @@ vi.mock('@/lib/db/client', () => ({
 }));
 
 type CreditBalanceRow = {
-  amount_available: number;
-  amount_pending: number;
+  available_minutes: number;
+  pending_minutes: number;
 };
 
 type QueuedExecutor = {
@@ -46,10 +47,10 @@ type BookingState = {
   }>;
   creditTransactions: Array<{
     session_id: number;
-    available_delta: number;
-    pending_delta: number;
-    available_after: number;
-    pending_after: number;
+    available_delta_minutes: number;
+    pending_delta_minutes: number;
+    available_after_minutes: number;
+    pending_after_minutes: number;
     type: string;
   }>;
   nextSessionId: number;
@@ -64,7 +65,7 @@ function createBookSessionDatabase(
   const state: BookingState = {
     studentOwned: options.studentOwned ?? true,
     overlap: options.overlap ?? false,
-    balance: hasBalanceOverride ? (options.balance ?? null) : { amount_available: 10, amount_pending: 0 },
+    balance: hasBalanceOverride ? (options.balance ?? null) : { available_minutes: 10, pending_minutes: 0 },
     sessions: [],
     creditTransactions: [],
     nextSessionId: 9001,
@@ -106,13 +107,14 @@ function createBookSessionDatabase(
               return [session] as T;
             }
             case 4: {
-              if (!draft.balance || draft.balance.amount_available < input.slotUnits) {
+              const sessionMinutes = slotUnitsToMinutes(input.slotUnits);
+              if (!draft.balance || draft.balance.available_minutes < sessionMinutes) {
                 return [] as T;
               }
 
               draft.balance = {
-                amount_available: draft.balance.amount_available - input.slotUnits,
-                amount_pending: draft.balance.amount_pending + input.slotUnits,
+                available_minutes: draft.balance.available_minutes - sessionMinutes,
+                pending_minutes: draft.balance.pending_minutes + sessionMinutes,
               };
               balanceUpdated = true;
 
@@ -129,10 +131,10 @@ function createBookSessionDatabase(
 
               draft.creditTransactions.push({
                 session_id: draft.sessions[0]!.id,
-                available_delta: input.slotUnits * -1,
-                pending_delta: input.slotUnits,
-                available_after: draft.balance.amount_available,
-                pending_after: draft.balance.amount_pending,
+                available_delta_minutes: slotUnitsToMinutes(input.slotUnits) * -1,
+                pending_delta_minutes: slotUnitsToMinutes(input.slotUnits),
+                available_after_minutes: draft.balance.available_minutes,
+                pending_after_minutes: draft.balance.pending_minutes,
                 type: 'reservation',
               });
 
@@ -174,7 +176,7 @@ const BOOKING_INPUT: BookSessionInput = {
 describe('bookSession', () => {
   it('books a session transactionally and moves credits to pending', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
-      balance: { amount_available: 4, amount_pending: 0 },
+      balance: { available_minutes: 120, pending_minutes: 0 },
     });
 
     await expect(bookSession(BOOKING_INPUT, database)).resolves.toEqual({
@@ -190,22 +192,22 @@ describe('bookSession', () => {
         status: 'Scheduled',
       },
       balance: {
-        amount_available: 2,
-        amount_pending: 2,
+        available_minutes: 60,
+        pending_minutes: 60,
       },
     });
-    expect(state.balance).toEqual({ amount_available: 2, amount_pending: 2 });
+    expect(state.balance).toEqual({ available_minutes: 60, pending_minutes: 60 });
     expect(state.sessions).toHaveLength(1);
     expect(state.creditTransactions).toHaveLength(1);
   });
 
   it('rolls back the inserted session when credits are insufficient', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
-      balance: { amount_available: 1, amount_pending: 0 },
+      balance: { available_minutes: 30, pending_minutes: 0 },
     });
 
     await expect(bookSession(BOOKING_INPUT, database)).rejects.toBeInstanceOf(InsufficientCreditsError);
-    expect(state.balance).toEqual({ amount_available: 1, amount_pending: 0 });
+    expect(state.balance).toEqual({ available_minutes: 30, pending_minutes: 0 });
     expect(state.sessions).toEqual([]);
     expect(state.creditTransactions).toEqual([]);
   });
@@ -224,11 +226,11 @@ describe('bookSession', () => {
   it('does not create any records when the tutor already has an overlapping session', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
       overlap: true,
-      balance: { amount_available: 4, amount_pending: 0 },
+      balance: { available_minutes: 120, pending_minutes: 0 },
     });
 
     await expect(bookSession(BOOKING_INPUT, database)).rejects.toBeInstanceOf(SessionOverlapError);
-    expect(state.balance).toEqual({ amount_available: 4, amount_pending: 0 });
+    expect(state.balance).toEqual({ available_minutes: 120, pending_minutes: 0 });
     expect(state.sessions).toEqual([]);
     expect(state.creditTransactions).toEqual([]);
   });
@@ -236,18 +238,18 @@ describe('bookSession', () => {
   it('rejects bookings when the student does not belong to the parent', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
       studentOwned: false,
-      balance: { amount_available: 4, amount_pending: 0 },
+      balance: { available_minutes: 120, pending_minutes: 0 },
     });
 
     await expect(bookSession(BOOKING_INPUT, database)).rejects.toBeInstanceOf(ParentStudentMismatchError);
-    expect(state.balance).toEqual({ amount_available: 4, amount_pending: 0 });
+    expect(state.balance).toEqual({ available_minutes: 120, pending_minutes: 0 });
     expect(state.sessions).toEqual([]);
     expect(state.creditTransactions).toEqual([]);
   });
 
   it('returns an explicit invalid time error before opening a transaction', async () => {
     const { database, state } = createBookSessionDatabase(BOOKING_INPUT, {
-      balance: { amount_available: 4, amount_pending: 0 },
+      balance: { available_minutes: 120, pending_minutes: 0 },
     });
 
     await expect(
@@ -260,7 +262,7 @@ describe('bookSession', () => {
         database
       )
     ).rejects.toEqual(new InvalidSessionTimeError('ends_at must be after scheduled_at'));
-    expect(state.balance).toEqual({ amount_available: 4, amount_pending: 0 });
+    expect(state.balance).toEqual({ available_minutes: 120, pending_minutes: 0 });
     expect(state.sessions).toEqual([]);
     expect(state.creditTransactions).toEqual([]);
   });

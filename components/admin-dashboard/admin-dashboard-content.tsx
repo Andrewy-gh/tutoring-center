@@ -1,3 +1,4 @@
+import { formatHours } from '@/lib/billing-units';
 import { ADMIN_DASHBOARD_VIEW_TITLES, type ViewKey } from '@/lib/admin-dashboard-views';
 import { AT_RISK_THRESHOLD, getAdminMetrics, getAtRiskParents, getDebitSessionIds } from '@/lib/data/admin-dashboard';
 import { getSessions } from '@/lib/data/sessions';
@@ -49,11 +50,11 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['accounts-needing-attention']}
             value={metrics.atRiskParentsCount}
-            sub={`< ${AT_RISK_THRESHOLD} credits remaining`}
+            sub={`< ${formatHours(AT_RISK_THRESHOLD)} hours remaining`}
             subColor={metrics.atRiskParentsCount > 0 ? 'text-amber-500' : undefined}
             href={viewUrl('accounts-needing-attention')}
             active={view === 'accounts-needing-attention'}
-            tooltip='Parents with fewer than 2 credits remaining.'
+            tooltip={`Parents with fewer than ${formatHours(AT_RISK_THRESHOLD)} hours remaining.`}
           />
         </div>
       </section>
@@ -64,7 +65,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['pending-notes']}
             value={metrics.pendingNotesCount}
-            sub={`${metrics.pendingNotesCreditsAtRisk} credit${metrics.pendingNotesCreditsAtRisk !== 1 ? 's' : ''} at risk`}
+            sub={`${formatHours(metrics.pendingNotesCreditsAtRisk)} hour${metrics.pendingNotesCreditsAtRisk === 1 ? '' : 's'} at risk`}
             subColor={metrics.pendingNotesCreditsAtRisk > 0 ? 'text-amber-500' : undefined}
             href={viewUrl('pending-notes')}
             active={view === 'pending-notes'}
@@ -72,14 +73,14 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-billed']}
-            value={metrics.creditsCaptured}
+            value={formatHours(metrics.creditsCaptured)}
             href={viewUrl('sessions-billed')}
             active={view === 'sessions-billed'}
             tooltip='Credits successfully debited for completed sessions.'
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-pending-billing']}
-            value={metrics.creditsLeaked}
+            value={formatHours(metrics.creditsLeaked)}
             sub={`${leakagePct}% unbilled rate`}
             subColor={metrics.creditsLeaked > 0 ? 'text-amber-500' : undefined}
             href={viewUrl('sessions-pending-billing')}

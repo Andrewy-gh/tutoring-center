@@ -9,7 +9,7 @@ const ParentBaseJoinRowSchema = z.object({
   lastName: z.string().nullable(),
   email: z.string(),
   phone: z.string().nullable(),
-  amountAvailable: z.number().nullable(),
+  availableMinutes: z.number().nullable(),
 });
 
 export const ParentListJoinRowSchema = ParentBaseJoinRowSchema.extend({

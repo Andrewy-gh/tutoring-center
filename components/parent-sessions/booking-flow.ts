@@ -1,5 +1,6 @@
 import type { StudentOption } from '@/components/parent-sessions/pick-student';
 import type { TutorOption } from '@/components/parent-sessions/pick-tutors';
+import { slotUnitsToMinutes } from '@/lib/billing-units';
 import type { AvailableSession } from '@/lib/validators/sessions';
 
 export type Reservation = {
@@ -32,6 +33,10 @@ export function getSessionSlotUnits(session: AvailableSession) {
   return durationMinutes / 30;
 }
 
-export function shouldBlockForCredits(availableCredits: number, requiredCredits: number) {
-  return availableCredits < requiredCredits;
+export function getSessionDurationMinutes(session: AvailableSession) {
+  return slotUnitsToMinutes(getSessionSlotUnits(session));
+}
+
+export function shouldBlockForCredits(availableMinutes: number, requiredMinutes: number) {
+  return availableMinutes < requiredMinutes;
 }

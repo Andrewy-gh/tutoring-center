@@ -25,8 +25,8 @@ export async function getCurrentParentBalance() {
     }
 
     return {
-      amount_available: balance.amount_available,
-      amount_pending: balance.amount_pending,
+      available_minutes: balance.available_minutes,
+      pending_minutes: balance.pending_minutes,
     };
   } catch {
     return EMPTY_CREDIT_BALANCE;
@@ -42,8 +42,8 @@ export async function getCurrentParentCredits() {
       parentId,
       balance: balance
         ? {
-            amount_available: balance.amount_available,
-            amount_pending: balance.amount_pending,
+            available_minutes: balance.available_minutes,
+            pending_minutes: balance.pending_minutes,
           }
         : EMPTY_CREDIT_BALANCE,
     };
