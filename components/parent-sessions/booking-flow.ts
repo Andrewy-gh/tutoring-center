@@ -3,6 +3,8 @@ import type { TutorOption } from '@/components/parent-sessions/pick-tutors';
 import { slotUnitsToMinutes } from '@/lib/billing-units';
 import type { AvailableSession } from '@/lib/validators/sessions';
 
+export type BookingProgressStep = 'student' | 'subject' | 'tutor' | 'date' | 'credits';
+
 export type Reservation = {
   student: StudentOption;
   subject: { id: number; slug: string; name: string };
@@ -10,8 +12,33 @@ export type Reservation = {
   session: AvailableSession;
 };
 
+const stepLabels: Record<BookingProgressStep, string> = {
+  student: 'Choose a student',
+  subject: 'Choose a subject',
+  tutor: 'Choose a tutor',
+  date: 'Choose a date and time',
+  credits: 'Add credits',
+};
+
 export function shouldStartAtSubjectStep(students: StudentOption[]) {
   return students.length === 1;
+}
+
+export function getBookingProgress(step: BookingProgressStep, studentCount: number) {
+  const baseSteps: BookingProgressStep[] =
+    studentCount === 1 ? ['subject', 'tutor', 'date'] : ['student', 'subject', 'tutor', 'date'];
+  const steps = step === 'credits' ? [...baseSteps, 'credits'] : baseSteps;
+  const currentStep = steps.indexOf(step);
+
+  if (currentStep === -1) {
+    throw new Error(`Unsupported booking step "${step}" for student count ${studentCount}`);
+  }
+
+  return {
+    currentStep: currentStep + 1,
+    totalSteps: steps.length,
+    currentStepLabel: stepLabels[step],
+  };
 }
 
 type SubjectSelectionLike = {
@@ -24,7 +51,8 @@ export function selectTutorsForSubject(tutors: TutorOption[], selection: Subject
 }
 
 export function getSessionSlotUnits(session: AvailableSession) {
-  const durationMinutes = (new Date(session.ends_at).getTime() - new Date(session.scheduled_at).getTime()) / (1000 * 60);
+  const durationMinutes =
+    (new Date(session.ends_at).getTime() - new Date(session.scheduled_at).getTime()) / (1000 * 60);
 
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes % 30 !== 0) {
     throw new Error('Selected session duration must be a positive multiple of 30 minutes');

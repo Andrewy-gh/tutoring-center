@@ -1,4 +1,5 @@
 import {
+  getBookingProgress,
   getSessionSlotUnits,
   selectTutorsForSubject,
   shouldBlockForCredits,
@@ -53,5 +54,41 @@ describe('booking-flow helpers', () => {
         ends_at: '2026-03-02T15:45:00.000Z',
       })
     ).toThrow('Selected session duration must be a positive multiple of 30 minutes');
+  });
+
+  it('counts booking steps for parents with multiple students', () => {
+    expect(getBookingProgress('student', 2)).toEqual({
+      currentStep: 1,
+      totalSteps: 4,
+      currentStepLabel: 'Choose a student',
+    });
+
+    expect(getBookingProgress('date', 2)).toEqual({
+      currentStep: 4,
+      totalSteps: 4,
+      currentStepLabel: 'Choose a date and time',
+    });
+  });
+
+  it('skips the student step when a parent only has one student', () => {
+    expect(getBookingProgress('subject', 1)).toEqual({
+      currentStep: 1,
+      totalSteps: 3,
+      currentStepLabel: 'Choose a subject',
+    });
+  });
+
+  it('adds the credits step only when the flow reaches checkout', () => {
+    expect(getBookingProgress('credits', 2)).toEqual({
+      currentStep: 5,
+      totalSteps: 5,
+      currentStepLabel: 'Add credits',
+    });
+
+    expect(getBookingProgress('credits', 1)).toEqual({
+      currentStep: 4,
+      totalSteps: 4,
+      currentStepLabel: 'Add credits',
+    });
   });
 });
