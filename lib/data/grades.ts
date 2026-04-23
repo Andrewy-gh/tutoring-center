@@ -37,7 +37,7 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
-export function percentageToLetterGrade(percentage: number): string {
+export function percentageToLetterGrade(percentage: number) {
   switch (true) {
     case percentage >= 97:
       return 'A+';

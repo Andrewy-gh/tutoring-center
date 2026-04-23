@@ -41,7 +41,7 @@ const AVAILABLE_SLOTS_ERROR_MESSAGES = {
 
 type TestDb = ReturnType<typeof createTestDatabase>['db'];
 
-async function insertUser(db: TestDb, args: { email: string; firstName: string; lastName: string }): Promise<number> {
+async function insertUser(db: TestDb, args: { email: string; firstName: string; lastName: string }) {
   const [row] = await db
     .insert(users)
     .values({
@@ -66,7 +66,7 @@ async function createFixture({
   db: TestDb;
   unique: string;
   withAvailability: boolean;
-}): Promise<Fixture> {
+}) {
   const tutorUserId = await insertUser(db, {
     email: `available-slots-tutor-${unique}@example.com`,
     firstName: 'Available',

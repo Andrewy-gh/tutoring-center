@@ -88,7 +88,7 @@ type StudentJoinRow = {
   phone: unknown;
 };
 
-function mapStudentJoinRow(row: StudentJoinRow): StudentWithJoins {
+function mapStudentJoinRow(row: StudentJoinRow) {
   return {
     id: row.id as number,
     user_id: row.userId as number,
@@ -132,7 +132,7 @@ const mapSessionRow = (
   session: StudentDetailSession,
   subjectMap: Map<number, { name: string }>,
   tutorMap: Map<number, { name: string }>
-): StudentSessionRow => {
+) => {
   return {
     id: session.id,
     scheduled_at: session.scheduled_at,

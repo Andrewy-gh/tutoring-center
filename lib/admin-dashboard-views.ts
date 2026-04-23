@@ -16,7 +16,7 @@ export const ADMIN_DASHBOARD_VIEW_TITLES: Record<ViewKey, string> = {
   'sessions-pending-billing': 'Sessions Pending Billing',
 };
 
-export function parseViewKey(value: string | undefined): ViewKey {
+export function parseViewKey(value: string | undefined) {
   const legacyAliases: Record<string, ViewKey> = {
     'at-risk': 'accounts-needing-attention',
     'credits-captured': 'sessions-billed',

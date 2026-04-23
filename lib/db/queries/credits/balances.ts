@@ -14,7 +14,7 @@ type SqlExecutor = {
   execute<T = unknown>(query: SQL): Promise<T>;
 };
 
-function isSqlExecutor(value: unknown): value is SqlExecutor {
+function isSqlExecutor(value: unknown) {
   return typeof value === 'object' && value !== null && 'execute' in value && typeof value.execute === 'function';
 }
 

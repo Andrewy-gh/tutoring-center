@@ -9,7 +9,7 @@ export const DATE_RANGE_OPTIONS: { value: DateRangeOption; label: string }[] = [
   { value: '6m', label: 'Last 6 months' },
 ];
 
-export function getUniqueSubjectsFromStudentData(data: StudentProgressData): Array<{ slug: string; name: string }> {
+export function getUniqueSubjectsFromStudentData(data: StudentProgressData) {
   const subjects = new Map<string, string>();
 
   for (const p of data.performance) {
@@ -33,7 +33,7 @@ export function getUniqueSubjectsFromStudentData(data: StudentProgressData): Arr
     .sort((left, right) => left.name.localeCompare(right.name) || left.slug.localeCompare(right.slug));
 }
 
-export function averagePerformanceByDate(items: PerformanceDataPoint[]): PerformanceDataPoint[] {
+export function averagePerformanceByDate(items: PerformanceDataPoint[]) {
   const byDate = new Map<string, { scores: number[]; original: PerformanceDataPoint[] }>();
 
   for (const item of items) {
@@ -58,7 +58,7 @@ export function averagePerformanceByDate(items: PerformanceDataPoint[]): Perform
   return result;
 }
 
-export function averageConfidenceByDate(items: ConfidenceDataPoint[]): ConfidenceDataPoint[] {
+export function averageConfidenceByDate(items: ConfidenceDataPoint[]) {
   const byDate = new Map<string, { scores: number[]; original: ConfidenceDataPoint[] }>();
 
   for (const item of items) {

@@ -3,7 +3,7 @@ import * as schema from '@/lib/db/schema';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
-function requireEnv(name: string): string {
+function requireEnv(name: string) {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing env var: ${name}`);

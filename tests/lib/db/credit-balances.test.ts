@@ -9,11 +9,7 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
-type QueuedExecutor = {
-  execute<T>(query: unknown): Promise<T>;
-};
-
-function createQueuedExecutor(responses: unknown[]): QueuedExecutor {
+function createQueuedExecutor(responses: unknown[]) {
   let index = 0;
 
   return {

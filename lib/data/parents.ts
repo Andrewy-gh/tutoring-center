@@ -86,7 +86,7 @@ const countStudentsByParent = (rows: ParentListJoinRow[]) => {
   return studentIdsByParent;
 };
 
-const mapParentRow = (parent: ParentListJoinRow, studentCount: number): ParentRow => ({
+const mapParentRow = (parent: ParentListJoinRow, studentCount: number) => ({
   id: parent.id,
   user_id: parent.userId,
   name: parseName(parent.firstName, parent.lastName),
@@ -96,7 +96,7 @@ const mapParentRow = (parent: ParentListJoinRow, studentCount: number): ParentRo
   credit_balance_info: minutesToCredits(parent.availableMinutes ?? 0),
 });
 
-const mapParentStudentRow = (row: Extract<ParentDetailJoinRow, { studentId: number }>): ParentStudentRow => ({
+const mapParentStudentRow = (row: Extract<ParentDetailJoinRow, { studentId: number }>) => ({
   id: row.studentId,
   user_id: row.studentUserId,
   name: parseName(row.studentFirstName, row.studentLastName),
@@ -105,7 +105,7 @@ const mapParentStudentRow = (row: Extract<ParentDetailJoinRow, { studentId: numb
   grade: row.studentGrade ?? MISSING_VALUE,
 });
 
-const mapParentDetail = (rows: ParentDetailJoinRow[]): ParentProfileDetail | null => {
+const mapParentDetail = (rows: ParentDetailJoinRow[]) => {
   const [parent] = rows;
   if (!parent) {
     return null;
@@ -176,7 +176,7 @@ export async function getParents(role: UserRole) {
   );
 }
 
-export async function getParent(userID: number, role: UserRole): Promise<ParentProfileDetail> {
+export async function getParent(userID: number, role: UserRole) {
   ensureAdminRole(role);
 
   const studentUsers = alias(users, 'student_users');

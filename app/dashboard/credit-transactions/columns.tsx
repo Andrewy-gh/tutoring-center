@@ -16,9 +16,7 @@ import {
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 
-type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary';
-
-function getTypeBadgeVariant(type: TransactionType): BadgeVariant {
+function getTypeBadgeVariant(type: TransactionType) {
   switch (type) {
     case 'purchase':
       return 'default';
@@ -38,7 +36,7 @@ function getTypeBadgeVariant(type: TransactionType): BadgeVariant {
   }
 }
 
-export function getColumns(role: UserRole): ColumnDef<CreditTransactionRow>[] {
+export function getColumns(role: UserRole) {
   const columns: ColumnDef<CreditTransactionRow>[] = [
     {
       id: 'date',

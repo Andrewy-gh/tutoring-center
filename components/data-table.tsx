@@ -83,7 +83,7 @@ export function DataTableSearch({ placeholder = 'Search' }: DataTableSearchProps
 
 function normalizeFilterOption<TValue extends string>(
   option: DataTableFilterInputOption<TValue>
-): DataTableFilterOption<TValue> {
+) {
   if (typeof option === 'string') {
     return { label: option, value: option };
   }
