@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/components/add-credits';
-import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import {
+  getBookingProgress,
   getSessionDurationMinutes,
   getSessionSlotUnits,
   selectTutorsForSubject,
@@ -12,6 +12,7 @@ import {
   shouldStartAtSubjectStep,
   type Reservation,
 } from '@/components/parent-sessions/booking-flow';
+import { BookingStepCounter } from '@/components/parent-sessions/booking-step-counter';
 import { BookingSuccessDetails } from '@/components/parent-sessions/booking-success-details';
 import { LowCreditsToast } from '@/components/parent-sessions/low-credits-toast';
 import { PickDate } from '@/components/parent-sessions/pick-date';
@@ -20,6 +21,7 @@ import { PickSubject } from '@/components/parent-sessions/pick-subjects';
 import { PickTutor, type TutorOption } from '@/components/parent-sessions/pick-tutors';
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent } from '@/components/ui/card';
+import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import type { CreditBalance } from '@/lib/credit-balances';
 import { purchaseParentCredits } from '@/lib/data/credit-mutations';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
@@ -88,6 +90,34 @@ export function BookingScreen({
       />
     ) : null;
 
+  function renderStep(
+    step: 'student' | 'subject' | 'tutor' | 'date' | 'credits',
+    content: ReactNode,
+    error?: string | null
+  ) {
+    const progress = getBookingProgress(step, students.length);
+
+    return (
+      <>
+        {lowCreditsToast}
+        <div className='mx-auto w-full max-w-3xl px-6 pt-6 pb-0'>
+          <BookingStepCounter
+            currentStep={progress.currentStep}
+            totalSteps={progress.totalSteps}
+            currentStepLabel={progress.currentStepLabel}
+            stepLabels={progress.stepLabels}
+          />
+        </div>
+        {error ? (
+          <p className='mx-auto mt-6 w-full max-w-3xl rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+            {error}
+          </p>
+        ) : null}
+        {content}
+      </>
+    );
+  }
+
   async function createSession(reservation: Reservation) {
     const slotUnits = getSessionSlotUnits(reservation.session);
 
@@ -139,174 +169,158 @@ export function BookingScreen({
 
   switch (bookingState.step) {
     case 'student':
-      return (
-        <>
-          {lowCreditsToast}
-          <PickStudent
-            students={students}
-            onSelect={student => setBookingState({ step: 'subject', student })}
-            onBack={() => router.back()}
-          />
-        </>
+      return renderStep(
+        'student',
+        <PickStudent
+          students={students}
+          onSelect={student => setBookingState({ step: 'subject', student })}
+          onBack={() => router.back()}
+        />
       );
     case 'subject':
-      return (
-        <>
-          {lowCreditsToast}
-          <PickSubject
-            subjects={subjects}
-            studentFirstName={getFirstName(bookingState.student.name)}
-            onSelectAction={selection => setBookingState({ step: 'tutor', student: bookingState.student, selection })}
-            onBackAction={() => {
-              if (students.length === 1) {
-                router.back();
-              } else {
-                setBookingState({ step: 'student' });
-              }
-            }}
-          />
-        </>
+      return renderStep(
+        'subject',
+        <PickSubject
+          subjects={subjects}
+          studentFirstName={getFirstName(bookingState.student.name)}
+          onSelectAction={selection => setBookingState({ step: 'tutor', student: bookingState.student, selection })}
+          onBackAction={() => {
+            if (students.length === 1) {
+              router.back();
+            } else {
+              setBookingState({ step: 'student' });
+            }
+          }}
+        />
       );
     case 'tutor': {
       const tutorOptions = selectTutorsForSubject(tutors, bookingState.selection);
 
-      return (
-        <>
-          {lowCreditsToast}
-          <PickTutor
-            subject={bookingState.selection.subject}
-            assignments={bookingState.selection.assignments}
-            tutors={tutorOptions}
-            onSelect={({ tutor, subjectId }) =>
-              setBookingState({
-                step: 'date',
-                student: bookingState.student,
-                selection: bookingState.selection,
-                tutor,
-                subjectId,
-              })
-            }
-            onBack={() => setBookingState({ step: 'subject', student: bookingState.student })}
-          />
-        </>
+      return renderStep(
+        'tutor',
+        <PickTutor
+          subject={bookingState.selection.subject}
+          assignments={bookingState.selection.assignments}
+          tutors={tutorOptions}
+          onSelect={({ tutor, subjectId }) =>
+            setBookingState({
+              step: 'date',
+              student: bookingState.student,
+              selection: bookingState.selection,
+              tutor,
+              subjectId,
+            })
+          }
+          onBack={() => setBookingState({ step: 'subject', student: bookingState.student })}
+        />
       );
     }
     case 'date':
-      return (
-        <>
-          {lowCreditsToast}
-          {checkoutError ? (
-            <p className='mx-auto mb-2 w-full max-w-3xl rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-              {checkoutError}
-            </p>
-          ) : null}
-          <main className='mx-auto max-w-3xl space-y-6 p-6'>
-            <PickDate
-              subject={{
-                id: bookingState.subjectId,
-                slug: bookingState.selection.subject.slug,
-                name: bookingState.selection.subject.name,
-              }}
-              tutor={{ id: bookingState.tutor.id, name: bookingState.tutor.name }}
-              todayStartMs={todayStartMs}
-              onBackAction={() =>
-                setBookingState({ step: 'tutor', student: bookingState.student, selection: bookingState.selection })
+      return renderStep(
+        'date',
+        <main className='mx-auto max-w-3xl space-y-6 p-6'>
+          <PickDate
+            subject={{
+              id: bookingState.subjectId,
+              slug: bookingState.selection.subject.slug,
+              name: bookingState.selection.subject.name,
+            }}
+            tutor={{ id: bookingState.tutor.id, name: bookingState.tutor.name }}
+            todayStartMs={todayStartMs}
+            onBackAction={() =>
+              setBookingState({ step: 'tutor', student: bookingState.student, selection: bookingState.selection })
+            }
+            onConfirmAction={session => {
+              const requiredMinutes = getSessionDurationMinutes(session);
+              const reservation: Reservation = {
+                student: bookingState.student,
+                subject: {
+                  id: bookingState.subjectId,
+                  slug: bookingState.selection.subject.slug,
+                  name: bookingState.selection.subject.name,
+                },
+                tutor: bookingState.tutor,
+                session,
+              };
+
+              if (shouldBlockForCredits(balance.available_minutes, requiredMinutes)) {
+                setBookingState({ step: 'credits', reservation, selection: bookingState.selection });
+                return;
               }
-              onConfirmAction={session => {
-                const requiredMinutes = getSessionDurationMinutes(session);
-                const reservation: Reservation = {
-                  student: bookingState.student,
-                  subject: {
-                    id: bookingState.subjectId,
-                    slug: bookingState.selection.subject.slug,
-                    name: bookingState.selection.subject.name,
-                  },
-                  tutor: bookingState.tutor,
-                  session,
-                };
 
-                if (shouldBlockForCredits(balance.available_minutes, requiredMinutes)) {
-                  setBookingState({ step: 'credits', reservation, selection: bookingState.selection });
-                  return;
-                }
-
-                void completeBooking(reservation).catch(error => {
-                  const message =
-                    error instanceof Error ? error.message : 'Could not complete booking right now. Please try again.';
-                  setCheckoutError(message);
-                });
-              }}
-            />
-          </main>
-        </>
+              void completeBooking(reservation).catch(error => {
+                const message =
+                  error instanceof Error ? error.message : 'Could not complete booking right now. Please try again.';
+                setCheckoutError(message);
+              });
+            }}
+          />
+        </main>,
+        checkoutError
       );
     case 'credits': {
       const creditsRequired = minutesToCredits(getSessionDurationMinutes(bookingState.reservation.session));
-      return (
-        <>
-          {lowCreditsToast}
-          {checkoutError ? (
-            <p className='mx-auto mb-2 w-full max-w-3xl rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-              {checkoutError}
-            </p>
-          ) : null}
-          <AddCredits
-            submitButtonText='Buy credits and book session'
-            showSuccessCard={false}
-            onBackAction={() =>
+      return renderStep(
+        'credits',
+        <AddCredits
+          submitButtonText='Buy credits and book session'
+          showSuccessCard={false}
+          onBackAction={() =>
+            setBookingState({
+              step: 'date',
+              student: bookingState.reservation.student,
+              selection: bookingState.selection,
+              tutor: bookingState.reservation.tutor,
+              subjectId: bookingState.reservation.subject.id,
+            })
+          }
+          onPurchaseCompleteAction={async purchase => {
+            let purchaseResult: {
+              balance: CreditBalance;
+              warning?: string;
+            } | null = null;
+
+            try {
+              purchaseResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
+              setBalance(purchaseResult.balance);
+              await completeBooking(bookingState.reservation, purchase, purchaseResult.warning);
+            } catch {
+              setCheckoutError(
+                purchaseResult
+                  ? 'Credits were added, but the reservation could not be completed. Please choose a new time and try again.'
+                  : 'Could not complete the credit purchase right now. Please try again.'
+              );
               setBookingState({
                 step: 'date',
                 student: bookingState.reservation.student,
                 selection: bookingState.selection,
                 tutor: bookingState.reservation.tutor,
                 subjectId: bookingState.reservation.subject.id,
-              })
+              });
             }
-            onPurchaseCompleteAction={async purchase => {
-              let purchaseResult: {
-                balance: CreditBalance;
-                warning?: string;
-              } | null = null;
-
-              try {
-                purchaseResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
-                setBalance(purchaseResult.balance);
-                await completeBooking(bookingState.reservation, purchase, purchaseResult.warning);
-              } catch {
-                setCheckoutError(
-                  purchaseResult
-                    ? 'Credits were added, but the reservation could not be completed. Please choose a new time and try again.'
-                    : 'Could not complete the credit purchase right now. Please try again.'
-                );
-                setBookingState({
-                  step: 'date',
-                  student: bookingState.reservation.student,
-                  selection: bookingState.selection,
-                  tutor: bookingState.reservation.tutor,
-                  subjectId: bookingState.reservation.subject.id,
-                });
-              }
-            }}
-          >
-            <Card>
-              <CardContent className='pt-6 text-sm text-muted-foreground space-y-1'>
-                <p className='font-semibold text-foreground'>Pending reservation</p>
-                <p>Student: {bookingState.reservation.student.name}</p>
-                <p>When: {formatSessionDateTime(new Date(bookingState.reservation.session.scheduled_at))}</p>
-                <p>Subject: {bookingState.reservation.subject.name}</p>
-                <p>Tutor: {bookingState.reservation.tutor.name}</p>
-                <p>
-                  Credits required: {creditsRequired} {creditsRequired === 1 ? 'credit' : 'credits'}
-                </p>
-              </CardContent>
-            </Card>
-          </AddCredits>
-        </>
+          }}
+        >
+          <Card>
+            <CardContent className='pt-6 text-sm text-muted-foreground space-y-1'>
+              <p className='font-semibold text-foreground'>Pending reservation</p>
+              <p>Student: {bookingState.reservation.student.name}</p>
+              <p>When: {formatSessionDateTime(new Date(bookingState.reservation.session.scheduled_at))}</p>
+              <p>Subject: {bookingState.reservation.subject.name}</p>
+              <p>Tutor: {bookingState.reservation.tutor.name}</p>
+              <p>
+                Credits required: {creditsRequired} {creditsRequired === 1 ? 'credit' : 'credits'}
+              </p>
+            </CardContent>
+          </Card>
+        </AddCredits>,
+        checkoutError
       );
     }
     case 'success': {
       const wasPurchased = Boolean(bookingState.purchase);
-      const reservedCredits = minutesToCredits(slotUnitsToMinutes(getSessionSlotUnits(bookingState.reservation.session)));
+      const reservedCredits = minutesToCredits(
+        slotUnitsToMinutes(getSessionSlotUnits(bookingState.reservation.session))
+      );
       return (
         <>
           {lowCreditsToast}
