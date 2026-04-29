@@ -1,5 +1,5 @@
 import { forbidden } from 'next/navigation';
-import { isUserRole, type UserRole } from '@/lib/auth';
+import { isValidRole, type UserRole } from '@/lib/auth';
 import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
@@ -168,7 +168,7 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
 }
 
 export async function getSubjects(role: UserRole) {
-  if (!isUserRole(role)) {
+  if (!isValidRole(role)) {
     throw new Error('Role is required to fetch students.');
   }
 

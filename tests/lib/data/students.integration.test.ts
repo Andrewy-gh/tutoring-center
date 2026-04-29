@@ -8,7 +8,8 @@ const { mockGetCurrentUserID } = vi.hoisted(() => ({
   mockGetCurrentUserID: vi.fn(),
 }));
 
-vi.mock('@/lib/auth', () => ({
+vi.mock('@/lib/auth', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/auth')>()),
   getCurrentUserID: mockGetCurrentUserID,
 }));
 

@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
-import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, getUserRole, isValidRole, type UserRole } from '@/lib/auth';
+import { slotUnitsToHours } from '@/lib/billing-units';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId, getTutorIdByUserId } from '@/lib/db/queries/actors';
 import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/lib/db/queries/sessions/list';
 import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/lib/db/schema';
-import { slotUnitsToHours } from '@/lib/billing-units';
 import { type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -148,7 +148,6 @@ export type SessionDataServiceDeps = {
 };
 
 const SCHEDULED_SESSION_STATUSES = new Set(['Scheduled']);
-const isValidRole = (value: unknown): value is UserRole => value === 'admin' || value === 'parent' || value === 'tutor';
 
 const SESSION_ERROR_MESSAGES: Record<UserRole, Record<SessionLoadErrorReason, string>> = {
   admin: {

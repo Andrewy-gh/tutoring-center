@@ -17,20 +17,12 @@ export function slotUnitsToMinutes(slotUnits: number) {
   return slotUnits * MINUTES_PER_SLOT;
 }
 
-export function minutesToSlotUnits(minutes: number) {
-  return minutes / MINUTES_PER_SLOT;
-}
-
 export function minutesToHours(minutes: number) {
   return minutes / MINUTES_PER_HOUR;
 }
 
 export function slotUnitsToHours(slotUnits: number) {
   return minutesToHours(slotUnitsToMinutes(slotUnits));
-}
-
-export function hoursToSlotUnits(hours: number) {
-  return minutesToSlotUnits(creditsToMinutes(hours));
 }
 
 export function formatHours(value: number) {
