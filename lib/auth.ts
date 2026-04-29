@@ -17,10 +17,6 @@ export function isValidRole(value: unknown): value is UserRole {
   return value === 'admin' || value === 'parent' || value === 'tutor';
 }
 
-export function isUserRole(value: unknown): value is UserRole {
-  return value === 'admin' || value === 'parent' || value === 'tutor';
-}
-
 export async function getUserRole() {
   const cookieStore = await cookies();
   const role = cookieStore.get(USER_ROLE_COOKIE_NAME)?.value;
@@ -62,7 +58,7 @@ export async function login(formData: FormData) {
   'use server';
 
   const role = formData.get('role');
-  if (!isUserRole(role)) {
+  if (!isValidRole(role)) {
     throw new Error('Invalid role');
   }
 

@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { getCurrentUserID, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
@@ -48,8 +48,6 @@ export type StudentProfileDetail = {
 
 type StudentLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
-
-const isValidRole = (value: unknown): value is UserRole => value === 'admin' || value === 'parent' || value === 'tutor';
 
 const STUDENT_ERROR_MESSAGES = {
   admin: {
