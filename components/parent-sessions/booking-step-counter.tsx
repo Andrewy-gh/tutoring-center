@@ -1,5 +1,4 @@
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type BookingStepCounterProps = {
   currentStep: number;
@@ -8,38 +7,47 @@ type BookingStepCounterProps = {
 };
 
 export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel }: BookingStepCounterProps) {
-  const completionPercent = (currentStep / totalSteps) * 100;
+  const steps = Array.from({ length: totalSteps }, (_, index) => index + 1);
 
   return (
-    <Card className='border-primary/15 bg-muted/30'>
-      <CardContent className='space-y-4 p-4'>
-        <div className='flex items-start justify-between gap-3'>
-          <div className='space-y-1'>
-            <p className='text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase'>Booking progress</p>
-            <p className='text-lg font-semibold'>
-              Step {currentStep} of {totalSteps}
-            </p>
-            <p className='text-sm text-muted-foreground'>Current step: {currentStepLabel}</p>
-          </div>
-          <Badge variant='secondary'>
-            {currentStep}/{totalSteps}
-          </Badge>
-        </div>
+    <div className='space-y-5'>
+      <div className='space-y-1'>
+        <p className='text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase'>Booking progress</p>
+        <p className='text-lg font-semibold'>
+          Step {currentStep} of {totalSteps}
+        </p>
+      </div>
 
-        <div
-          aria-label={`Step ${currentStep} of ${totalSteps}`}
-          aria-valuemax={totalSteps}
-          aria-valuemin={1}
-          aria-valuenow={currentStep}
-          className='bg-border h-2 w-full rounded-full'
-          role='progressbar'
-        >
-          <div
-            className='bg-primary h-full rounded-full transition-[width]'
-            style={{ width: `${completionPercent}%` }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+      <div aria-label={`Step ${currentStep} of ${totalSteps}: ${currentStepLabel}`} className='flex items-center' role='list'>
+        {steps.map(step => {
+          const isComplete = step < currentStep;
+          const isCurrent = step === currentStep;
+
+          return (
+            <div className='flex flex-1 items-center last:flex-none' key={step} role='listitem'>
+              <div
+                aria-current={isCurrent ? 'step' : undefined}
+                className={cn(
+                  'flex size-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors',
+                  isComplete && 'border-primary bg-muted text-primary',
+                  isCurrent && 'border-primary bg-muted text-primary',
+                  !isComplete && !isCurrent && 'border-muted-foreground/45 bg-muted text-muted-foreground'
+                )}
+              >
+                {step}
+              </div>
+              {step < totalSteps ? (
+                <div
+                  className={cn(
+                    'mx-2 h-1 min-w-8 flex-1 rounded-full transition-colors',
+                    isComplete ? 'bg-primary' : 'bg-muted-foreground/35'
+                  )}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
