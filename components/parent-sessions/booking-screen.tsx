@@ -105,6 +105,7 @@ export function BookingScreen({
             currentStep={progress.currentStep}
             totalSteps={progress.totalSteps}
             currentStepLabel={progress.currentStepLabel}
+            stepLabels={progress.stepLabels}
           />
         </div>
         {error ? (

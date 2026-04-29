@@ -61,12 +61,14 @@ describe('booking-flow helpers', () => {
       currentStep: 1,
       totalSteps: 4,
       currentStepLabel: 'Choose a student',
+      stepLabels: ['Choose a student', 'Choose a subject', 'Choose a tutor', 'Choose a date and time'],
     });
 
     expect(getBookingProgress('date', 2)).toEqual({
       currentStep: 4,
       totalSteps: 4,
       currentStepLabel: 'Choose a date and time',
+      stepLabels: ['Choose a student', 'Choose a subject', 'Choose a tutor', 'Choose a date and time'],
     });
   });
 
@@ -75,6 +77,7 @@ describe('booking-flow helpers', () => {
       currentStep: 1,
       totalSteps: 3,
       currentStepLabel: 'Choose a subject',
+      stepLabels: ['Choose a subject', 'Choose a tutor', 'Choose a date and time'],
     });
   });
 
@@ -83,12 +86,14 @@ describe('booking-flow helpers', () => {
       currentStep: 5,
       totalSteps: 5,
       currentStepLabel: 'Add credits',
+      stepLabels: ['Choose a student', 'Choose a subject', 'Choose a tutor', 'Choose a date and time', 'Add credits'],
     });
 
     expect(getBookingProgress('credits', 1)).toEqual({
       currentStep: 4,
       totalSteps: 4,
       currentStepLabel: 'Add credits',
+      stepLabels: ['Choose a subject', 'Choose a tutor', 'Choose a date and time', 'Add credits'],
     });
   });
 });

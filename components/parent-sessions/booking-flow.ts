@@ -27,7 +27,7 @@ export function shouldStartAtSubjectStep(students: StudentOption[]) {
 export function getBookingProgress(step: BookingProgressStep, studentCount: number) {
   const baseSteps: BookingProgressStep[] =
     studentCount === 1 ? ['subject', 'tutor', 'date'] : ['student', 'subject', 'tutor', 'date'];
-  const steps = step === 'credits' ? [...baseSteps, 'credits'] : baseSteps;
+  const steps: BookingProgressStep[] = step === 'credits' ? [...baseSteps, 'credits'] : baseSteps;
   const currentStep = steps.indexOf(step);
 
   if (currentStep === -1) {
@@ -38,6 +38,7 @@ export function getBookingProgress(step: BookingProgressStep, studentCount: numb
     currentStep: currentStep + 1,
     totalSteps: steps.length,
     currentStepLabel: stepLabels[step],
+    stepLabels: steps.map(stepName => stepLabels[stepName]),
   };
 }
 

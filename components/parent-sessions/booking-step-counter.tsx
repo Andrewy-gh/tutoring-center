@@ -4,9 +4,10 @@ type BookingStepCounterProps = {
   currentStep: number;
   totalSteps: number;
   currentStepLabel: string;
+  stepLabels: string[];
 };
 
-export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel }: BookingStepCounterProps) {
+export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel, stepLabels }: BookingStepCounterProps) {
   const steps = Array.from({ length: totalSteps }, (_, index) => index + 1);
 
   return (
@@ -22,11 +23,19 @@ export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel }
         {steps.map(step => {
           const isComplete = step < currentStep;
           const isCurrent = step === currentStep;
+          const stepStatus = isCurrent ? 'current step' : isComplete ? 'completed' : 'not started';
+          const stepLabel = stepLabels[step - 1];
 
           return (
-            <div className='flex flex-1 items-center last:flex-none' key={step} role='listitem'>
+            <div
+              aria-current={isCurrent ? 'step' : undefined}
+              aria-label={`Step ${step} of ${totalSteps}: ${stepLabel}, ${stepStatus}`}
+              className='flex flex-1 items-center last:flex-none'
+              key={step}
+              role='listitem'
+            >
               <div
-                aria-current={isCurrent ? 'step' : undefined}
+                aria-hidden='true'
                 className={cn(
                   'flex size-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors',
                   isComplete && 'border-primary bg-muted text-primary',
@@ -38,6 +47,7 @@ export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel }
               </div>
               {step < totalSteps ? (
                 <div
+                  aria-hidden='true'
                   className={cn(
                     'mx-2 h-1 min-w-8 flex-1 rounded-full transition-colors',
                     isComplete ? 'bg-primary' : 'bg-muted-foreground/35'
