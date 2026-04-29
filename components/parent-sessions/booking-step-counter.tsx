@@ -49,7 +49,7 @@ export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel, 
                 <div
                   aria-hidden='true'
                   className={cn(
-                    'mx-2 h-1 min-w-8 flex-1 rounded-full transition-colors',
+                    'mx-1 h-1 min-w-0 flex-1 rounded-full transition-colors sm:mx-2 sm:min-w-8',
                     isComplete ? 'bg-primary' : 'bg-muted-foreground/35'
                   )}
                 />
