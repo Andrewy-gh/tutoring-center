@@ -28,7 +28,7 @@ interface ParentProgressDashboardProps {
   grades: GradeDataPoint[];
 }
 
-function isWithinDateRange(dateStr: string, range: DateRangeOption): boolean {
+function isWithinDateRange(dateStr: string, range: DateRangeOption) {
   if (range === 'all') return true;
 
   const date = parseISO(dateStr);

@@ -129,7 +129,7 @@ const toAvailabilitySummary = (availability: TutorOptionQueryRow['availability']
   return `${chunks.slice(0, 2).join(' • ')} +${chunks.length - 2} more`;
 };
 
-const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => ({
+const mapTutorOption = (tutor: TutorOptionQueryRow) => ({
   id: tutor.id,
   user_id: tutor.user_id,
   name: [tutor.first_name, tutor.last_name].filter(Boolean).join(' ').trim() || MISSING_VALUE,
@@ -138,7 +138,7 @@ const mapTutorOption = (tutor: TutorOptionQueryRow): TutorOption => ({
   typicalAvailability: toAvailabilitySummary(tutor.availability),
 });
 
-const groupTutorOptions = (rows: TutorOptionJoinRow[]): TutorOptionQueryRow[] => {
+const groupTutorOptions = (rows: TutorOptionJoinRow[]) => {
   const tutorsById = new Map<number, TutorOptionQueryRow>();
 
   for (const row of rows) {

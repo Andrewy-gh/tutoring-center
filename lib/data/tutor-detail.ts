@@ -26,7 +26,7 @@ export type TutorDetailType = {
 
 const MISSING_VALUE = '—';
 
-const mapTutorDetail = (tutor: TutorJoinRow): TutorDetailType => ({
+const mapTutorDetail = (tutor: TutorJoinRow) => ({
   id: tutor.id,
   user_id: tutor.userId,
   first_name: tutor.firstName ?? '',
@@ -40,7 +40,7 @@ const mapTutorDetail = (tutor: TutorJoinRow): TutorDetailType => ({
   years_experience: tutor.yearsExperience ?? 0,
 });
 
-export async function getTutor(id: number): Promise<TutorDetailType> {
+export async function getTutor(id: number) {
   let rawRow: unknown;
   try {
     const db = await getDb();

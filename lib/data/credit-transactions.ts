@@ -98,7 +98,7 @@ function mapTransactionStudent(row: {
   student_email: string | null;
   student_phone: string | null;
   student_grade: string | null;
-}): CreditTransactionStudent | null {
+}) {
   if (!row.student_id) {
     return null;
   }
@@ -126,7 +126,7 @@ function mapTransactionRow(row: {
   student_id: number | null;
   student_first_name: string | null;
   student_last_name: string | null;
-}): CreditTransactionRow {
+}) {
   return {
     id: row.id,
     created_at: row.created_at,
@@ -162,7 +162,7 @@ export async function getCreditTransactions(role: UserRole) {
   return rows.map(mapTransactionRow);
 }
 
-export async function getCreditTransaction(id: number, role: UserRole): Promise<CreditTransactionDetail> {
+export async function getCreditTransaction(id: number, role: UserRole) {
   if (!isValidRole(role)) {
     throw new Error('Role is required to fetch credit transactions.');
   }

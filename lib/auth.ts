@@ -13,7 +13,7 @@ const USER_ID_COOKIE_MAX_AGE = 60 * 60 * 1; // 1 hour
 
 export const ADMIN_ONLY_ROUTES = ['/dashboard/tutors', '/dashboard/parents'];
 
-export function isValidRole(value: unknown): value is UserRole {
+export function isValidRole(value: unknown) {
   return value === 'admin' || value === 'parent' || value === 'tutor';
 }
 
@@ -36,7 +36,7 @@ export async function getCurrentUserID() {
   return parseInt(id, 10);
 }
 
-export async function getUserIdByRole(role: UserRole): Promise<string | null> {
+export async function getUserIdByRole(role: UserRole) {
   try {
     const userId = await getUserIdForRole(role);
     return userId?.toString() ?? null;
@@ -45,7 +45,7 @@ export async function getUserIdByRole(role: UserRole): Promise<string | null> {
   }
 }
 
-export async function getCurrentUserName(): Promise<string | null> {
+export async function getCurrentUserName() {
   const userId = await getCurrentUserID();
   try {
     return await getUserNameById(userId);

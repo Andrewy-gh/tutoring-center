@@ -172,7 +172,7 @@ const mapSessionRow = (
   session: SessionListQueryRow,
   subjectMap: Map<number, SubjectSummary>,
   tutorMap: Map<number, Pick<TutorSummary, 'name' | 'email'>>
-): SessionRow => {
+) => {
   const tutor = tutorMap.get(session.tutor_id) ?? { name: '—', email: '' };
   const subjectName = subjectMap.get(session.subject_id)?.name ?? 'Unknown';
 
@@ -203,7 +203,7 @@ const compareSessionRows = (left: SessionRow, right: SessionRow) => {
   return new Date(right.scheduled_at).getTime() - new Date(left.scheduled_at).getTime();
 };
 
-async function getSessionDetail(id: number): Promise<SessionDetailRow | null> {
+async function getSessionDetail(id: number) {
   const db = await getDb();
   const studentUsers = alias(users, 'session_detail_student_users');
   const parentUsers = alias(users, 'session_detail_parent_users');
@@ -247,7 +247,7 @@ async function getSessionDetail(id: number): Promise<SessionDetailRow | null> {
   return rows[0] ?? null;
 }
 
-async function getTutorAssignedSessionRows(tutorId: number): Promise<TutorAssignedSessionRow[]> {
+async function getTutorAssignedSessionRows(tutorId: number) {
   const db = await getDb();
   const studentUsers = alias(users, 'assigned_student_users');
 
@@ -278,7 +278,7 @@ async function getStudentRecentProgressRows(
   sessionIdToExclude: number,
   limit: number,
   nowIso: string
-): Promise<StudentRecentProgressRow[]> {
+) {
   const db = await getDb();
 
   return db
@@ -352,7 +352,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
       return parsedSessions.data.map(session => mapSessionRow(session, subjectMap, tutorMap)).sort(compareSessionRows);
     },
 
-    async getSession(id: number): Promise<SessionDetailType> {
+    async getSession(id: number) {
       const role = await deps.getUserRole();
       const data = await deps.getSessionDetail(id);
 
@@ -425,7 +425,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
       };
     },
 
-    async getTutorAssignedSessions(): Promise<TutorAssignedSession[]> {
+    async getTutorAssignedSessions() {
       const role = await deps.getUserRole();
       if (role !== 'tutor') {
         return [];
@@ -472,7 +472,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
       studentId: number,
       sessionIdToExclude: number,
       limit: number = 5
-    ): Promise<StudentProgressHistory[]> {
+    ) {
       try {
         const rows = await deps.getStudentRecentProgressRows(studentId, sessionIdToExclude, limit, deps.now());
         const tutorMap = await deps.getTutorProfileMapByIds(rows.map(session => session.tutor_id));

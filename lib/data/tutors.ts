@@ -39,7 +39,7 @@ const TUTOR_ERROR_MESSAGES = {
   },
 } as const;
 
-const mapTutorRow = (tutor: TutorJoinRow): TutorRow => ({
+const mapTutorRow = (tutor: TutorJoinRow) => ({
   id: tutor.id,
   user_id: tutor.userId,
   name: [tutor.firstName, tutor.lastName].filter(Boolean).join(' '),

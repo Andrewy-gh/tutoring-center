@@ -14,7 +14,7 @@ const LETTER_GRADE_TO_NUMBER: Record<string, number> = {
   F: 50,
 };
 
-export function letterGradeToNumber(grade: string): number {
+export function letterGradeToNumber(grade: string) {
   return LETTER_GRADE_TO_NUMBER[grade] ?? 0;
 }
 
@@ -34,6 +34,6 @@ const NUMBER_TO_LETTER: Record<number, string> = {
   50: 'F',
 };
 
-export function numberToLetterGrade(num: number): string {
+export function numberToLetterGrade(num: number) {
   return NUMBER_TO_LETTER[num] ?? 'F';
 }

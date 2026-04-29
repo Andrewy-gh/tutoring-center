@@ -76,7 +76,7 @@ async function getScopedParentId(role: AllowedRole) {
   return parentId;
 }
 
-function mapCreditHistoryItem(transaction: CreditHistoryRow): StudentCreditHistoryItem {
+function mapCreditHistoryItem(transaction: CreditHistoryRow) {
   return {
     ...transaction,
     net_amount: getNetCreditDelta(transaction),
@@ -84,7 +84,7 @@ function mapCreditHistoryItem(transaction: CreditHistoryRow): StudentCreditHisto
   };
 }
 
-export async function getStudentDashboardDetails(studentId: number, role: UserRole): Promise<StudentDashboardDetails> {
+export async function getStudentDashboardDetails(studentId: number, role: UserRole) {
   if (!isValidRole(role)) {
     throw new Error('Role is required to fetch student dashboard data.');
   }

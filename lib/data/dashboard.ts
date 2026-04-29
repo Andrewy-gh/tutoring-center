@@ -61,7 +61,7 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
-function getSubjectSummary(subjectMap: Map<number, SubjectSummary>, subjectId: number): SubjectSummary {
+function getSubjectSummary(subjectMap: Map<number, SubjectSummary>, subjectId: number) {
   return subjectMap.get(subjectId) ?? { name: 'Unknown', slug: 'unknown' };
 }
 
@@ -107,7 +107,7 @@ async function getCompletedSessionMetrics(dateRange?: DateRange, studentIds?: nu
   return rows;
 }
 
-function getEmptyStudentProgress(studentId: number, studentName: string): StudentProgressData {
+function getEmptyStudentProgress(studentId: number, studentName: string) {
   return {
     studentId,
     studentName,
@@ -122,7 +122,7 @@ function buildStudentProgress(
   studentName: string,
   sessionRows: SessionMetricsRow[],
   subjectMap: Map<number, SubjectSummary>
-): StudentProgressData {
+) {
   const performance: PerformanceDataPoint[] = [];
   const confidence: ConfidenceDataPoint[] = [];
   const homework: HomeworkDataPoint[] = [];
@@ -174,7 +174,7 @@ export async function getStudentProgressData(
   studentId: number,
   studentName: string,
   dateRange?: DateRange
-): Promise<StudentProgressData> {
+) {
   try {
     const sessionRows = await getCompletedSessionMetrics(dateRange, [studentId]);
     if (sessionRows.length === 0) {
@@ -188,7 +188,7 @@ export async function getStudentProgressData(
   }
 }
 
-export async function getStudentsWithProgress(dateRange?: DateRange, subject?: string): Promise<StudentProgressData[]> {
+export async function getStudentsWithProgress(dateRange?: DateRange, subject?: string) {
   const role = await getUserRole();
   if (role !== 'parent') {
     return [];
@@ -276,7 +276,7 @@ export type GradeDataPoint = {
   createdAt: string;
 };
 
-export async function getStudentGrades(studentId: number): Promise<GradeDataPoint[]> {
+export async function getStudentGrades(studentId: number) {
   try {
     const db = await getDb();
     const rows = await db
@@ -308,7 +308,7 @@ export async function getStudentGrades(studentId: number): Promise<GradeDataPoin
   }
 }
 
-export async function getAllSubjects(): Promise<string[]> {
+export async function getAllSubjects() {
   try {
     const db = await getDb();
     const rows = await db

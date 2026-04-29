@@ -32,11 +32,11 @@ const GRADE_COLORS: Record<string, string> = {
   F: '#ef4444',
 };
 
-function getGradeColor(grade: string): string {
+function getGradeColor(grade: string) {
   return GRADE_COLORS[grade] || '#6b7280';
 }
 
-function averageGrades(grades: GradeDataPoint[]): GradeDataPoint {
+function averageGrades(grades: GradeDataPoint[]) {
   const numericSum = grades.reduce((sum, g) => sum + letterGradeToNumber(g.grade), 0);
   const avgNumeric = Math.round(numericSum / grades.length);
   const avgLetter = numberToLetterGrade(avgNumeric);
@@ -53,11 +53,7 @@ function averageGrades(grades: GradeDataPoint[]): GradeDataPoint {
 function processGradesData(
   data: GradeDataPoint[],
   aggregateByDate: boolean
-): {
-  chartData: Array<{ date: string; numericGrade: number; grade: string; formattedDate: string }>;
-  latestGrade: string;
-  trend: string;
-} {
+) {
   if (data.length === 0) {
     return { chartData: [], latestGrade: '-', trend: 'stable' };
   }

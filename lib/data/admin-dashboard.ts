@@ -28,7 +28,7 @@ async function getDb() {
   return (await import('@/lib/db/client')).db;
 }
 
-export async function getAdminMetrics(): Promise<AdminMetrics> {
+export async function getAdminMetrics() {
   const db = await getDb();
   const now = new Date();
   const startOfToday = new Date(now);
@@ -121,7 +121,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
   };
 }
 
-export async function getAtRiskParents(): Promise<AtRiskParent[]> {
+export async function getAtRiskParents() {
   try {
     const db = await getDb();
     const rows = await db
@@ -150,7 +150,7 @@ export async function getAtRiskParents(): Promise<AtRiskParent[]> {
   }
 }
 
-export async function getDebitSessionIds(): Promise<Set<number>> {
+export async function getDebitSessionIds() {
   const db = await getDb();
   const rows = await db
     .select({
@@ -159,5 +159,5 @@ export async function getDebitSessionIds(): Promise<Set<number>> {
     .from(creditTransactions)
     .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId)));
 
-  return new Set(rows.map(tx => tx.session_id).filter((id): id is number => id !== null));
+  return new Set(rows.map(tx => tx.session_id).filter((id) => id !== null));
 }

@@ -30,9 +30,9 @@ const STATUS_VARIANTS: Record<SessionStatus, BadgeVariant> = {
   Rescheduled: 'secondary',
 };
 
-const getStatusVariant = (status: SessionStatus): BadgeVariant => STATUS_VARIANTS[status];
+const getStatusVariant = (status: SessionStatus) => STATUS_VARIANTS[status];
 
-function getTransactionVariant(type: TransactionType): BadgeVariant {
+function getTransactionVariant(type: TransactionType) {
   switch (type) {
     case 'purchase':
       return 'default';

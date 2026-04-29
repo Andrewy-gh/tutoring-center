@@ -12,11 +12,9 @@ import { getCreditTransaction } from '@/lib/data/credit-transactions';
 import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
 import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
 
-type BadgeVariant = 'default' | 'destructive' | 'outline' | 'secondary';
-
 const MISSING_VALUE = '—';
 
-function getTypeBadgeVariant(type: TransactionType): BadgeVariant {
+function getTypeBadgeVariant(type: TransactionType) {
   switch (type) {
     case 'purchase':
       return 'default';
