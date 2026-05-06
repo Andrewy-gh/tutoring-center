@@ -15,8 +15,26 @@ const eslintConfig = defineConfig(
   ...compat.extends('eslint-config-next/core-web-vitals', 'eslint-config-next/typescript'),
   { rules: eslintConfigPrettier.rules },
   {
+    files: ['app/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSUnknownKeyword',
+          message: 'Use unknown only at route handlers or DB loading boundaries.',
+        },
+      ],
+    },
+  },
+  {
     rules: {
       'no-console': 'warn' as const,
+    },
+  },
+  {
+    files: ['app/**/route.ts', 'lib/db/**/*.ts', 'lib/data/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
   globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts'])

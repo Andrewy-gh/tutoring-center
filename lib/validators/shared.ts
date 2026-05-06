@@ -9,8 +9,20 @@ export const pageSize = z.coerce.number().int().min(1).max(100).default(10);
 export const units1to100 = z.coerce.number().int().min(1).max(100);
 export const isoDateTime = z.string().datetime();
 
-// adding Scott's helpers
-export const EmbeddedRecordSchema = z.record(z.unknown());
+type EmbeddedJsonValue = string | number | boolean | null | EmbeddedJsonValue[] | { [key: string]: EmbeddedJsonValue };
+
+const EmbeddedJsonValueSchema: z.ZodType<EmbeddedJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(EmbeddedJsonValueSchema),
+    z.record(EmbeddedJsonValueSchema),
+  ])
+);
+
+export const EmbeddedRecordSchema = z.record(EmbeddedJsonValueSchema);
 export const EmbeddedOneSchema = z.union([EmbeddedRecordSchema, z.array(EmbeddedRecordSchema), z.null()]).optional();
 export const EmbeddedOneOf = <T extends z.ZodTypeAny>(schema: T) =>
   z.union([schema, z.array(schema), z.null()]).optional();

@@ -10,12 +10,13 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  Table as ReactTable,
   useReactTable,
 } from '@tanstack/react-table';
 
 interface DataTableContextValue {
-  table: ReactTable<unknown>;
+  globalFilter: string;
+  setColumnFilter: (columnId: string, value: string | undefined) => void;
+  setGlobalFilter: (value: string) => void;
 }
 
 const DataTableContext = createContext<DataTableContextValue | null>(null);
@@ -70,20 +71,18 @@ function DataTableToolbarContainer({ children }: DataTableToolbarProps) {
 }
 
 export function DataTableSearch({ placeholder = 'Search' }: DataTableSearchProps) {
-  const { table } = useDataTableContext('DataTable.Search');
+  const { globalFilter, setGlobalFilter } = useDataTableContext('DataTable.Search');
   return (
     <Input
       placeholder={placeholder}
-      value={(table.getState().globalFilter as string) ?? ''}
-      onChange={event => table.setGlobalFilter(event.target.value)}
+      value={globalFilter}
+      onChange={event => setGlobalFilter(event.target.value)}
       className='w-full sm:w-auto sm:max-w-sm bg-sidebar'
     />
   );
 }
 
-function normalizeFilterOption<TValue extends string>(
-  option: DataTableFilterInputOption<TValue>
-) {
+function normalizeFilterOption<TValue extends string>(option: DataTableFilterInputOption<TValue>) {
   if (typeof option === 'string') {
     return { label: option, value: option };
   }
@@ -98,12 +97,10 @@ export function DataTableFilter<TValue extends string = string>({
   allOptionLabel = 'All',
   allOptionValue = '__all__',
 }: DataTableFilterProps<TValue>) {
-  const { table } = useDataTableContext('DataTable.Filter');
+  const { setColumnFilter } = useDataTableContext('DataTable.Filter');
 
   return (
-    <Select
-      onValueChange={value => table.getColumn(columnId)?.setFilterValue(value === allOptionValue ? undefined : value)}
-    >
+    <Select onValueChange={value => setColumnFilter(columnId, value === allOptionValue ? undefined : value)}>
       <SelectTrigger className='mr-2 w-auto bg-sidebar'>
         <SelectValue placeholder={label} />
       </SelectTrigger>
@@ -144,7 +141,13 @@ function DataTableRoot<TData, TValue>({ columns, data, searchColumns, children }
   });
 
   return (
-    <DataTableContext.Provider value={{ table: table as ReactTable<unknown> }}>
+    <DataTableContext.Provider
+      value={{
+        globalFilter,
+        setColumnFilter: (columnId, value) => table.getColumn(columnId)?.setFilterValue(value),
+        setGlobalFilter: value => table.setGlobalFilter(value),
+      }}
+    >
       <div>
         <DataTableToolbarContainer>
           {children}

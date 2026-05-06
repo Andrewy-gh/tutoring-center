@@ -1,18 +1,8 @@
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { getTutorIdByUserId } from '@/lib/db/queries/actors';
-import { sessionMetrics, sessions } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { getSessionTutorId } from '@/lib/db/queries/sessions/detail';
+import { sessionMetrics } from '@/lib/db/schema';
 import { assertTutorOwnsSession } from './tutor-session-authorization';
-
-type SessionTutorLookup = {
-  select: (fields: { tutorId: typeof sessions.tutorId }) => {
-    from: (table: typeof sessions) => {
-      where: (condition: ReturnType<typeof eq>) => {
-        limit: (count: number) => Promise<Array<{ tutorId: number }>>;
-      };
-    };
-  };
-};
 
 type SessionMetricsInsertValues = {
   sessionId: number;
@@ -46,17 +36,6 @@ export type SessionMetricsFormData = {
 
 async function getDb() {
   return (await import('@/lib/db/client')).db;
-}
-
-async function getSessionTutorId(sessionId: number) {
-  const db = (await getDb()) as unknown as SessionTutorLookup;
-  const [session] = await db
-    .select({ tutorId: sessions.tutorId })
-    .from(sessions)
-    .where(eq(sessions.id, sessionId))
-    .limit(1);
-
-  return session?.tutorId ?? null;
 }
 
 async function saveSessionMetrics(values: SessionMetricsInsertValues) {
