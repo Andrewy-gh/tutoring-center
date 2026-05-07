@@ -103,11 +103,6 @@ describe('getTutors', () => {
     expect(mockDbSelect).not.toHaveBeenCalled();
   });
 
-  it('throws when role is invalid', async () => {
-    await expect(getTutors('invalid' as 'admin')).rejects.toThrow('Role is required to fetch tutors.');
-    expect(mockDbSelect).not.toHaveBeenCalled();
-  });
-
   it('throws when the tutor query fails', async () => {
     const query = createSelectQuery([]);
     query.then.mockImplementationOnce((_resolve, reject) =>

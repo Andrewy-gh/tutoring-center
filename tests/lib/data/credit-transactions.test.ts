@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockIsValidRole, mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect } =
-  vi.hoisted(() => ({
-    mockGetCurrentUserID: vi.fn(),
-    mockIsValidRole: vi.fn(),
-    mockGetSubjectMapByIds: vi.fn(),
-    mockGetTutorProfileMapByIds: vi.fn(),
-    mockDbSelect: vi.fn(),
-  }));
+const { mockGetCurrentUserID, mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect } = vi.hoisted(() => ({
+  mockGetCurrentUserID: vi.fn(),
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+  mockDbSelect: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   forbidden: vi.fn(() => {
@@ -20,7 +18,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
-  isValidRole: mockIsValidRole,
 }));
 
 vi.mock('@/lib/data/subjects', () => ({
@@ -56,7 +53,6 @@ function createSelectQuery(result: unknown) {
 describe('credit transaction data', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockIsValidRole.mockReturnValue(true);
     mockGetCurrentUserID.mockResolvedValue(42);
     mockGetSubjectMapByIds.mockResolvedValue(new Map([[12, { id: 12, name: 'Mathematics', slug: 'mathematics' }]]));
     mockGetTutorProfileMapByIds.mockResolvedValue(new Map([[3, { id: 3, name: 'Taylor Tutor' }]]));

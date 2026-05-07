@@ -1,6 +1,5 @@
 import 'server-only';
 import { forbidden } from 'next/navigation';
-import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 import { availability, tutors, users } from '@/lib/db/schema';
 import { asc, eq, inArray } from 'drizzle-orm';
@@ -73,6 +72,11 @@ const TutorOptionQueryRowListSchema = z.array(TutorOptionQueryRowSchema);
 type TutorOptionJoinRow = z.infer<typeof TutorOptionJoinRowSchema>;
 type TutorOptionQueryRow = z.infer<typeof TutorOptionQueryRowSchema>;
 type WeekDay = z.infer<typeof WeekDaySchema>;
+type TutorOptionRawRow = Omit<TutorOptionJoinRow, 'weekDay' | 'startTime' | 'endTime'> & {
+  weekDay: WeekDay | null;
+  startTime: string | null;
+  endTime: string | null;
+};
 
 const WEEKDAY_ORDER: Record<WeekDay, number> = {
   Monday: 1,
@@ -180,10 +184,6 @@ const groupTutorOptions = (rows: TutorOptionJoinRow[]) => {
 };
 
 export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch tutor options.');
-  }
-
   if (role !== 'parent' && role !== 'admin') {
     forbidden();
   }
@@ -193,7 +193,7 @@ export async function getTutorOptionsByIds(role: UserRole, tutorIds: number[]) {
     return [] as TutorOption[];
   }
 
-  let rawRows: unknown;
+  let rawRows: TutorOptionRawRow[];
   try {
     const db = await getDb();
     rawRows = await db

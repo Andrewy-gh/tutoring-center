@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
@@ -143,10 +143,6 @@ function mapTransactionRow(row: {
 }
 
 export async function getCreditTransactions(role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch credit transactions.');
-  }
-
   if (role === 'tutor') {
     forbidden();
   }
@@ -163,10 +159,6 @@ export async function getCreditTransactions(role: UserRole) {
 }
 
 export async function getCreditTransaction(id: number, role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch credit transactions.');
-  }
-
   if (role === 'tutor') {
     forbidden();
   }

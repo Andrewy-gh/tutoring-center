@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
@@ -85,10 +85,6 @@ function mapCreditHistoryItem(transaction: CreditHistoryRow) {
 }
 
 export async function getStudentDashboardDetails(studentId: number, role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch student dashboard data.');
-  }
-
   if (role === 'tutor') {
     forbidden();
   }

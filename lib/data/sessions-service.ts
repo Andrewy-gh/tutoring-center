@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { getCurrentUserID, getUserRole, isValidRole, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { slotUnitsToHours } from '@/lib/billing-units';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
@@ -304,9 +304,6 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
   return {
     async getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
       const role = await deps.getUserRole();
-      if (!isValidRole(role)) {
-        throw new Error('Role is required to fetch sessions.');
-      }
 
       let parentId: number | undefined;
       let tutorId: number | undefined;
@@ -468,11 +465,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
         .filter(session => session.needsProgressReport || session.needsMetrics);
     },
 
-    async getStudentRecentProgress(
-      studentId: number,
-      sessionIdToExclude: number,
-      limit: number = 5
-    ) {
+    async getStudentRecentProgress(studentId: number, sessionIdToExclude: number, limit: number = 5) {
       try {
         const rows = await deps.getStudentRecentProgressRows(studentId, sessionIdToExclude, limit, deps.now());
         const tutorMap = await deps.getTutorProfileMapByIds(rows.map(session => session.tutor_id));

@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { getCurrentUserID, isValidRole, type UserRole } from '@/lib/auth';
+import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
@@ -76,31 +76,31 @@ async function getDb() {
 }
 
 type StudentJoinRow = {
-  id: unknown;
-  userId: unknown;
-  parentId: unknown;
-  birthDate: unknown;
-  grade: unknown;
-  learningGoals: unknown;
-  firstName: unknown;
-  lastName: unknown;
-  email: unknown;
-  phone: unknown;
+  id: number;
+  userId: number;
+  parentId: number | null;
+  birthDate: string | null;
+  grade: string | null;
+  learningGoals: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  phone: string | null;
 };
 
 function mapStudentJoinRow(row: StudentJoinRow) {
   return {
-    id: row.id as number,
-    user_id: row.userId as number,
-    parent_id: row.parentId as number | null,
-    birth_date: row.birthDate as string | null,
-    grade: row.grade as string | null,
-    learning_goals: row.learningGoals as string | null,
+    id: row.id,
+    user_id: row.userId,
+    parent_id: row.parentId,
+    birth_date: row.birthDate,
+    grade: row.grade,
+    learning_goals: row.learningGoals,
     users: {
-      first_name: row.firstName as string | null,
-      last_name: row.lastName as string | null,
-      email: row.email as string,
-      phone: row.phone as string | null,
+      first_name: row.firstName,
+      last_name: row.lastName,
+      email: row.email,
+      phone: row.phone,
     },
   };
 }
@@ -156,10 +156,6 @@ async function getParentIdForCurrentUser() {
 }
 
 export async function getStudents(role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch students.');
-  }
-
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 
@@ -203,10 +199,6 @@ export async function getStudents(role: UserRole) {
 }
 
 export async function getStudent(id: number, role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch students.');
-  }
-
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 

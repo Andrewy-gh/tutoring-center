@@ -1,18 +1,13 @@
 import { getSubjectMapByIds, getSubjects, getSubjectsForGradeForm, mapSubjectOptions } from '@/lib/data/subjects';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockIsValidRole, mockForbidden, mockDbSelect } = vi.hoisted(() => ({
-  mockIsValidRole: vi.fn(),
+const { mockForbidden, mockDbSelect } = vi.hoisted(() => ({
   mockForbidden: vi.fn(),
   mockDbSelect: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   forbidden: mockForbidden,
-}));
-
-vi.mock('@/lib/auth', () => ({
-  isValidRole: mockIsValidRole,
 }));
 
 vi.mock('@/lib/db/client', () => ({
@@ -38,7 +33,6 @@ function createSelectQuery(result: unknown) {
 describe('getSubjects', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockIsValidRole.mockImplementation(value => value === 'admin' || value === 'parent' || value === 'tutor');
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
@@ -97,13 +91,6 @@ describe('getSubjects', () => {
     expect(query.innerJoin).toHaveBeenCalledTimes(1);
     expect(query.where).toHaveBeenCalledTimes(1);
     expect(query.orderBy).toHaveBeenCalledTimes(1);
-  });
-
-  it('throws when role is invalid', async () => {
-    mockIsValidRole.mockReturnValue(false);
-
-    await expect(getSubjects('admin')).rejects.toThrow('Role is required to fetch students.');
-    expect(mockDbSelect).not.toHaveBeenCalled();
   });
 
   it('throws forbidden for tutors', async () => {
