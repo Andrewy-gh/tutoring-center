@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { BookingScreen } from '@/components/parent-sessions/booking-screen';
+import { BookingScreen } from '@/features/booking';
 import { getCurrentParentCredits } from '@/features/credits/server';
 import { getUserRole } from '@/lib/auth';
 import { getStudents } from '@/lib/data/students';

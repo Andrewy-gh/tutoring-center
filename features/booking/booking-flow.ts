@@ -1,16 +1,8 @@
-import type { StudentOption } from '@/components/parent-sessions/pick-student';
-import type { TutorOption } from '@/components/parent-sessions/pick-tutors';
 import { slotUnitsToMinutes } from '@/lib/billing-units';
 import type { AvailableSession } from '@/lib/validators/sessions';
+import type { StudentOption, TutorOption } from './types';
 
 export type BookingProgressStep = 'student' | 'subject' | 'tutor' | 'date' | 'credits';
-
-export type Reservation = {
-  student: StudentOption;
-  subject: { id: number; slug: string; name: string };
-  tutor: TutorOption;
-  session: AvailableSession;
-};
 
 const stepLabels: Record<BookingProgressStep, string> = {
   student: 'Choose a student',

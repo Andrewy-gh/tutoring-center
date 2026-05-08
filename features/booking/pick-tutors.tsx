@@ -2,15 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type SelectedSubject, type SubjectTutorAssignment } from '@/lib/data/subjects';
 import { ChevronLeft } from 'lucide-react';
-
-export type TutorOption = {
-  id: number;
-  user_id: number;
-  name: string;
-  education: string | null;
-  years_experience: number | null;
-  typicalAvailability: string | null;
-};
+import type { TutorOption } from './types';
 
 type PickTutorProps = {
   subject: SelectedSubject;

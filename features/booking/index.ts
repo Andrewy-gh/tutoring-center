@@ -1,3 +1,4 @@
+export { BookingScreen } from './booking-screen';
 export {
   getBookingProgress,
   getSessionDurationMinutes,
@@ -6,5 +7,5 @@ export {
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
   type BookingProgressStep,
-  type Reservation,
 } from './booking-flow';
+export type { Reservation, StudentOption, TutorOption } from './types';

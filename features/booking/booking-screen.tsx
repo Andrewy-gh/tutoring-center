@@ -2,13 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookingStepCounter } from '@/components/parent-sessions/booking-step-counter';
-import { BookingSuccessDetails } from '@/components/parent-sessions/booking-success-details';
-import { LowCreditsToast } from '@/components/parent-sessions/low-credits-toast';
-import { PickDate } from '@/components/parent-sessions/pick-date';
-import { PickStudent, type StudentOption } from '@/components/parent-sessions/pick-student';
-import { PickSubject } from '@/components/parent-sessions/pick-subjects';
-import { PickTutor, type TutorOption } from '@/components/parent-sessions/pick-tutors';
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -18,13 +11,20 @@ import {
   selectTutorsForSubject,
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
-  type Reservation,
-} from '@/features/booking';
+} from '@/features/booking/booking-flow';
 import { purchaseParentCredits, type CreditBalance } from '@/features/credits';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
+import { BookingStepCounter } from './booking-step-counter';
+import { BookingSuccessDetails } from './booking-success-details';
+import { LowCreditsToast } from './low-credits-toast';
+import { PickDate } from './pick-date';
+import { PickStudent } from './pick-student';
+import { PickSubject } from './pick-subjects';
+import { PickTutor } from './pick-tutors';
+import type { Reservation, StudentOption, TutorOption } from './types';
 
 type BookingState =
   | { step: 'student' }
