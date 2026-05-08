@@ -76,6 +76,18 @@ async function getScopedParentId(role: AllowedRole) {
   return parentId;
 }
 
+function assertStudentDashboardRole(role: UserRole): AllowedRole {
+  if (role === 'admin' || role === 'parent') {
+    return role;
+  }
+
+  if (role === 'tutor') {
+    forbidden();
+  }
+
+  throw new Error('Role is required to fetch student dashboard data.');
+}
+
 function mapCreditHistoryItem(transaction: CreditHistoryRow) {
   return {
     ...transaction,
@@ -85,15 +97,12 @@ function mapCreditHistoryItem(transaction: CreditHistoryRow) {
 }
 
 export async function getStudentDashboardDetails(studentId: number, role: UserRole) {
-  if (role === 'tutor') {
-    forbidden();
-  }
+  const allowedRole = assertStudentDashboardRole(role);
 
   if (Number.isNaN(studentId)) {
     notFound();
   }
 
-  const allowedRole: AllowedRole = role;
   const parentId = await getScopedParentId(allowedRole);
   const db = await getDb();
 

@@ -91,6 +91,18 @@ async function getCurrentParentId() {
   return parentId;
 }
 
+function assertCreditTransactionRole(role: UserRole) {
+  if (role === 'admin' || role === 'parent') {
+    return role;
+  }
+
+  if (role === 'tutor') {
+    forbidden();
+  }
+
+  throw new Error('Role is required to fetch credit transactions.');
+}
+
 function mapTransactionStudent(row: {
   student_id: number | null;
   student_first_name: string | null;
@@ -143,11 +155,9 @@ function mapTransactionRow(row: {
 }
 
 export async function getCreditTransactions(role: UserRole) {
-  if (role === 'tutor') {
-    forbidden();
-  }
+  const allowedRole = assertCreditTransactionRole(role);
 
-  const parentId = role === 'parent' ? await getCurrentParentId() : null;
+  const parentId = allowedRole === 'parent' ? await getCurrentParentId() : null;
   const rows = await getCreditTransactionRows(
     buildCreditTransactionFilters({
       parentId: parentId ?? undefined,
@@ -159,15 +169,13 @@ export async function getCreditTransactions(role: UserRole) {
 }
 
 export async function getCreditTransaction(id: number, role: UserRole) {
-  if (role === 'tutor') {
-    forbidden();
-  }
+  const allowedRole = assertCreditTransactionRole(role);
 
   if (Number.isNaN(id)) {
     notFound();
   }
 
-  const parentId = role === 'parent' ? await getCurrentParentId() : null;
+  const parentId = allowedRole === 'parent' ? await getCurrentParentId() : null;
   const db = await getDb();
   const parentUsers = alias(users, 'credit_tx_detail_parent_users');
   const studentUsers = alias(users, 'credit_tx_detail_student_users');

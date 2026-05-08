@@ -1,3 +1,4 @@
+import type { UserRole } from '@/lib/auth';
 import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -171,6 +172,13 @@ describe('getStudentDashboardDetails', () => {
 
   it('forbids tutors', async () => {
     await expect(getStudentDashboardDetails(9, 'tutor')).rejects.toThrow('forbidden');
+    expect(mockDbSelect).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid roles before loading dashboard data', async () => {
+    await expect(getStudentDashboardDetails(9, 'invalid' as UserRole)).rejects.toThrow(
+      'Role is required to fetch student dashboard data.'
+    );
     expect(mockDbSelect).not.toHaveBeenCalled();
   });
 });
