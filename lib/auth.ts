@@ -13,7 +13,7 @@ const USER_ID_COOKIE_MAX_AGE = 60 * 60 * 1; // 1 hour
 
 export const ADMIN_ONLY_ROUTES = ['/dashboard/tutors', '/dashboard/parents'];
 
-export function isValidRole(value: unknown) {
+export function isValidRole(value: string | null | undefined): value is UserRole {
   return value === 'admin' || value === 'parent' || value === 'tutor';
 }
 
@@ -57,7 +57,8 @@ export async function getCurrentUserName() {
 export async function login(formData: FormData) {
   'use server';
 
-  const role = formData.get('role');
+  const formRole = formData.get('role');
+  const role = typeof formRole === 'string' ? formRole : null;
   if (!isValidRole(role)) {
     throw new Error('Invalid role');
   }

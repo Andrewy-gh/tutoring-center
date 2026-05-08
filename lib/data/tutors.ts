@@ -1,6 +1,5 @@
 import 'server-only';
 import { forbidden } from 'next/navigation';
-import { isValidRole } from '@/lib/auth';
 import type { UserRole } from '@/lib/auth';
 import { tutors, users } from '@/lib/db/schema';
 import { TutorJoinRowListSchema, type TutorJoinRow } from '@/lib/validators/tutors';
@@ -89,15 +88,11 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
 }
 
 export async function getTutors(role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch tutors.');
-  }
-
   if (role !== 'admin') {
     forbidden();
   }
 
-  let rawRows: unknown;
+  let rawRows: TutorJoinRow[];
   try {
     const db = await getDb();
     rawRows = await db

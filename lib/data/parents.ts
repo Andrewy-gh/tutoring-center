@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { isValidRole, type UserRole } from '@/lib/auth';
+import type { UserRole } from '@/lib/auth';
 import { minutesToCredits } from '@/lib/billing-units';
 import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import {
@@ -43,6 +43,25 @@ export type ParentProfileDetail = ParentRow & {
   students: ParentStudentRow[];
 };
 
+type ParentDetailRawRow = Omit<
+  ParentDetailJoinRow,
+  | 'studentId'
+  | 'studentUserId'
+  | 'studentGrade'
+  | 'studentFirstName'
+  | 'studentLastName'
+  | 'studentEmail'
+  | 'studentPhone'
+> & {
+  studentId: number | null;
+  studentUserId: number | null;
+  studentGrade: string | null;
+  studentFirstName: string | null;
+  studentLastName: string | null;
+  studentEmail: string | null;
+  studentPhone: string | null;
+};
+
 const PARENT_ERROR_MESSAGES = {
   admin: {
     database: 'Parent data is temporarily unavailable. Please retry in a moment.',
@@ -51,10 +70,6 @@ const PARENT_ERROR_MESSAGES = {
 } as const;
 
 const ensureAdminRole = (role: UserRole) => {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch parents.');
-  }
-
   if (role !== 'admin') {
     forbidden();
   }
@@ -132,7 +147,7 @@ const mapParentDetail = (rows: ParentDetailJoinRow[]) => {
 export async function getParents(role: UserRole) {
   ensureAdminRole(role);
 
-  let rawRows: unknown;
+  let rawRows: ParentListJoinRow[];
   try {
     const db = await getDb();
     rawRows = await db
@@ -180,7 +195,7 @@ export async function getParent(userID: number, role: UserRole) {
   ensureAdminRole(role);
 
   const studentUsers = alias(users, 'student_users');
-  let rawRows: unknown;
+  let rawRows: ParentDetailRawRow[];
   try {
     const db = await getDb();
     rawRows = await db

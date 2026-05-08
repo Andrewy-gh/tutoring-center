@@ -1,4 +1,3 @@
-import type { UserRole } from '@/lib/auth';
 import { getStudent, getStudents } from '@/lib/data/students';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -108,10 +107,6 @@ describe('getStudents', () => {
         grade: '—',
       },
     ]);
-  });
-
-  it('throws a clear error when role is missing at runtime', async () => {
-    await expect(getStudents(undefined as unknown as UserRole)).rejects.toThrow('Role is required to fetch students.');
   });
 
   it('throws notFound when parent lookup fails', async () => {

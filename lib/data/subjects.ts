@@ -1,5 +1,5 @@
 import { forbidden } from 'next/navigation';
-import { isValidRole, type UserRole } from '@/lib/auth';
+import type { UserRole } from '@/lib/auth';
 import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
@@ -51,22 +51,22 @@ const SUBJECT_ERROR_MESSAGES = {
 const sortNumberAsc = (a: number, b: number) => a - b;
 
 type SubjectRecordRow = {
-  id: unknown;
-  name: unknown;
-  slug: unknown;
-  kind: unknown;
-  isActive: unknown;
+  id: number;
+  name: string;
+  slug: string;
+  kind: typeof subjects.$inferSelect.kind;
+  isActive: boolean;
 };
 
 type SubjectOptionJoinRow = SubjectRecordRow & {
-  tutorId: unknown;
-  subjectId: unknown;
+  tutorId: number;
+  subjectId: number;
 };
 
 type SubjectOptionRowCandidate = ReturnType<typeof mapSubjectRecordRow> & {
   tutor_subjects: Array<{
-    tutor_id: unknown;
-    subject_id: unknown;
+    tutor_id: number;
+    subject_id: number;
   }>;
 };
 
@@ -88,8 +88,8 @@ const mapSubjectOptionRows = (rows: SubjectOptionJoinRow[]) => {
     if (existingSubject) {
       existingSubject.tutor_subjects ??= [];
       existingSubject.tutor_subjects.push({
-        tutor_id: row.tutorId as number,
-        subject_id: row.subjectId as number,
+        tutor_id: row.tutorId,
+        subject_id: row.subjectId,
       });
       continue;
     }
@@ -98,8 +98,8 @@ const mapSubjectOptionRows = (rows: SubjectOptionJoinRow[]) => {
       ...mapSubjectRecordRow(row),
       tutor_subjects: [
         {
-          tutor_id: row.tutorId as number,
-          subject_id: row.subjectId as number,
+          tutor_id: row.tutorId,
+          subject_id: row.subjectId,
         },
       ],
     });
@@ -168,10 +168,6 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
 }
 
 export async function getSubjects(role: UserRole) {
-  if (!isValidRole(role)) {
-    throw new Error('Role is required to fetch students.');
-  }
-
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 

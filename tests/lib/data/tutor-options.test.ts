@@ -107,13 +107,6 @@ describe('getTutorOptionsByIds', () => {
     expect(query.where).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects invalid roles before querying', async () => {
-    await expect(getTutorOptionsByIds('invalid' as 'admin', [1])).rejects.toThrow(
-      'Role is required to fetch tutor options.'
-    );
-    expect(mockDbSelect).not.toHaveBeenCalled();
-  });
-
   it('blocks tutor role access', async () => {
     await expect(getTutorOptionsByIds('tutor', [1])).rejects.toThrow('forbidden');
     expect(mockDbSelect).not.toHaveBeenCalled();

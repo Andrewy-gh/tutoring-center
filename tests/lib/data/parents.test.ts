@@ -1,4 +1,3 @@
-import type { UserRole } from '@/lib/auth';
 import { getParent, getParents } from '@/lib/data/parents';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -152,11 +151,6 @@ describe('getParents', () => {
         credit_balance_info: 6,
       },
     ]);
-  });
-
-  it('rejects missing roles before querying', async () => {
-    await expect(getParents(undefined as unknown as UserRole)).rejects.toThrow('Role is required to fetch parents.');
-    expect(mockDbSelect).not.toHaveBeenCalled();
   });
 
   it('blocks non-admin roles', async () => {

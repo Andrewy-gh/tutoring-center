@@ -1,13 +1,12 @@
+import type { UserRole } from '@/lib/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetCurrentUserID, mockIsValidRole, mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect } =
-  vi.hoisted(() => ({
-    mockGetCurrentUserID: vi.fn(),
-    mockIsValidRole: vi.fn(),
-    mockGetSubjectMapByIds: vi.fn(),
-    mockGetTutorProfileMapByIds: vi.fn(),
-    mockDbSelect: vi.fn(),
-  }));
+const { mockGetCurrentUserID, mockGetSubjectMapByIds, mockGetTutorProfileMapByIds, mockDbSelect } = vi.hoisted(() => ({
+  mockGetCurrentUserID: vi.fn(),
+  mockGetSubjectMapByIds: vi.fn(),
+  mockGetTutorProfileMapByIds: vi.fn(),
+  mockDbSelect: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   forbidden: vi.fn(() => {
@@ -20,7 +19,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
-  isValidRole: mockIsValidRole,
 }));
 
 vi.mock('@/lib/data/subjects', () => ({
@@ -56,7 +54,6 @@ function createSelectQuery(result: unknown) {
 describe('credit transaction data', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockIsValidRole.mockReturnValue(true);
     mockGetCurrentUserID.mockResolvedValue(42);
     mockGetSubjectMapByIds.mockResolvedValue(new Map([[12, { id: 12, name: 'Mathematics', slug: 'mathematics' }]]));
     mockGetTutorProfileMapByIds.mockResolvedValue(new Map([[3, { id: 3, name: 'Taylor Tutor' }]]));
@@ -103,6 +100,15 @@ describe('credit transaction data', () => {
     ]);
   });
 
+  it('rejects invalid roles before listing transactions', async () => {
+    const { getCreditTransactions } = await import('@/lib/data/credit-transactions');
+
+    await expect(getCreditTransactions('invalid' as UserRole)).rejects.toThrow(
+      'Role is required to fetch credit transactions.'
+    );
+    expect(mockDbSelect).not.toHaveBeenCalled();
+  });
+
   it('filters detail lookup to the current parent and maps linked session data', async () => {
     mockDbSelect.mockReturnValueOnce(createSelectQuery([{ id: 77 }])).mockReturnValueOnce(
       createSelectQuery([
@@ -144,5 +150,14 @@ describe('credit transaction data', () => {
     expect(detail.session?.subject_name).toBe('Mathematics');
     expect(detail.session?.tutor_name).toBe('Taylor Tutor');
     expect(detail.net_amount).toBe(0);
+  });
+
+  it('rejects invalid roles before loading transaction details', async () => {
+    const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
+
+    await expect(getCreditTransaction(99, 'invalid' as UserRole)).rejects.toThrow(
+      'Role is required to fetch credit transactions.'
+    );
+    expect(mockDbSelect).not.toHaveBeenCalled();
   });
 });

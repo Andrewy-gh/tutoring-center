@@ -14,19 +14,15 @@ type SqlExecutor = {
   execute<T = unknown>(query: SQL): Promise<T>;
 };
 
-function isSqlExecutor(value: unknown) {
-  return typeof value === 'object' && value !== null && 'execute' in value && typeof value.execute === 'function';
-}
-
-async function getExecutor(database?: unknown) {
-  if (isSqlExecutor(database)) {
-    return database as SqlExecutor;
+async function getExecutor(database?: SqlExecutor) {
+  if (database) {
+    return database;
   }
 
   return (await import('@/lib/db/client')).db as unknown as SqlExecutor;
 }
 
-export async function getCreditBalanceByParentId(parentId: number, database?: unknown) {
+export async function getCreditBalanceByParentId(parentId: number, database?: SqlExecutor) {
   const db = await getExecutor(database);
   const rows = await db.execute<CreditBalanceRow[]>(sql`
     select parent_id, available_minutes, pending_minutes
@@ -38,7 +34,7 @@ export async function getCreditBalanceByParentId(parentId: number, database?: un
   return rows[0] ?? null;
 }
 
-export async function upsertCreditBalance(parentId: number, amounts: CreditBalanceAmounts, database?: unknown) {
+export async function upsertCreditBalance(parentId: number, amounts: CreditBalanceAmounts, database?: SqlExecutor) {
   const db = await getExecutor(database);
   const rows = await db.execute<CreditBalanceRow[]>(sql`
     insert into credit_balances (
@@ -62,7 +58,7 @@ export async function upsertCreditBalance(parentId: number, amounts: CreditBalan
   return rows[0] ?? null;
 }
 
-export async function deductCreditBalance(parentId: number, amount: number, database?: unknown) {
+export async function deductCreditBalance(parentId: number, amount: number, database?: SqlExecutor) {
   const db = await getExecutor(database);
   const rows = await db.execute<CreditBalanceAmounts[]>(sql`
     update credit_balances

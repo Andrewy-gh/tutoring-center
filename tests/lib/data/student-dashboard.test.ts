@@ -1,3 +1,4 @@
+import type { UserRole } from '@/lib/auth';
 import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -5,7 +6,6 @@ const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
 
 const {
   mockGetCurrentUserID,
-  mockIsValidRole,
   mockForbidden,
   mockNotFound,
   mockGetSubjectMapByIds,
@@ -14,7 +14,6 @@ const {
   mockDbSelect,
 } = vi.hoisted(() => ({
   mockGetCurrentUserID: vi.fn(),
-  mockIsValidRole: vi.fn(),
   mockForbidden: vi.fn(),
   mockNotFound: vi.fn(),
   mockGetSubjectMapByIds: vi.fn(),
@@ -30,7 +29,6 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
-  isValidRole: mockIsValidRole,
 }));
 
 vi.mock('@/lib/data/subjects', () => ({
@@ -75,7 +73,6 @@ function createNextNotFoundError() {
 describe('getStudentDashboardDetails', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mockIsValidRole.mockImplementation(value => value === 'admin' || value === 'parent' || value === 'tutor');
     mockForbidden.mockImplementation(() => {
       throw new Error('forbidden');
     });
@@ -175,6 +172,13 @@ describe('getStudentDashboardDetails', () => {
 
   it('forbids tutors', async () => {
     await expect(getStudentDashboardDetails(9, 'tutor')).rejects.toThrow('forbidden');
+    expect(mockDbSelect).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid roles before loading dashboard data', async () => {
+    await expect(getStudentDashboardDetails(9, 'invalid' as UserRole)).rejects.toThrow(
+      'Role is required to fetch student dashboard data.'
+    );
     expect(mockDbSelect).not.toHaveBeenCalled();
   });
 });
