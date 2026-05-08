@@ -1,9 +1,9 @@
-import { ParentCreditWidget } from '@/components/add-credits/parent-credit-widget';
 import { AppSidebar } from '@/components/app-sidebar';
 import { NewSessionButton } from '@/components/new-session-button';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { UserLinks } from '@/components/user-links';
+import { ParentCreditWidget } from '@/features/credits/add-credits/parent-credit-widget';
 import { getUserRole } from '@/lib/auth';
 import { getUserLinks } from '@/lib/dashboard-links';
 

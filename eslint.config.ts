@@ -15,7 +15,7 @@ const eslintConfig = defineConfig(
   ...compat.extends('eslint-config-next/core-web-vitals', 'eslint-config-next/typescript'),
   { rules: eslintConfigPrettier.rules },
   {
-    files: ['app/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'features/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
         'error',

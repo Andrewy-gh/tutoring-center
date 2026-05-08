@@ -1,7 +1,7 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
+import { EMPTY_CREDIT_BALANCE } from '@/features/credits/credit-balances';
 import { getCurrentUserID } from '@/lib/auth';
-import { EMPTY_CREDIT_BALANCE } from '@/lib/credit-balances';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
 import { getCreditBalanceByParentId } from '@/lib/db/queries/credits/balances';
 

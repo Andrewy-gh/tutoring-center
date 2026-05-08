@@ -2,9 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AddCredits } from '@/components/add-credits';
-import type { CreditBalance } from '@/lib/credit-balances';
-import { purchaseParentCredits, type CreditMutationResult } from '@/lib/data/credit-mutations';
+import { purchaseParentCredits, type CreditBalance, type CreditMutationResult } from '@/features/credits';
+import { AddCredits } from '@/features/credits/add-credits';
 
 type AddCreditsPageClientProps = {
   parentId: number;

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { BookingScreen } from '@/components/parent-sessions/booking-screen';
+import { getCurrentParentCredits } from '@/features/credits/server';
 import { getUserRole } from '@/lib/auth';
-import { getCurrentParentCredits } from '@/lib/data/parent-credits';
 import { getStudents } from '@/lib/data/students';
 import { getSubjects } from '@/lib/data/subjects';
 import { getTutorOptionsByIds } from '@/lib/data/tutor-options';

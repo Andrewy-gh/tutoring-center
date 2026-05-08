@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getCurrentParentBalance } from '@/features/credits/server';
 import { creditsToMinutes, formatHours, minutesToHours } from '@/lib/billing-units';
-import { getCurrentParentBalance } from '@/lib/data/parent-credits';
 import { AlertCircle, Coins } from 'lucide-react';
 
 const LOW_THRESHOLD_HOURS = 2;
@@ -34,15 +34,13 @@ export async function ParentCreditWidget() {
             <span className='text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Tutor Credits</span>
           </div>
           {available_minutes < MEDIUM_THRESHOLD && (
-            <AlertCircle
-              size={13}
-              className={available_minutes < LOW_THRESHOLD ? 'text-red-500' : 'text-amber-500'}
-            />
+            <AlertCircle size={13} className={available_minutes < LOW_THRESHOLD ? 'text-red-500' : 'text-amber-500'} />
           )}
         </div>
         <div>
           <p className={`text-xl font-bold ${balanceColor(available_minutes)}`}>
-            {formatHours(availableHours)} <span className='text-sm'>{availableHours === 1 ? 'hour' : 'hours'} available</span>
+            {formatHours(availableHours)}{' '}
+            <span className='text-sm'>{availableHours === 1 ? 'hour' : 'hours'} available</span>
           </p>
           {available_minutes < LOW_THRESHOLD && (
             <p className='text-xs text-red-500 mt-0.5'>Low credits - please consider topping up.</p>

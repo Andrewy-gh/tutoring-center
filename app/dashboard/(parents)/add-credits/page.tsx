@@ -1,6 +1,6 @@
 import { forbidden } from 'next/navigation';
+import { getCurrentParentCredits } from '@/features/credits/server';
 import { getUserRole } from '@/lib/auth';
-import { getCurrentParentCredits } from '@/lib/data/parent-credits';
 import { AddCreditsPageClient } from './add-credits-page-client';
 
 export default async function AddCreditsPage() {

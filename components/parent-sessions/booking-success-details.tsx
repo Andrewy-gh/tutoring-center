@@ -1,5 +1,5 @@
-import type { Reservation } from '@/components/parent-sessions/booking-flow';
 import { Separator } from '@/components/ui/separator';
+import type { Reservation } from '@/features/booking';
 import { formatSessionDateTime } from '@/lib/date-utils';
 
 type BookingSuccessDetailsProps = {

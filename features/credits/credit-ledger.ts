@@ -1,5 +1,5 @@
-import type { TransactionType } from '@/lib/db/types';
 import { formatHours, minutesToHours } from '@/lib/billing-units';
+import type { TransactionType } from '@/lib/db/types';
 
 export type CreditLedgerSnapshot = {
   available_after_minutes: number;

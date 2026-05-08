@@ -2,16 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/components/add-credits';
-import {
-  getBookingProgress,
-  getSessionDurationMinutes,
-  getSessionSlotUnits,
-  selectTutorsForSubject,
-  shouldBlockForCredits,
-  shouldStartAtSubjectStep,
-  type Reservation,
-} from '@/components/parent-sessions/booking-flow';
 import { BookingStepCounter } from '@/components/parent-sessions/booking-step-counter';
 import { BookingSuccessDetails } from '@/components/parent-sessions/booking-success-details';
 import { LowCreditsToast } from '@/components/parent-sessions/low-credits-toast';
@@ -21,9 +11,18 @@ import { PickSubject } from '@/components/parent-sessions/pick-subjects';
 import { PickTutor, type TutorOption } from '@/components/parent-sessions/pick-tutors';
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  getBookingProgress,
+  getSessionDurationMinutes,
+  getSessionSlotUnits,
+  selectTutorsForSubject,
+  shouldBlockForCredits,
+  shouldStartAtSubjectStep,
+  type Reservation,
+} from '@/features/booking';
+import { purchaseParentCredits, type CreditBalance } from '@/features/credits';
+import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
-import type { CreditBalance } from '@/lib/credit-balances';
-import { purchaseParentCredits } from '@/lib/data/credit-mutations';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
 
