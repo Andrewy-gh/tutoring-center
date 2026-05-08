@@ -19,7 +19,11 @@ export function BookingStepCounter({ currentStep, totalSteps, currentStepLabel, 
         </p>
       </div>
 
-      <div aria-label={`Step ${currentStep} of ${totalSteps}: ${currentStepLabel}`} className='flex items-center' role='list'>
+      <div
+        aria-label={`Step ${currentStep} of ${totalSteps}: ${currentStepLabel}`}
+        className='flex items-center'
+        role='list'
+      >
         {steps.map(step => {
           const isComplete = step < currentStep;
           const isCurrent = step === currentStep;

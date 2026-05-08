@@ -1,12 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft } from 'lucide-react';
-
-export type StudentOption = {
-  id: number;
-  name: string;
-  grade: string | null;
-};
+import type { StudentOption } from './types';
 
 type PickStudentProps = {
   students: StudentOption[];
