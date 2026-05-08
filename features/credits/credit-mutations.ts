@@ -1,4 +1,4 @@
-import { type CreditBalance } from '@/lib/credit-balances';
+import { type CreditBalance } from '@/features/credits/credit-balances';
 import { creditsToMinutes } from '@/lib/billing-units';
 
 export type CreditMutationResult = {

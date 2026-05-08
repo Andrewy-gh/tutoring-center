@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { PackageOptions, type Package } from '@/components/add-credits/package-options';
-import { PaymentForm } from '@/components/add-credits/payment-form';
 import { SuccessCard } from '@/components/success-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { PackageOptions, type Package } from '@/features/credits/add-credits/package-options';
+import { PaymentForm } from '@/features/credits/add-credits/payment-form';
 import { formatHours } from '@/lib/billing-units';
 import type { Route } from 'next';
 

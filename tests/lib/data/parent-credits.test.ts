@@ -1,5 +1,5 @@
-import { EMPTY_CREDIT_BALANCE } from '@/lib/credit-balances';
-import { getCurrentParentBalance, getCurrentParentCredits } from '@/lib/data/parent-credits';
+import { EMPTY_CREDIT_BALANCE } from '@/features/credits';
+import { getCurrentParentBalance, getCurrentParentCredits } from '@/features/credits/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetCurrentUserID, mockGetParentIdByUserId, mockGetCreditBalanceByParentId, mockNotFound } = vi.hoisted(

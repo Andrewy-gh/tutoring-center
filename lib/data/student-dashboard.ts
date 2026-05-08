@@ -1,7 +1,7 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
+import { getCreditTransactionSummary, getNetCreditDelta } from '@/features/credits';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
-import { getCreditTransactionSummary, getNetCreditDelta } from '@/lib/credit-ledger';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
