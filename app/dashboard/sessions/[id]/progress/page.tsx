@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ProgressReportForm } from '@/components/tutor-session/progress-report-form';
 import { Button } from '@/components/ui/button';
+import { ProgressReportForm } from '@/features/tutor-session/progress-report-form';
 import { getSession, getUserRole } from '@/lib/data/sessions';
 import { ArrowLeft } from 'lucide-react';
 
