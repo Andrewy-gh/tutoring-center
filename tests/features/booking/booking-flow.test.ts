@@ -4,7 +4,7 @@ import {
   selectTutorsForSubject,
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
-} from '@/features/booking';
+} from '@/features/booking/booking-flow';
 import { describe, expect, it } from 'vitest';
 
 describe('booking-flow helpers', () => {
