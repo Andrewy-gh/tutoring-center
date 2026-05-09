@@ -1,4 +1,4 @@
-import { EMPTY_CREDIT_BALANCE } from '@/features/credits';
+import { EMPTY_CREDIT_BALANCE } from '@/features/credits/credit-balances';
 import { getCurrentParentBalance, getCurrentParentCredits } from '@/features/credits/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

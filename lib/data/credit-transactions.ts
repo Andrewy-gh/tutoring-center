@@ -1,6 +1,6 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
-import { getNetCreditDelta } from '@/features/credits';
+import { getNetCreditDelta } from '@/features/credits/credit-ledger';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';

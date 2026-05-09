@@ -1,4 +1,4 @@
-import { getCreditTransactionSummary, getNetCreditDelta } from '@/features/credits';
+import { getCreditTransactionSummary, getNetCreditDelta } from '@/features/credits/credit-ledger';
 import { describe, expect, it } from 'vitest';
 
 describe('credit ledger helpers', () => {

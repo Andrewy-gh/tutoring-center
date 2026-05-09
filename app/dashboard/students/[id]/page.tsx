@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatSignedCredits } from '@/features/credits';
+import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import { getUserRole } from '@/lib/auth';
 import { formatHours, minutesToHours } from '@/lib/billing-units';
 import { getStudentDashboardDetails } from '@/lib/data/student-dashboard';
