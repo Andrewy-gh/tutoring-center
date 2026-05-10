@@ -80,7 +80,7 @@ describe('credit transaction data', () => {
       ])
     );
 
-    const { getCreditTransactions } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransactions } = await import('@/features/credits/transactions/credit-transactions-service');
     const result = await getCreditTransactions('admin');
 
     expect(result).toEqual([
@@ -101,7 +101,7 @@ describe('credit transaction data', () => {
   });
 
   it('rejects invalid roles before listing transactions', async () => {
-    const { getCreditTransactions } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransactions } = await import('@/features/credits/transactions/credit-transactions-service');
 
     await expect(getCreditTransactions('invalid' as UserRole)).rejects.toThrow(
       'Role is required to fetch credit transactions.'
@@ -142,7 +142,7 @@ describe('credit transaction data', () => {
       ])
     );
 
-    const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransaction } = await import('@/features/credits/transactions/credit-transactions-service');
     const detail = await getCreditTransaction(99, 'parent');
 
     expect(detail.parent.name).toBe('Pat Parent');
@@ -153,7 +153,7 @@ describe('credit transaction data', () => {
   });
 
   it('rejects invalid roles before loading transaction details', async () => {
-    const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransaction } = await import('@/features/credits/transactions/credit-transactions-service');
 
     await expect(getCreditTransaction(99, 'invalid' as UserRole)).rejects.toThrow(
       'Role is required to fetch credit transactions.'

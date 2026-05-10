@@ -48,18 +48,18 @@ vi.mock('@/lib/date-utils', () => ({
   formatSessionTime: vi.fn((date: Date) => (date.getUTCHours() === 15 ? '10:00 AM' : '11:00 AM')),
 }));
 
-vi.mock('@/lib/data/credit-transactions', () => ({
+vi.mock('@/features/credits/transactions/credit-transactions-service', () => ({
   getCreditTransaction: vi.fn(),
 }));
 
-describe('SingleCreditTransactionPage', () => {
+describe('CreditTransactionDetailPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
   it('renders transaction detail content for admin users', async () => {
     const { getUserRole } = await import('@/lib/auth');
-    const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransaction } = await import('@/features/credits/transactions/credit-transactions-service');
     vi.mocked(getUserRole).mockResolvedValue('admin');
     vi.mocked(getCreditTransaction).mockResolvedValue({
       id: 42,
@@ -84,10 +84,11 @@ describe('SingleCreditTransactionPage', () => {
       },
     });
 
-    const { default: SingleCreditTransactionPage } = await import('@/app/dashboard/credit-transactions/[id]/page');
+    const { default: CreditTransactionDetailPage } =
+      await import('@/features/credits/transactions/credit-transaction-detail-page');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
-    const markup = renderToStaticMarkup(await SingleCreditTransactionPage({ params: Promise.resolve({ id: '42' }) }));
+    const markup = renderToStaticMarkup(await CreditTransactionDetailPage({ params: Promise.resolve({ id: '42' }) }));
 
     expect(markup).toContain('Credit Transaction #42');
     expect(markup).toContain('Pat Parent');
@@ -98,7 +99,7 @@ describe('SingleCreditTransactionPage', () => {
 
   it('hides the parent card for parent users', async () => {
     const { getUserRole } = await import('@/lib/auth');
-    const { getCreditTransaction } = await import('@/lib/data/credit-transactions');
+    const { getCreditTransaction } = await import('@/features/credits/transactions/credit-transactions-service');
     vi.mocked(getUserRole).mockResolvedValue('parent');
     vi.mocked(getCreditTransaction).mockResolvedValue({
       id: 43,
@@ -116,10 +117,11 @@ describe('SingleCreditTransactionPage', () => {
       session: null,
     });
 
-    const { default: SingleCreditTransactionPage } = await import('@/app/dashboard/credit-transactions/[id]/page');
+    const { default: CreditTransactionDetailPage } =
+      await import('@/features/credits/transactions/credit-transaction-detail-page');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
-    const markup = renderToStaticMarkup(await SingleCreditTransactionPage({ params: Promise.resolve({ id: '43' }) }));
+    const markup = renderToStaticMarkup(await CreditTransactionDetailPage({ params: Promise.resolve({ id: '43' }) }));
 
     expect(markup).toContain('No student is linked to this transaction.');
     expect(markup).not.toContain('Pat Parent');

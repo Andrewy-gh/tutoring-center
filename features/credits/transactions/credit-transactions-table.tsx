@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import type { UserRole } from '@/lib/auth';
 import { formatHours, minutesToHours } from '@/lib/billing-units';
-import type { CreditTransactionRow } from '@/lib/data/credit-transactions';
 import {
   formatTransactionTypeLabel,
   TRANSACTION_TYPE_FILTER_OPTIONS,
@@ -15,6 +14,7 @@ import {
 } from '@/lib/validators/transactions';
 import { ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
+import type { CreditTransactionRow } from './credit-transactions-service';
 
 function getTypeBadgeVariant(type: TransactionType) {
   switch (type) {
