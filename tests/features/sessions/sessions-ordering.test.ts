@@ -1,4 +1,4 @@
-import { createSessionDataService, type SessionDataServiceDeps } from '@/lib/data/sessions-service';
+import { createSessionDataService, type SessionDataServiceDeps } from '@/features/sessions/sessions-service';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 let deps: SessionDataServiceDeps;
