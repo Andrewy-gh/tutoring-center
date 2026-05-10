@@ -1,4 +1,4 @@
-import { getStudent, getStudents } from '@/lib/data/students';
+import { getStudent, getStudents } from '@/features/students/students-service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
@@ -59,8 +59,10 @@ function createSelectQuery(result: unknown) {
 }
 
 function createNextNotFoundError() {
-  const error = new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string };
-  error.digest = NEXT_NOT_FOUND_DIGEST;
+  const error = new Error(NEXT_NOT_FOUND_DIGEST);
+  Object.defineProperty(error, 'digest', {
+    value: NEXT_NOT_FOUND_DIGEST,
+  });
   return error;
 }
 

@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import type { StudentRow } from '@/lib/data/students';
 import { ColumnDef } from '@tanstack/react-table';
+import type { StudentRow } from './students-service';
 
 export const columns: ColumnDef<StudentRow>[] = [
   {
