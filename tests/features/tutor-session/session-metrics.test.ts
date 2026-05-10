@@ -1,4 +1,7 @@
-import { createSessionMetricsService, type SessionMetricsServiceDeps } from '@/lib/actions/session-metrics-service';
+import {
+  createSessionMetricsService,
+  type SessionMetricsServiceDeps,
+} from '@/features/tutor-session/session-metrics-service';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 let deps: SessionMetricsServiceDeps;

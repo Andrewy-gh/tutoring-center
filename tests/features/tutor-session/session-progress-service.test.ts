@@ -1,4 +1,7 @@
-import { createSessionProgressService, type SessionProgressServiceDeps } from '@/lib/actions/session-progress-service';
+import {
+  createSessionProgressService,
+  type SessionProgressServiceDeps,
+} from '@/features/tutor-session/session-progress-service';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 let deps: SessionProgressServiceDeps;
