@@ -13,8 +13,8 @@ import {
   shouldStartAtSubjectStep,
 } from '@/features/booking/booking-flow';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits/add-credits';
+import { purchaseParentCredits } from '@/features/credits/add-credits/purchase-parent-credits';
 import { type CreditBalance } from '@/features/credits/credit-balances';
-import { purchaseParentCredits } from '@/features/credits/credit-mutations';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
