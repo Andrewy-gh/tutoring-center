@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { SessionMetricsForm } from '@/components/tutor-session/session-metrics-form';
+import { SessionMetricsForm } from '@/features/tutor-session/session-metrics-form';
 import { getUserRole } from '@/lib/auth';
 import { getSession } from '@/lib/data/sessions';
 
