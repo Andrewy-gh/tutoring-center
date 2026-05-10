@@ -3,6 +3,7 @@ import { FlatCompat } from '@eslint/eslintrc'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import eslintConfigPrettier from 'eslint-config-prettier'
+import { noUntrackedTypeAssertions } from './eslint-rules/no-untracked-type-assertions.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -27,8 +28,16 @@ const eslintConfig = defineConfig(
     },
   },
   {
+    plugins: {
+      local: {
+        rules: {
+          'no-untracked-type-assertions': noUntrackedTypeAssertions,
+        },
+      },
+    },
     rules: {
       'no-console': 'warn' as const,
+      'local/no-untracked-type-assertions': 'error',
     },
   },
   {
