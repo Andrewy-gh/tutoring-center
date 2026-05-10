@@ -3,8 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AddCredits } from '@/features/credits/add-credits/add-credits';
+import {
+  purchaseParentCredits,
+  type CreditPurchaseResult,
+} from '@/features/credits/add-credits/purchase-parent-credits';
 import { type CreditBalance } from '@/features/credits/credit-balances';
-import { purchaseParentCredits, type CreditMutationResult } from '@/features/credits/credit-mutations';
 
 type AddCreditsPageClientProps = {
   parentId: number;
@@ -20,7 +23,7 @@ export function AddCreditsPageClient({ parentId, initialBalance }: AddCreditsPag
     <AddCredits
       warningMessage={warning}
       onPurchaseCompleteAction={async purchase => {
-        const result: CreditMutationResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
+        const result: CreditPurchaseResult = await purchaseParentCredits(parentId, purchase.pkg.credits, balance);
 
         setBalance(result.balance);
         setWarning(result.warning ?? null);

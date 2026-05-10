@@ -1,7 +1,7 @@
 import { type CreditBalance } from '@/features/credits/credit-balances';
 import { creditsToMinutes } from '@/lib/billing-units';
 
-export type CreditMutationResult = {
+export type CreditPurchaseResult = {
   balance: CreditBalance;
   warning?: string;
 };
@@ -61,7 +61,11 @@ async function saveCreditTransaction(input: CreditTransactionPayload) {
   }
 }
 
-export async function purchaseParentCredits(parentId: number, credits: number, currentBalance: CreditBalance) {
+export async function purchaseParentCredits(
+  parentId: number,
+  credits: number,
+  currentBalance: CreditBalance
+): Promise<CreditPurchaseResult> {
   const purchasedMinutes = creditsToMinutes(credits);
   const nextBalance = {
     available_minutes: currentBalance.available_minutes + purchasedMinutes,

@@ -1,7 +1,7 @@
-import { purchaseParentCredits } from '@/features/credits/credit-mutations';
+import { purchaseParentCredits } from '@/features/credits/add-credits/purchase-parent-credits';
 import { describe, expect, it, vi } from 'vitest';
 
-describe('credit mutations', () => {
+describe('purchase parent credits', () => {
   it('records a purchase after updating the parent balance', async () => {
     const fetchMock = vi
       .fn()
