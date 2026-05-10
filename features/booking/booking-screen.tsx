@@ -12,7 +12,7 @@ import {
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
 } from '@/features/booking/booking-flow';
-import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits';
+import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits/add-credits';
 import { type CreditBalance } from '@/features/credits/credit-balances';
 import { purchaseParentCredits } from '@/features/credits/credit-mutations';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';

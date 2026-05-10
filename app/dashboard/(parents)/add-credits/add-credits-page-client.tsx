@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AddCredits } from '@/features/credits/add-credits';
+import { AddCredits } from '@/features/credits/add-credits/add-credits';
 import { type CreditBalance } from '@/features/credits/credit-balances';
 import { purchaseParentCredits, type CreditMutationResult } from '@/features/credits/credit-mutations';
 
