@@ -15,7 +15,7 @@ let getStudentRecentProgressRowsMock: Mock<SessionDataServiceDeps['getStudentRec
 let notFoundMock: Mock<() => never>;
 let redirectMock: Mock<(path: string) => never>;
 
-function createDeps(): SessionDataServiceDeps {
+function createDeps() {
   getUserRoleMock = vi.fn<SessionDataServiceDeps['getUserRole']>().mockResolvedValue('admin');
   getCurrentUserIDMock = vi.fn<SessionDataServiceDeps['getCurrentUserID']>().mockResolvedValue(1);
   getParentIdByUserIdMock = vi.fn<SessionDataServiceDeps['getParentIdByUserId']>().mockResolvedValue(77);
@@ -41,7 +41,7 @@ function createDeps(): SessionDataServiceDeps {
     throw new Error(`redirect:${path}`);
   });
 
-  return {
+  const nextDeps: SessionDataServiceDeps = {
     getUserRole: () => getUserRoleMock(),
     getCurrentUserID: () => getCurrentUserIDMock(),
     getParentIdByUserId: userId => getParentIdByUserIdMock(userId),
@@ -57,6 +57,8 @@ function createDeps(): SessionDataServiceDeps {
     notFound: () => notFoundMock(),
     redirect: path => redirectMock(path),
   };
+
+  return nextDeps;
 }
 
 describe('getSessions', () => {

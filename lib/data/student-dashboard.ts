@@ -76,7 +76,7 @@ async function getScopedParentId(role: AllowedRole) {
   return parentId;
 }
 
-function assertStudentDashboardRole(role: UserRole): AllowedRole {
+function assertStudentDashboardRole(role: UserRole) {
   if (role === 'admin' || role === 'parent') {
     return role;
   }

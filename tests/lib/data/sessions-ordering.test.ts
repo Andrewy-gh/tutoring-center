@@ -6,12 +6,12 @@ let getSessionListRowsMock: Mock<SessionDataServiceDeps['getSessionListRows']>;
 let getSubjectMapByIdsMock: Mock<SessionDataServiceDeps['getSubjectMapByIds']>;
 let getTutorProfileMapByIdsMock: Mock<SessionDataServiceDeps['getTutorProfileMapByIds']>;
 
-function createDeps(): SessionDataServiceDeps {
+function createDeps() {
   getSessionListRowsMock = vi.fn<SessionDataServiceDeps['getSessionListRows']>().mockResolvedValue([]);
   getSubjectMapByIdsMock = vi.fn<SessionDataServiceDeps['getSubjectMapByIds']>().mockResolvedValue(new Map());
   getTutorProfileMapByIdsMock = vi.fn<SessionDataServiceDeps['getTutorProfileMapByIds']>().mockResolvedValue(new Map());
 
-  return {
+  const nextDeps: SessionDataServiceDeps = {
     getUserRole: async () => 'admin',
     getCurrentUserID: async () => 1,
     getParentIdByUserId: async () => 1,
@@ -30,6 +30,8 @@ function createDeps(): SessionDataServiceDeps {
       throw new Error(`redirect:${path}`);
     },
   };
+
+  return nextDeps;
 }
 
 describe('getSessions ordering', () => {
