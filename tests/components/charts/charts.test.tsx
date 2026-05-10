@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { HomeworkChart } from '@/components/charts/homework-chart';
+import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
 import type { ConfidenceDataPoint, HomeworkDataPoint, PerformanceDataPoint } from '@/lib/data/dashboard';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -26,9 +28,6 @@ vi.mock('recharts', () => ({
 vi.mock('date-fns', () => ({
   format: vi.fn(() => 'Jan 15'),
 }));
-
-import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
-import { HomeworkChart } from '@/components/charts/homework-chart';
 
 const mockPerformanceData: PerformanceDataPoint[] = [
   { date: '2026-01-15T10:00:00Z', score: 3, sessionId: 1, subject: 'Mathematics', subjectSlug: 'mathematics' },

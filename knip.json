@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/**/{default,error,forbidden,loading,not-found,unauthorized}.{ts,tsx}",
+    "app/**/{layout,page,route,template}.{ts,tsx}",
+    "scripts/**/*.{js,mjs,ts}",
+    "tests/**/*.{test,spec}.{ts,tsx}"
+  ],
+  "project": ["**/*.{js,mjs,ts,tsx}"],
+  "exclude": ["exports", "types"],
+  "ignoreDependencies": ["eslint-config-next", "husky", "shadcn", "tailwindcss", "tw-animate-css"],
+  "vitest": {
+    "entry": ["tests/**/*.{test,spec}.{ts,tsx}"]
+  }
+}

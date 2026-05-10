@@ -1,12 +1,15 @@
 import { SendMessageButton } from '@/components/send-message-button';
-import { AT_RISK_THRESHOLD, type AtRiskParent } from '@/lib/data/admin-dashboard';
 import { formatHours } from '@/lib/billing-units';
+import { AT_RISK_THRESHOLD, type AtRiskParent } from '@/lib/data/admin-dashboard';
 
 export function AtRiskView({ title, parents }: { title: string; parents: AtRiskParent[] }) {
   return (
     <>
       <h2 className='text-xl font-semibold mb-4'>
-        {title} <span className='text-sm font-normal text-muted-foreground'>(below {formatHours(AT_RISK_THRESHOLD)} hours)</span>
+        {title}{' '}
+        <span className='text-sm font-normal text-muted-foreground'>
+          (below {formatHours(AT_RISK_THRESHOLD)} hours)
+        </span>
       </h2>
       {parents.length === 0 ? (
         <p className='text-muted-foreground text-sm'>No at-risk accounts.</p>

@@ -50,10 +50,7 @@ function averageGrades(grades: GradeDataPoint[]) {
   };
 }
 
-function processGradesData(
-  data: GradeDataPoint[],
-  aggregateByDate: boolean
-) {
+function processGradesData(data: GradeDataPoint[], aggregateByDate: boolean) {
   if (data.length === 0) {
     return { chartData: [], latestGrade: '-', trend: 'stable' };
   }

@@ -80,7 +80,9 @@ describe('db schema exports', () => {
 
     expect(creditTransactions.availableDeltaMinutes.name).toBe('available_delta_minutes');
     expect(creditTransactions.pendingDeltaMinutes.name).toBe('pending_delta_minutes');
-    expect(tableConfig.checks.map(check => check.name)).toContain('credit_transactions_valid_delta_shape_by_type_minutes');
+    expect(tableConfig.checks.map(check => check.name)).toContain(
+      'credit_transactions_valid_delta_shape_by_type_minutes'
+    );
     expect(shapeCheck).toBeDefined();
     expect(dialect.sqlToQuery(shapeCheck!.value).sql).toContain(
       `when "credit_transactions"."type" = 'cancellation_fee'`

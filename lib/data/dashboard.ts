@@ -170,11 +170,7 @@ function buildStudentProgress(
   };
 }
 
-export async function getStudentProgressData(
-  studentId: number,
-  studentName: string,
-  dateRange?: DateRange
-) {
+export async function getStudentProgressData(studentId: number, studentName: string, dateRange?: DateRange) {
   try {
     const sessionRows = await getCompletedSessionMetrics(dateRange, [studentId]);
     if (sessionRows.length === 0) {
