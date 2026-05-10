@@ -20,18 +20,20 @@ let findTutorSubjectMock: Mock<AvailableSessionsServiceDeps['findTutorSubject']>
 let listAvailabilityMock: Mock<AvailableSessionsServiceDeps['listAvailability']>;
 let listBookedSessionsMock: Mock<AvailableSessionsServiceDeps['listBookedSessions']>;
 
-function createDeps(): AvailableSessionsServiceDeps {
+function createDeps() {
   findTutorSubjectMock = vi.fn<AvailableSessionsServiceDeps['findTutorSubject']>().mockResolvedValue({ id: 1 });
   listAvailabilityMock = vi
     .fn<AvailableSessionsServiceDeps['listAvailability']>()
     .mockResolvedValue(MONDAY_AVAILABILITY as never);
   listBookedSessionsMock = vi.fn<AvailableSessionsServiceDeps['listBookedSessions']>().mockResolvedValue([]);
 
-  return {
+  const nextDeps: AvailableSessionsServiceDeps = {
     findTutorSubject: (tutorId, subjectId) => findTutorSubjectMock(tutorId, subjectId),
     listAvailability: tutorId => listAvailabilityMock(tutorId),
     listBookedSessions: (tutorId, fromUtc, toUtc) => listBookedSessionsMock(tutorId, fromUtc, toUtc),
   };
+
+  return nextDeps;
 }
 
 describe('getAvailableSlots', () => {

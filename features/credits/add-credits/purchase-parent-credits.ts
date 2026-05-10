@@ -61,11 +61,7 @@ async function saveCreditTransaction(input: CreditTransactionPayload) {
   }
 }
 
-export async function purchaseParentCredits(
-  parentId: number,
-  credits: number,
-  currentBalance: CreditBalance
-): Promise<CreditPurchaseResult> {
+export async function purchaseParentCredits(parentId: number, credits: number, currentBalance: CreditBalance) {
   const purchasedMinutes = creditsToMinutes(credits);
   const nextBalance = {
     available_minutes: currentBalance.available_minutes + purchasedMinutes,

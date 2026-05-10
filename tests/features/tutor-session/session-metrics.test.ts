@@ -11,14 +11,14 @@ let getCurrentUserIDMock: Mock<SessionMetricsServiceDeps['getCurrentUserID']>;
 let getTutorIdByUserIdMock: Mock<SessionMetricsServiceDeps['getTutorIdByUserId']>;
 let getSessionTutorIdMock: Mock<SessionMetricsServiceDeps['getSessionTutorId']>;
 
-function createDeps(): SessionMetricsServiceDeps {
+function createDeps() {
   saveSessionMetricsMock = vi.fn<SessionMetricsServiceDeps['saveSessionMetrics']>().mockResolvedValue(undefined);
   getUserRoleMock = vi.fn<SessionMetricsServiceDeps['getUserRole']>().mockResolvedValue('tutor');
   getCurrentUserIDMock = vi.fn<SessionMetricsServiceDeps['getCurrentUserID']>().mockResolvedValue(44);
   getTutorIdByUserIdMock = vi.fn<SessionMetricsServiceDeps['getTutorIdByUserId']>().mockResolvedValue(9);
   getSessionTutorIdMock = vi.fn<SessionMetricsServiceDeps['getSessionTutorId']>().mockResolvedValue(9);
 
-  return {
+  const nextDeps: SessionMetricsServiceDeps = {
     saveSessionMetrics: values => saveSessionMetricsMock(values),
     getUserRole: () => getUserRoleMock(),
     getCurrentUserID: () => getCurrentUserIDMock(),
@@ -26,6 +26,8 @@ function createDeps(): SessionMetricsServiceDeps {
     getSessionTutorId: sessionId => getSessionTutorIdMock(sessionId),
     now: vi.fn(() => '2026-03-21T12:00:00.000Z'),
   };
+
+  return nextDeps;
 }
 
 describe('submitSessionMetrics', () => {
