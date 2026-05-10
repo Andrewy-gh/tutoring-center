@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { StudentForGradeForm, SubjectForGradeForm } from '@/lib/data/grades';
+import type { StudentForGradeForm, SubjectForGradeForm } from '@/features/grades/add-grade/grade-service';
 import { toast } from 'sonner';
 
 type GradeFormProps = {

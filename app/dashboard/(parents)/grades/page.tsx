@@ -1,7 +1,7 @@
 import { forbidden } from 'next/navigation';
+import { GradeForm } from '@/features/grades/add-grade/grade-form';
+import { getStudentsForGradeForm, getSubjectsForGradeForm } from '@/features/grades/add-grade/grade-service';
 import { getUserRole } from '@/lib/auth';
-import { getStudentsForGradeForm, getSubjectsForGradeForm } from '@/lib/data/grades';
-import { GradeForm } from './grade-form';
 
 export default async function GradesPage() {
   const role = await getUserRole();
