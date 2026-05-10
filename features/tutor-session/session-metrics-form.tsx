@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { submitSessionMetrics } from '@/lib/actions/session-metrics';
+import { submitSessionMetrics } from '@/features/tutor-session/session-metrics';
 import { ArrowLeft, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
