@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { addGrade } from '@/lib/data/grades';
-import { GradeInputSchema } from '@/lib/validators/grades';
+import { GradeInputSchema } from '@/features/grades/add-grade/grade-input';
+import { addGrade } from '@/features/grades/add-grade/grade-service';
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);

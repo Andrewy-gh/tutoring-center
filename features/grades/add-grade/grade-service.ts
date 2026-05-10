@@ -1,9 +1,9 @@
 import { forbidden, notFound } from 'next/navigation';
+import { GradeInputSchema, type GradeInput } from '@/features/grades/add-grade/grade-input';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import type { SubjectForGradeForm } from '@/lib/data/subjects';
 import { getParentIdByUserId } from '@/lib/db/queries/actors';
 import { studentGrades, students, subjects, users } from '@/lib/db/schema';
-import { GradeInputSchema, type GradeInput } from '@/lib/validators/grades';
 import { and, eq } from 'drizzle-orm';
 
 export type StudentForGradeForm = {
@@ -23,11 +23,7 @@ const GRADE_ERROR_MESSAGES = {
 } as const satisfies Record<GradeErrorReason, string>;
 const GRADE_KNOWN_ERRORS = new Set(Object.values(GRADE_ERROR_MESSAGES));
 
-function isNextControlFlowError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
+function isNextControlFlowError(error: Error) {
   const digest = 'digest' in error && typeof error.digest === 'string' ? error.digest : error.message;
 
   return digest.startsWith('NEXT_HTTP_ERROR_FALLBACK;') || digest.startsWith('NEXT_REDIRECT;');
@@ -80,7 +76,7 @@ export async function getStudentsForGradeForm(role: UserRole) {
       parentId = await getParentIdByUserId(userID);
       if (!parentId) notFound();
     } catch (error) {
-      if (isNextControlFlowError(error)) {
+      if (error instanceof Error && isNextControlFlowError(error)) {
         throw error;
       }
 

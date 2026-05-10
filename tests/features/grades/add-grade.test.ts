@@ -1,4 +1,4 @@
-import { addGrade, getStudentsForGradeForm, getSubjectsForGradeForm } from '@/lib/data/grades';
+import { addGrade, getStudentsForGradeForm, getSubjectsForGradeForm } from '@/features/grades/add-grade/grade-service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
