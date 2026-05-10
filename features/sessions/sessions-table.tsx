@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { SessionRow } from '@/lib/data/sessions';
 import { ColumnDef } from '@tanstack/react-table';
 import { format, parseISO } from 'date-fns';
+import { SessionRow } from './sessions-service';
 
 export const columns: ColumnDef<SessionRow>[] = [
   {

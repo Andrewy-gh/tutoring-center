@@ -1,8 +1,13 @@
 import 'server-only';
-import { sessionDataService } from './sessions-service';
+import { sessionDataService } from '@/features/sessions/sessions-service';
 
 export { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
-export type { SessionDetailType, SessionRow, StudentProgressHistory, TutorAssignedSession } from './sessions-service';
+export type {
+  SessionDetailType,
+  SessionRow,
+  StudentProgressHistory,
+  TutorAssignedSession,
+} from '@/features/sessions/sessions-service';
 
 export async function getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
   return sessionDataService.getSessions(kind);
