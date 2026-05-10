@@ -6,10 +6,21 @@ import { getUserRole } from '@/lib/auth';
 import { sessionDataService } from './sessions-service';
 import { columns } from './sessions-table';
 
+function parseSessionKind(kind: string | undefined) {
+  switch (kind) {
+    case 'all':
+    case 'upcoming':
+    case 'past':
+      return kind;
+    default:
+      return undefined;
+  }
+}
+
 export default async function SessionsPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const role = await getUserRole();
   const params = await searchParams;
-  const kind = params.kind as 'all' | 'upcoming' | 'past' | undefined;
+  const kind = parseSessionKind(params.kind);
   const sessions = await sessionDataService.getSessions(kind);
 
   const description = role === 'admin' ? 'All scheduled sessions' : 'Your scheduled sessions';

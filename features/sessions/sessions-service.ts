@@ -144,7 +144,7 @@ export type SessionDataServiceDeps = {
   ) => Promise<StudentRecentProgressRow[]>;
   now: () => string;
   notFound: () => never;
-  redirect: (path: string) => never;
+  redirect: (path: Parameters<typeof redirect>[0]) => never;
 };
 
 const SCHEDULED_SESSION_STATUSES = new Set(['Scheduled']);
@@ -495,5 +495,5 @@ export const sessionDataService = createSessionDataService({
   getStudentRecentProgressRows,
   now: () => new Date().toISOString(),
   notFound,
-  redirect: path => redirect(path as Parameters<typeof redirect>[0]),
+  redirect,
 });
