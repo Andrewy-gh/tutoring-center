@@ -1,4 +1,4 @@
-import { purchaseParentCredits } from '@/features/credits';
+import { purchaseParentCredits } from '@/features/credits/credit-mutations';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('credit mutations', () => {

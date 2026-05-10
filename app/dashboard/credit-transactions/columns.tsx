@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { DataTable, DataTableFilter, DataTableToolbar } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatSignedCredits } from '@/features/credits';
+import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import type { UserRole } from '@/lib/auth';
 import { formatHours, minutesToHours } from '@/lib/billing-units';
 import type { CreditTransactionRow } from '@/lib/data/credit-transactions';

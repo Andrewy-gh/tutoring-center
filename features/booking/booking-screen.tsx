@@ -12,8 +12,9 @@ import {
   shouldBlockForCredits,
   shouldStartAtSubjectStep,
 } from '@/features/booking/booking-flow';
-import { purchaseParentCredits, type CreditBalance } from '@/features/credits';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits';
+import { type CreditBalance } from '@/features/credits/credit-balances';
+import { purchaseParentCredits } from '@/features/credits/credit-mutations';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
