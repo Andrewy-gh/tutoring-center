@@ -16,10 +16,6 @@ export async function getTutorAssignedSessions() {
   return sessionDataService.getTutorAssignedSessions();
 }
 
-export async function getStudentRecentProgress(
-  studentId: number,
-  sessionIdToExclude: number,
-  limit: number = 5
-) {
+export async function getStudentRecentProgress(studentId: number, sessionIdToExclude: number, limit: number = 5) {
   return sessionDataService.getStudentRecentProgress(studentId, sessionIdToExclude, limit);
 }

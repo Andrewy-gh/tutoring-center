@@ -1,6 +1,6 @@
 import 'server-only';
-import { creditBalances, creditTransactions, parents, sessions, users } from '@/lib/db/schema';
 import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/lib/billing-units';
+import { creditBalances, creditTransactions, parents, sessions, users } from '@/lib/db/schema';
 import { and, asc, eq, gte, isNotNull, lt, lte, sql } from 'drizzle-orm';
 
 export type AdminMetrics = {
@@ -159,5 +159,5 @@ export async function getDebitSessionIds() {
     .from(creditTransactions)
     .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId)));
 
-  return new Set(rows.map(tx => tx.session_id).filter((id) => id !== null));
+  return new Set(rows.map(tx => tx.session_id).filter(id => id !== null));
 }

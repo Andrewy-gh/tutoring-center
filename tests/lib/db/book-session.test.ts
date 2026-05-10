@@ -1,3 +1,4 @@
+import { slotUnitsToMinutes } from '@/lib/billing-units';
 import {
   bookSession,
   CreditBalanceNotFoundError,
@@ -7,7 +8,6 @@ import {
   SessionOverlapError,
   type BookSessionInput,
 } from '@/lib/db/book-session';
-import { slotUnitsToMinutes } from '@/lib/billing-units';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db/client', () => ({

@@ -16,7 +16,8 @@ import { login } from '@/lib/auth';
 import { ArrowLeft, GraduationCap, UserRound, UserRoundCog } from 'lucide-react';
 
 const ERROR_MESSAGES = {
-  'missing-local-user': 'No local account exists for that role yet. Run the local database bootstrap to seed placeholder users.',
+  'missing-local-user':
+    'No local account exists for that role yet. Run the local database bootstrap to seed placeholder users.',
 } as const;
 
 export default async function LoginPage({
