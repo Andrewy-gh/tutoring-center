@@ -1,9 +1,10 @@
 import 'server-only';
 import { forbidden } from 'next/navigation';
+import { getTutorProfileRowsByIds } from '@/db/queries/tutors';
 import { tutors, users } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
 import { TutorJoinRowListSchema, type TutorJoinRow } from '@/lib/validators/tutors';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 async function getDb() {
   return (await import('@/db/client')).db;
@@ -55,21 +56,9 @@ export async function getTutorProfileMapByIds(tutorIds: number[]) {
     return new Map<number, TutorProfile>();
   }
 
-  let rows: Array<Pick<TutorJoinRow, 'id' | 'firstName' | 'lastName' | 'email' | 'phone'>>;
+  let rows: Awaited<ReturnType<typeof getTutorProfileRowsByIds>>;
   try {
-    const db = await getDb();
-    rows = await db
-      .select({
-        id: tutors.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-        phone: users.phone,
-      })
-      .from(tutors)
-      .innerJoin(users, eq(tutors.userId, users.id))
-      .where(inArray(tutors.id, uniqueTutorIds))
-      .orderBy(asc(tutors.id));
+    rows = await getTutorProfileRowsByIds(uniqueTutorIds);
   } catch {
     throw new Error(TUTOR_ERROR_MESSAGES.admin.database);
   }

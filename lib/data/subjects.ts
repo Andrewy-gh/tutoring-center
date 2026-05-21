@@ -1,4 +1,5 @@
 import { forbidden } from 'next/navigation';
+import { getSubjectRecordRowsByIds, type SubjectRecordRow } from '@/db/queries/subjects';
 import { subjects, tutorSubjects } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
 import {
@@ -8,7 +9,7 @@ import {
   type SubjectOptionRow,
   type SubjectRecord,
 } from '@/lib/validators/subjects';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 async function getDb() {
   return (await import('@/db/client')).db;
@@ -49,14 +50,6 @@ const SUBJECT_ERROR_MESSAGES = {
 } as const satisfies Record<AllowedRole, Record<SubjectLoadErrorReason, string>>;
 
 const sortNumberAsc = (a: number, b: number) => a - b;
-
-type SubjectRecordRow = {
-  id: number;
-  name: string;
-  slug: string;
-  kind: typeof subjects.$inferSelect.kind;
-  isActive: boolean;
-};
 
 type SubjectOptionJoinRow = SubjectRecordRow & {
   tutorId: number;
@@ -143,18 +136,7 @@ export async function getSubjectMapByIds(subjectIds: number[]) {
 
   let rows: SubjectRecordRow[];
   try {
-    const db = await getDb();
-    rows = await db
-      .select({
-        id: subjects.id,
-        name: subjects.name,
-        slug: subjects.slug,
-        kind: subjects.kind,
-        isActive: subjects.isActive,
-      })
-      .from(subjects)
-      .where(inArray(subjects.id, uniqueSubjectIds))
-      .orderBy(asc(subjects.id));
+    rows = await getSubjectRecordRowsByIds(uniqueSubjectIds);
   } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }
