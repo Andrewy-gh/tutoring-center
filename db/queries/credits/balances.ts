@@ -19,7 +19,7 @@ async function getExecutor(database?: SqlExecutor) {
     return database;
   }
 
-  return (await import('@/lib/db/client')).db as unknown as SqlExecutor;
+  return (await import('@/db/client')).db as unknown as SqlExecutor;
 }
 
 export async function getCreditBalanceByParentId(parentId: number, database?: SqlExecutor) {

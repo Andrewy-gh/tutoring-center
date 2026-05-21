@@ -1,4 +1,4 @@
-import { SESSION_STATUS_OPTIONS, TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/lib/db/types';
+import { SESSION_STATUS_OPTIONS, TRANSACTION_TYPE_OPTIONS, type TransactionType } from '@/db/types';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize } from './shared';
 

@@ -1,9 +1,9 @@
 import { forbidden, notFound } from 'next/navigation';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { studentGrades, students, subjects, users } from '@/db/schema';
 import { GradeInputSchema, type GradeInput } from '@/features/grades/add-grade/grade-input';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import type { SubjectForGradeForm } from '@/lib/data/subjects';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { studentGrades, students, subjects, users } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 export type StudentForGradeForm = {
@@ -30,7 +30,7 @@ function isNextControlFlowError(error: Error) {
 }
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export function percentageToLetterGrade(percentage: number) {

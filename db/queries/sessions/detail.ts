@@ -1,9 +1,9 @@
 import 'server-only';
-import { sessions } from '@/lib/db/schema';
+import { sessions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export async function getSessionTutorId(sessionId: number) {

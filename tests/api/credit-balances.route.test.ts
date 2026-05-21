@@ -19,12 +19,12 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/db/queries/actors', () => ({
+vi.mock('@/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
   parentExists: mockParentExists,
 }));
 
-vi.mock('@/lib/db/queries/credits/balances', () => ({
+vi.mock('@/db/queries/credits/balances', () => ({
   getCreditBalanceByParentId: mockGetCreditBalanceByParentId,
   upsertCreditBalance: mockUpsertCreditBalance,
 }));

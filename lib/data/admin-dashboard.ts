@@ -1,6 +1,6 @@
 import 'server-only';
+import { creditBalances, creditTransactions, parents, sessions, users } from '@/db/schema';
 import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/lib/billing-units';
-import { creditBalances, creditTransactions, parents, sessions, users } from '@/lib/db/schema';
 import { and, asc, eq, gte, isNotNull, lt, lte, sql } from 'drizzle-orm';
 
 export type AdminMetrics = {
@@ -25,7 +25,7 @@ export const AT_RISK_THRESHOLD = 2;
 const AT_RISK_THRESHOLD_MINUTES = creditsToMinutes(AT_RISK_THRESHOLD);
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export async function getAdminMetrics() {

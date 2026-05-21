@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { createCreditTransaction } from '@/db/queries/credits/transactions';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { createCreditTransaction } from '@/lib/db/queries/credits/transactions';
 import { TransactionCreateSchema } from '@/lib/validators/transactions';
 
 function getErrorMessage(error: unknown) {

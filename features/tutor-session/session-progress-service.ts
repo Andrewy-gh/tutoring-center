@@ -1,7 +1,7 @@
+import { getTutorIdByUserId } from '@/db/queries/actors';
+import { getSessionTutorId } from '@/db/queries/sessions/detail';
+import { sessionProgress } from '@/db/schema';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
-import { getTutorIdByUserId } from '@/lib/db/queries/actors';
-import { getSessionTutorId } from '@/lib/db/queries/sessions/detail';
-import { sessionProgress } from '@/lib/db/schema';
 import { assertTutorOwnsSession } from './tutor-session-authorization';
 
 type ProgressReportValues = {
@@ -34,7 +34,7 @@ export type SessionProgressServiceDeps = ProgressReportWriter & {
 };
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 async function saveProgressReport(values: ProgressReportValues) {

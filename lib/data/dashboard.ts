@@ -1,8 +1,8 @@
 import 'server-only';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { sessionMetrics, sessions, studentGrades, students, subjects, users } from '@/db/schema';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { sessionMetrics, sessions, studentGrades, students, subjects, users } from '@/lib/db/schema';
 import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 
 export type DateRange = {
@@ -58,7 +58,7 @@ type SubjectSummary = {
 };
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 function getSubjectSummary(subjectMap: Map<number, SubjectSummary>, subjectId: number) {

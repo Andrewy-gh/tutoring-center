@@ -1,6 +1,6 @@
 import 'server-only';
+import type { WeekDay } from '@/db/types';
 import { TIMEZONE } from '@/lib/constants';
-import type { WeekDay } from '@/lib/db/types';
 
 const WEEKDAY_NAME_BY_INDEX: WeekDay[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

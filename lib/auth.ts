@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getUserIdForRole, getUserNameById } from '@/lib/db/queries/actors';
+import { getUserIdForRole, getUserNameById } from '@/db/queries/actors';
 
 export type UserRole = 'admin' | 'parent' | 'tutor';
 

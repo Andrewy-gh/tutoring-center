@@ -1,5 +1,5 @@
 import 'server-only';
-import { creditTransactions, parents, sessions, students, users } from '@/lib/db/schema';
+import { creditTransactions, parents, sessions, students, users } from '@/db/schema';
 import {
   CreditTransactionListQueryRowListSchema,
   type CreditTransactionListQueryRow,
@@ -8,7 +8,7 @@ import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export type CreditTransactionListFilters = {

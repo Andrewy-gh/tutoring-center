@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
   forbidden: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
     insert: mockDbInsert,

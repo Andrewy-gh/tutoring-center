@@ -19,7 +19,7 @@ import {
   tutorSubjects,
   WEEKDAY_OPTIONS,
   weekDayEnum,
-} from '@/lib/db/schema';
+} from '@/db/schema';
 import { getTableName } from 'drizzle-orm';
 import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';

@@ -1,8 +1,8 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
+import { creditBalances, parents, students, users } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
 import { minutesToCredits } from '@/lib/billing-units';
-import { creditBalances, parents, students, users } from '@/lib/db/schema';
 import {
   ParentDetailJoinRowListSchema,
   ParentListJoinRowListSchema,
@@ -13,7 +13,7 @@ import { asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 const MISSING_VALUE = '—';

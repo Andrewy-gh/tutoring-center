@@ -11,11 +11,11 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/db/queries/actors', () => ({
+vi.mock('@/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
 }));
 
-vi.mock('@/lib/db/queries/credits/transactions', () => ({
+vi.mock('@/db/queries/credits/transactions', () => ({
   createCreditTransaction: mockCreateCreditTransaction,
 }));
 

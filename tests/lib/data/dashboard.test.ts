@@ -12,7 +12,7 @@ vi.mock('@/lib/auth', () => ({
   getUserRole: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
   },

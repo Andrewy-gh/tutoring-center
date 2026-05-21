@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { and, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { sessionMetrics, sessionProgress, sessions, type SessionStatus } from '../lib/db/schema';
+import { sessionMetrics, sessionProgress, sessions, type SessionStatus } from '../db/schema';
 
 function requireEnv(name: string) {
   const value = process.env[name];

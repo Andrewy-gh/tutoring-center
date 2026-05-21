@@ -1,12 +1,12 @@
 import 'server-only';
 import { forbidden } from 'next/navigation';
+import { availability, tutors, users } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
-import { availability, tutors, users } from '@/lib/db/schema';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export type TutorOption = {

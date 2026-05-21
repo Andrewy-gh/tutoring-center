@@ -1,11 +1,11 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
-import { tutors, users } from '@/lib/db/schema';
+import { tutors, users } from '@/db/schema';
 import { TutorJoinRowSchema, type TutorJoinRow } from '@/lib/validators/tutors';
 import { eq } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export { getUserRole } from '@/lib/auth';
