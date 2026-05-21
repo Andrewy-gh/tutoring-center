@@ -1,6 +1,11 @@
 import { forbidden } from 'next/navigation';
-import { getSubjectRecordRowsByIds, type SubjectRecordRow } from '@/db/queries/subjects';
-import { subjects, tutorSubjects } from '@/db/schema';
+import {
+  getActiveLeafSubjectOptionRowsWithTutorAssignments,
+  getActiveLeafSubjectRowsForGradeForm,
+  getSubjectRecordRowsByIds,
+  type ActiveLeafSubjectOptionRow,
+  type SubjectRecordRow,
+} from '@/db/queries/subjects';
 import type { UserRole } from '@/lib/auth';
 import {
   ActiveLeafSubjectListSchema,
@@ -9,11 +14,6 @@ import {
   type SubjectOptionRow,
   type SubjectRecord,
 } from '@/lib/validators/subjects';
-import { and, asc, eq } from 'drizzle-orm';
-
-async function getDb() {
-  return (await import('@/db/client')).db;
-}
 
 type SubjectLoadErrorReason = 'database' | 'validation';
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -51,11 +51,6 @@ const SUBJECT_ERROR_MESSAGES = {
 
 const sortNumberAsc = (a: number, b: number) => a - b;
 
-type SubjectOptionJoinRow = SubjectRecordRow & {
-  tutorId: number;
-  subjectId: number;
-};
-
 type SubjectOptionRowCandidate = ReturnType<typeof mapSubjectRecordRow> & {
   tutor_subjects: Array<{
     tutor_id: number;
@@ -71,7 +66,7 @@ const mapSubjectRecordRow = (row: SubjectRecordRow) => ({
   is_active: row.isActive,
 });
 
-const mapSubjectOptionRows = (rows: SubjectOptionJoinRow[]) => {
+const mapSubjectOptionRows = (rows: ActiveLeafSubjectOptionRow[]) => {
   const subjectsById = new Map<number, SubjectOptionRowCandidate>();
 
   for (const row of rows) {
@@ -153,26 +148,9 @@ export async function getSubjects(role: UserRole) {
   if (role === 'tutor') forbidden();
   const allowedRole: AllowedRole = role;
 
-  let rows: SubjectOptionJoinRow[];
+  let rows: ActiveLeafSubjectOptionRow[];
   try {
-    const db = await getDb();
-    rows = await db
-      .select({
-        id: subjects.id,
-        name: subjects.name,
-        slug: subjects.slug,
-        kind: subjects.kind,
-        isActive: subjects.isActive,
-        tutorId: tutorSubjects.tutorId,
-        subjectId: tutorSubjects.subjectId,
-      })
-      .from(subjects)
-      .innerJoin(
-        tutorSubjects,
-        and(eq(tutorSubjects.subjectId, subjects.id), eq(tutorSubjects.subjectKind, subjects.kind))
-      )
-      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
-      .orderBy(asc(subjects.name), asc(subjects.slug), asc(tutorSubjects.tutorId), asc(tutorSubjects.subjectId));
+    rows = await getActiveLeafSubjectOptionRowsWithTutorAssignments();
   } catch {
     throw new Error(SUBJECT_ERROR_MESSAGES[allowedRole]['database']);
   }
@@ -194,18 +172,7 @@ export type SubjectForGradeForm = {
 export async function getSubjectsForGradeForm() {
   let rows: SubjectRecordRow[];
   try {
-    const db = await getDb();
-    rows = await db
-      .select({
-        id: subjects.id,
-        name: subjects.name,
-        slug: subjects.slug,
-        kind: subjects.kind,
-        isActive: subjects.isActive,
-      })
-      .from(subjects)
-      .where(and(eq(subjects.kind, 'leaf'), eq(subjects.isActive, true)))
-      .orderBy(asc(subjects.name), asc(subjects.slug));
+    rows = await getActiveLeafSubjectRowsForGradeForm();
   } catch {
     throw new Error('Subjects are temporarily unavailable. Please try again.');
   }

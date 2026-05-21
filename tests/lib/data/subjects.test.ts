@@ -1,34 +1,27 @@
 import { getSubjectMapByIds, getSubjects, getSubjectsForGradeForm, mapSubjectOptions } from '@/lib/data/subjects';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockForbidden, mockDbSelect } = vi.hoisted(() => ({
+const {
+  mockForbidden,
+  mockGetActiveLeafSubjectOptionRowsWithTutorAssignments,
+  mockGetActiveLeafSubjectRowsForGradeForm,
+  mockGetSubjectRecordRowsByIds,
+} = vi.hoisted(() => ({
   mockForbidden: vi.fn(),
-  mockDbSelect: vi.fn(),
+  mockGetActiveLeafSubjectOptionRowsWithTutorAssignments: vi.fn(),
+  mockGetActiveLeafSubjectRowsForGradeForm: vi.fn(),
+  mockGetSubjectRecordRowsByIds: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   forbidden: mockForbidden,
 }));
 
-vi.mock('@/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-  },
+vi.mock('@/db/queries/subjects', () => ({
+  getActiveLeafSubjectOptionRowsWithTutorAssignments: mockGetActiveLeafSubjectOptionRowsWithTutorAssignments,
+  getActiveLeafSubjectRowsForGradeForm: mockGetActiveLeafSubjectRowsForGradeForm,
+  getSubjectRecordRowsByIds: mockGetSubjectRecordRowsByIds,
 }));
-
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    innerJoin: vi.fn(() => query),
-    where: vi.fn(() => query),
-    orderBy: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
-  };
-
-  return query;
-}
 
 describe('getSubjects', () => {
   beforeEach(() => {
@@ -38,8 +31,8 @@ describe('getSubjects', () => {
     });
   });
 
-  it('loads active leaf subjects through a joined Drizzle query', async () => {
-    const query = createSelectQuery([
+  it('loads active leaf subjects through the subject query boundary', async () => {
+    mockGetActiveLeafSubjectOptionRowsWithTutorAssignments.mockResolvedValueOnce([
       {
         id: 2,
         name: 'Science',
@@ -68,7 +61,6 @@ describe('getSubjects', () => {
         subjectId: 1,
       },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getSubjects('admin')).resolves.toEqual([
       {
@@ -88,23 +80,17 @@ describe('getSubjects', () => {
       },
     ]);
 
-    expect(query.innerJoin).toHaveBeenCalledTimes(1);
-    expect(query.where).toHaveBeenCalledTimes(1);
-    expect(query.orderBy).toHaveBeenCalledTimes(1);
+    expect(mockGetActiveLeafSubjectOptionRowsWithTutorAssignments).toHaveBeenCalledTimes(1);
   });
 
   it('throws forbidden for tutors', async () => {
     await expect(getSubjects('tutor')).rejects.toThrow('forbidden');
     expect(mockForbidden).toHaveBeenCalledTimes(1);
-    expect(mockDbSelect).not.toHaveBeenCalled();
+    expect(mockGetActiveLeafSubjectOptionRowsWithTutorAssignments).not.toHaveBeenCalled();
   });
 
   it('throws when the joined query fails', async () => {
-    const query = createSelectQuery([]);
-    query.then.mockImplementationOnce((_resolve, reject) =>
-      Promise.reject(new Error('db failed')).then(undefined, reject)
-    );
-    mockDbSelect.mockReturnValueOnce(query);
+    mockGetActiveLeafSubjectOptionRowsWithTutorAssignments.mockRejectedValueOnce(new Error('db failed'));
 
     await expect(getSubjects('admin')).rejects.toThrow(
       'Loading subject records for admin views failed due to a temporary backend issue. Please try again.'
@@ -112,7 +98,7 @@ describe('getSubjects', () => {
   });
 
   it('throws when joined subject rows fail validation', async () => {
-    const query = createSelectQuery([
+    mockGetActiveLeafSubjectOptionRowsWithTutorAssignments.mockResolvedValueOnce([
       {
         id: 'bad-id',
         name: 'Math',
@@ -123,7 +109,6 @@ describe('getSubjects', () => {
         subjectId: 1,
       },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getSubjects('admin')).rejects.toThrow('Subject data format is invalid. Please try again later.');
   });
@@ -135,11 +120,10 @@ describe('getSubjectMapByIds', () => {
   });
 
   it('returns a subject map for distinct positive ids only', async () => {
-    const query = createSelectQuery([
+    mockGetSubjectRecordRowsByIds.mockResolvedValueOnce([
       { id: 2, name: 'Science', slug: 'science', kind: 'leaf', isActive: true },
       { id: 7, name: 'Math', slug: 'math', kind: 'group', isActive: false },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     const result = await getSubjectMapByIds([2, 7, 2, -1, 1.2]);
 
@@ -149,12 +133,12 @@ describe('getSubjectMapByIds', () => {
         [7, { id: 7, name: 'Math', slug: 'math', kind: 'group', is_active: false }],
       ])
     );
-    expect(query.where).toHaveBeenCalledTimes(1);
+    expect(mockGetSubjectRecordRowsByIds).toHaveBeenCalledWith([2, 7]);
   });
 
   it('skips the database when there are no usable ids', async () => {
     await expect(getSubjectMapByIds([0, -4, 1.1])).resolves.toEqual(new Map());
-    expect(mockDbSelect).not.toHaveBeenCalled();
+    expect(mockGetSubjectRecordRowsByIds).not.toHaveBeenCalled();
   });
 });
 
@@ -164,23 +148,22 @@ describe('getSubjectsForGradeForm', () => {
   });
 
   it('returns trimmed active leaf subjects ordered for the grade form', async () => {
-    const query = createSelectQuery([
+    mockGetActiveLeafSubjectRowsForGradeForm.mockResolvedValueOnce([
       { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
       { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
       { id: 3, slug: 'algebra-i', name: 'Algebra I' },
       { id: 8, slug: 'geometry', name: 'Geometry' },
     ]);
-    expect(query.where).toHaveBeenCalledTimes(1);
-    expect(query.orderBy).toHaveBeenCalledTimes(1);
+    expect(mockGetActiveLeafSubjectRowsForGradeForm).toHaveBeenCalledTimes(1);
   });
 
   it('throws when the grade-form subject rows are invalid', async () => {
-    const query = createSelectQuery([{ id: 3, name: 'Algebra I', slug: 'algebra-i', kind: 'group', isActive: true }]);
-    mockDbSelect.mockReturnValueOnce(query);
+    mockGetActiveLeafSubjectRowsForGradeForm.mockResolvedValueOnce([
+      { id: 3, name: 'Algebra I', slug: 'algebra-i', kind: 'group', isActive: true },
+    ]);
 
     await expect(getSubjectsForGradeForm()).rejects.toThrow(
       'There was a problem preparing subjects. Please try again.'

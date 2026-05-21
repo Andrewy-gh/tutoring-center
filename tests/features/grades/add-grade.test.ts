@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NEXT_NOT_FOUND_DIGEST = 'NEXT_HTTP_ERROR_FALLBACK;404';
 
-const { mockDbSelect, mockDbInsert, mockGetCurrentUserID, mockNotFound } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
-  mockGetCurrentUserID: vi.fn(),
-  mockNotFound: vi.fn(),
-}));
+const { mockDbSelect, mockDbInsert, mockGetActiveLeafSubjectRowsForGradeForm, mockGetCurrentUserID, mockNotFound } =
+  vi.hoisted(() => ({
+    mockDbSelect: vi.fn(),
+    mockDbInsert: vi.fn(),
+    mockGetActiveLeafSubjectRowsForGradeForm: vi.fn(),
+    mockGetCurrentUserID: vi.fn(),
+    mockNotFound: vi.fn(),
+  }));
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
@@ -24,6 +26,10 @@ vi.mock('@/db/client', () => ({
     select: mockDbSelect,
     insert: mockDbInsert,
   },
+}));
+
+vi.mock('@/db/queries/subjects', () => ({
+  getActiveLeafSubjectRowsForGradeForm: mockGetActiveLeafSubjectRowsForGradeForm,
 }));
 
 function createSelectQuery(result: unknown) {
@@ -117,12 +123,10 @@ describe('grade data', () => {
   });
 
   it('returns only leaf subjects for the grade form', async () => {
-    mockDbSelect.mockReturnValueOnce(
-      createSelectQuery([
-        { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
-        { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
-      ])
-    );
+    mockGetActiveLeafSubjectRowsForGradeForm.mockResolvedValueOnce([
+      { id: 3, name: ' Algebra I ', slug: ' algebra-i ', kind: 'leaf', isActive: true },
+      { id: 8, name: 'Geometry', slug: 'geometry', kind: 'leaf', isActive: true },
+    ]);
 
     await expect(getSubjectsForGradeForm()).resolves.toEqual([
       { id: 3, slug: 'algebra-i', name: 'Algebra I' },
