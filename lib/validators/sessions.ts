@@ -1,4 +1,4 @@
-import { SESSION_STATUS_OPTIONS, type SessionStatus } from '@/lib/db/types';
+import { SESSION_STATUS_OPTIONS, type SessionStatus } from '@/db/types';
 import { z } from 'zod';
 import { id, isoDateTime, page, pageSize, units1to100 } from './shared';
 

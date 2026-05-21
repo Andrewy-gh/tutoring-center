@@ -41,7 +41,7 @@ const eslintConfig = defineConfig(
     },
   },
   {
-    files: ['app/**/route.ts', 'lib/db/**/*.ts', 'lib/data/**/*.ts'],
+    files: ['app/**/route.ts', 'db/**/*.ts', 'lib/data/**/*.ts'],
     rules: {
       'no-restricted-syntax': 'off',
     },

@@ -1,11 +1,11 @@
 import 'server-only';
-import { parents, sessions, students, users } from '@/lib/db/schema';
+import { parents, sessions, students, users } from '@/db/schema';
 import { SessionListQueryRowListSchema, type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, asc, desc, eq, gte, lt, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export type SessionListKind = 'all' | 'upcoming' | 'past';

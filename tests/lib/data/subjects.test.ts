@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
   forbidden: mockForbidden,
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
   },

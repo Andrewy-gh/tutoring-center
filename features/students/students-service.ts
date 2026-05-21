@@ -1,10 +1,10 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { sessions, students, users } from '@/db/schema';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { sessions, students, users } from '@/lib/db/schema';
 import type { SessionStatus } from '@/lib/validators/sessions';
 import {
   StudentDetailWithJoinsSchema,
@@ -68,7 +68,7 @@ function isNextControlFlowError(error: Error) {
 
 const RECENT_SESSIONS_LIMIT = 5;
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 type StudentJoinRow = {

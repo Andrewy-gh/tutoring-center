@@ -1,14 +1,14 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { sessions } from '@/db/schema';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { sessions } from '@/lib/db/schema';
 import { SessionCreateSchema, SessionUpdateSchema } from '@/lib/validators/sessions';
 import { eq } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 function getErrorMessage(error: unknown) {
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const bookingModule = await import('@/lib/db/book-session');
+  const bookingModule = await import('@/db/book-session');
 
   try {
     let parentId = s.parent_id;

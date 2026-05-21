@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { sessions } from '@/lib/db/schema';
+import { sessions } from '@/db/schema';
 import { desc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { closeTestDatabase, createTestDatabase } from '../helpers/postgresTestClient';

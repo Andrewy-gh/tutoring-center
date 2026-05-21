@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
+import { getParentIdByUserId, getTutorIdByUserId } from '@/db/queries/actors';
+import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/db/queries/sessions/list';
+import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/db/schema';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { slotUnitsToHours } from '@/lib/billing-units';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { getParentIdByUserId, getTutorIdByUserId } from '@/lib/db/queries/actors';
-import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/lib/db/queries/sessions/list';
-import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/lib/db/schema';
 import { type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -165,7 +165,7 @@ const SESSION_ERROR_MESSAGES: Record<UserRole, Record<SessionLoadErrorReason, st
 };
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 const mapSessionRow = (

@@ -10,7 +10,7 @@ import {
   tutorSubjects,
   users,
   type SessionStatus,
-} from '@/lib/db/schema';
+} from '@/db/schema';
 import { closeTestDatabase, createTestDatabase } from '@/tests/helpers/postgresTestClient';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';

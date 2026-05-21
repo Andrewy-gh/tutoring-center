@@ -4,7 +4,7 @@ const { mockDbSelect } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
   },

@@ -21,11 +21,11 @@ vi.mock('@/lib/auth', () => ({
   getCurrentUserID: mockGetCurrentUserID,
 }));
 
-vi.mock('@/lib/db/queries/actors', () => ({
+vi.mock('@/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
 }));
 
-vi.mock('@/lib/db/queries/credits/balances', () => ({
+vi.mock('@/db/queries/credits/balances', () => ({
   getCreditBalanceByParentId: mockGetCreditBalanceByParentId,
 }));
 

@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
   notFound: mockNotFound,
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
   },

@@ -37,7 +37,7 @@ vi.mock('@/lib/data/tutors', () => ({
   getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     select: mockDbSelect,
   },

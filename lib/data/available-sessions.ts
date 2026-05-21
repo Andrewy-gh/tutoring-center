@@ -1,8 +1,8 @@
 import 'server-only';
+import { availability, sessions, tutorSubjects } from '@/db/schema';
+import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/db/types';
 import { SLOT_DURATION_MINS, TIMEZONE } from '@/lib/constants';
 import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
-import { availability, sessions, tutorSubjects } from '@/lib/db/schema';
-import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/lib/db/types';
 import type { AvailableSession } from '@/lib/validators/sessions';
 import { and, eq, gt, lt, ne } from 'drizzle-orm';
 
@@ -52,7 +52,7 @@ export type AvailableSessionsServiceDeps = {
 };
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 async function findTutorSubject(tutorId: number, subjectId: number) {

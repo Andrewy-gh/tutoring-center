@@ -1,9 +1,9 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { getCreditBalanceByParentId } from '@/db/queries/credits/balances';
 import { EMPTY_CREDIT_BALANCE } from '@/features/credits/credit-balances';
 import { getCurrentUserID } from '@/lib/auth';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { getCreditBalanceByParentId } from '@/lib/db/queries/credits/balances';
 
 async function getCurrentParentId() {
   const userId = await getCurrentUserID();

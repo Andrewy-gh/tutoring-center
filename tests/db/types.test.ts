@@ -1,4 +1,4 @@
-import { sessionStatusEnum, transactionTypeEnum, weekDayEnum } from '@/lib/db/schema';
+import { sessionStatusEnum, transactionTypeEnum, weekDayEnum } from '@/db/schema';
 import {
   CANCELED_SESSION_STATUS,
   DEFAULT_SESSION_STATUS,
@@ -9,7 +9,7 @@ import {
   WEEKDAY_OPTIONS,
   type EmbeddedUser,
   type UserRow,
-} from '@/lib/db/types';
+} from '@/db/types';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 describe('db shared types', () => {

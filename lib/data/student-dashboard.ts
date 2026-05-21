@@ -1,12 +1,12 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { creditTransactions, sessionProgress, sessions } from '@/db/schema';
+import type { CreditTransactionRecord, SessionStatus } from '@/db/types';
 import { getCreditTransactionSummary, getNetCreditDelta } from '@/features/credits/credit-ledger';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { creditTransactions, sessionProgress, sessions } from '@/lib/db/schema';
-import type { CreditTransactionRecord, SessionStatus } from '@/lib/db/types';
 import { and, desc, eq } from 'drizzle-orm';
 
 type AllowedRole = Exclude<UserRole, 'tutor'>;
@@ -58,7 +58,7 @@ const CREDIT_HISTORY_LIMIT = 5;
 const PROGRESS_REPORT_LIMIT = 5;
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 async function getScopedParentId(role: AllowedRole) {

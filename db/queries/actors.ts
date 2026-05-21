@@ -1,9 +1,9 @@
 import 'server-only';
-import { parents, roles, tutors, users } from '@/lib/db/schema';
+import { parents, roles, tutors, users } from '@/db/schema';
 import { asc, eq, ilike } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 type ActorRole = 'admin' | 'parent' | 'tutor';

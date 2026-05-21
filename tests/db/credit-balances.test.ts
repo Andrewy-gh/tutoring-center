@@ -1,7 +1,7 @@
-import { deductCreditBalance, getCreditBalanceByParentId } from '@/lib/db/queries/credits/balances';
+import { deductCreditBalance, getCreditBalanceByParentId } from '@/db/queries/credits/balances';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     async execute() {
       throw new Error('Unexpected default db.execute call');

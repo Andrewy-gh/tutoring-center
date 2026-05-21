@@ -1,4 +1,4 @@
-import type { EmbeddedUser } from '@/lib/db/types';
+import type { EmbeddedUser } from '@/db/types';
 import { z } from 'zod';
 
 export type { EmbeddedUser };

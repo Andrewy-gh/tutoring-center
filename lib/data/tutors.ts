@@ -1,12 +1,12 @@
 import 'server-only';
 import { forbidden } from 'next/navigation';
+import { tutors, users } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
-import { tutors, users } from '@/lib/db/schema';
 import { TutorJoinRowListSchema, type TutorJoinRow } from '@/lib/validators/tutors';
 import { asc, eq, inArray } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 export { getUserRole } from '@/lib/auth';

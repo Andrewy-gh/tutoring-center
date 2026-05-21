@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { parents, students, users } from '@/lib/db/schema';
+import { parents, students, users } from '@/db/schema';
 import { closeTestDatabase, createTestDatabase } from '@/tests/helpers/postgresTestClient';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

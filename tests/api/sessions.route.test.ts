@@ -62,17 +62,17 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/db/client', () => ({
+vi.mock('@/db/client', () => ({
   db: {
     update: mockDbUpdate,
   },
 }));
 
-vi.mock('@/lib/db/queries/actors', () => ({
+vi.mock('@/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
 }));
 
-vi.mock('@/lib/db/book-session', () => ({
+vi.mock('@/db/book-session', () => ({
   bookSession: mockBookSession,
   SessionOverlapError: MockSessionOverlapError,
   InsufficientCreditsError: MockInsufficientCreditsError,

@@ -1,12 +1,12 @@
 import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
+import { getParentIdByUserId } from '@/db/queries/actors';
+import { buildCreditTransactionFilters, getCreditTransactionRows } from '@/db/queries/credits/transactions';
+import { creditTransactions, parents, sessions, students, users } from '@/db/schema';
 import { getNetCreditDelta } from '@/features/credits/credit-ledger';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { getTutorProfileMapByIds } from '@/lib/data/tutors';
-import { getParentIdByUserId } from '@/lib/db/queries/actors';
-import { buildCreditTransactionFilters, getCreditTransactionRows } from '@/lib/db/queries/credits/transactions';
-import { creditTransactions, parents, sessions, students, users } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -65,7 +65,7 @@ export type CreditTransactionDetail = {
 const MISSING_VALUE = '\u2014';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 function getDisplayName(firstName: string | null | undefined, lastName: string | null | undefined) {

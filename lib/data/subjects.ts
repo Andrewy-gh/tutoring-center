@@ -1,6 +1,6 @@
 import { forbidden } from 'next/navigation';
+import { subjects, tutorSubjects } from '@/db/schema';
 import type { UserRole } from '@/lib/auth';
-import { subjects, tutorSubjects } from '@/lib/db/schema';
 import {
   ActiveLeafSubjectListSchema,
   SubjectOptionRowListSchema,
@@ -11,7 +11,7 @@ import {
 import { and, asc, eq, inArray } from 'drizzle-orm';
 
 async function getDb() {
-  return (await import('@/lib/db/client')).db;
+  return (await import('@/db/client')).db;
 }
 
 type SubjectLoadErrorReason = 'database' | 'validation';

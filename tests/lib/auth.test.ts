@@ -27,7 +27,7 @@ vi.mock('next/server', () => ({
   },
 }));
 
-vi.mock('@/lib/db/queries/actors', () => ({
+vi.mock('@/db/queries/actors', () => ({
   getUserIdForRole: mockGetUserIdForRole,
   getUserNameById: mockGetUserNameById,
 }));
