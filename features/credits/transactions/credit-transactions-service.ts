@@ -4,9 +4,9 @@ import { getParentIdByUserId } from '@/db/queries/actors';
 import { buildCreditTransactionFilters, getCreditTransactionRows } from '@/db/queries/credits/transactions';
 import { creditTransactions, parents, sessions, students, users } from '@/db/schema';
 import { getNetCreditDelta } from '@/features/credits/credit-ledger';
+import { getTutorProfileMapByIds } from '@/features/tutors/tutors-service';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
-import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import { and, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 

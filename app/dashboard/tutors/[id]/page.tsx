@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getTutor, getUserRole } from '@/lib/data/tutor-detail';
+import { getTutor, getUserRole } from '@/features/tutors/tutors-service';
 import { CircleCheck, CircleX } from 'lucide-react';
 
 async function TutorDetail({ id }: { id: number }) {

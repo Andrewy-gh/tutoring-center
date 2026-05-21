@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { TutorRow } from '@/lib/data/tutors';
+import { TutorRow } from '@/features/tutors/tutors-service';
 import { ColumnDef } from '@tanstack/react-table';
 import { CircleCheck, CircleX } from 'lucide-react';
 

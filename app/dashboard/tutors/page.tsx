@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
-import { getTutors, getUserRole } from '@/lib/data/tutors';
+import { getTutors, getUserRole } from '@/features/tutors/tutors-service';
 import { columns } from './columns';
 import { TutorListSkeleton } from './loading';
 

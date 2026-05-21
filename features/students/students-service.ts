@@ -2,9 +2,9 @@ import 'server-only';
 import { forbidden, notFound } from 'next/navigation';
 import { getParentIdByUserId } from '@/db/queries/actors';
 import { sessions, students, users } from '@/db/schema';
+import { getTutorProfileMapByIds } from '@/features/tutors/tutors-service';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
 import { getSubjectMapByIds } from '@/lib/data/subjects';
-import { getTutorProfileMapByIds } from '@/lib/data/tutors';
 import type { SessionStatus } from '@/lib/validators/sessions';
 import {
   StudentDetailWithJoinsSchema,
