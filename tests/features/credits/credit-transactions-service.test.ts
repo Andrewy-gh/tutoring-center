@@ -25,7 +25,7 @@ vi.mock('@/lib/data/subjects', () => ({
   getSubjectMapByIds: mockGetSubjectMapByIds,
 }));
 
-vi.mock('@/lib/data/tutors', () => ({
+vi.mock('@/features/tutors/tutors-service', () => ({
   getTutorProfileMapByIds: mockGetTutorProfileMapByIds,
 }));
 

@@ -14,6 +14,20 @@ export type TutorProfileRow = {
   phone: string | null;
 };
 
+export type TutorJoinRow = {
+  id: number;
+  userId: number;
+  verified: boolean;
+  education: string | null;
+  bio: string | null;
+  tagline: string | null;
+  yearsExperience: number | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  phone: string | null;
+};
+
 export type TutorOptionRow = {
   id: number;
   userId: number;
@@ -27,6 +41,39 @@ export type TutorOptionRow = {
   startTime: string | null;
   endTime: string | null;
 };
+
+const tutorJoinSelect = {
+  id: tutors.id,
+  userId: tutors.userId,
+  verified: tutors.verified,
+  education: tutors.education,
+  bio: tutors.bio,
+  tagline: tutors.tagline,
+  yearsExperience: tutors.yearsExperience,
+  firstName: users.firstName,
+  lastName: users.lastName,
+  email: users.email,
+  phone: users.phone,
+};
+
+export async function getTutorJoinRows() {
+  const db = await getDb();
+
+  return db.select(tutorJoinSelect).from(tutors).innerJoin(users, eq(tutors.userId, users.id)).orderBy(asc(tutors.id));
+}
+
+export async function getTutorJoinRowById(tutorId: number) {
+  const db = await getDb();
+
+  const [row] = await db
+    .select(tutorJoinSelect)
+    .from(tutors)
+    .innerJoin(users, eq(tutors.userId, users.id))
+    .where(eq(tutors.id, tutorId))
+    .limit(1);
+
+  return row;
+}
 
 export async function getTutorProfileRowsByIds(tutorIds: number[]) {
   const db = await getDb();
