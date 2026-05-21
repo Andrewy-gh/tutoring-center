@@ -15,7 +15,7 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/lib/data/available-sessions', () => {
+vi.mock('@/features/booking/available-sessions-service', () => {
   return {
     getAvailableSlots: mockGetAvailableSlots,
     AVAILABLE_SLOTS_ERROR_MESSAGES: availableSlotsErrorMessages,
