@@ -1,35 +1,18 @@
-import { getTutorOptionsByIds } from '@/lib/data/tutor-options';
+import { getTutorOptionsByIds } from '@/features/booking/booking-data';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockForbidden, mockDbSelect } = vi.hoisted(() => ({
+const { mockForbidden, mockGetTutorOptionRowsByIds } = vi.hoisted(() => ({
   mockForbidden: vi.fn(),
-  mockDbSelect: vi.fn(),
+  mockGetTutorOptionRowsByIds: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   forbidden: mockForbidden,
 }));
 
-vi.mock('@/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-  },
+vi.mock('@/db/queries/tutors', () => ({
+  getTutorOptionRowsByIds: mockGetTutorOptionRowsByIds,
 }));
-
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    innerJoin: vi.fn(() => query),
-    leftJoin: vi.fn(() => query),
-    where: vi.fn(() => query),
-    orderBy: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
-  };
-
-  return query;
-}
 
 describe('getTutorOptionsByIds', () => {
   beforeEach(() => {
@@ -40,7 +23,7 @@ describe('getTutorOptionsByIds', () => {
   });
 
   it('groups availability rows and preserves requested tutor ordering', async () => {
-    const query = createSelectQuery([
+    mockGetTutorOptionRowsByIds.mockResolvedValueOnce([
       {
         id: 1,
         userId: 101,
@@ -81,7 +64,6 @@ describe('getTutorOptionsByIds', () => {
         endTime: null,
       },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getTutorOptionsByIds('parent', [2, 1, 2])).resolves.toEqual([
       {
@@ -102,27 +84,21 @@ describe('getTutorOptionsByIds', () => {
       },
     ]);
 
-    expect(query.innerJoin).toHaveBeenCalledTimes(1);
-    expect(query.leftJoin).toHaveBeenCalledTimes(1);
-    expect(query.where).toHaveBeenCalledTimes(1);
+    expect(mockGetTutorOptionRowsByIds).toHaveBeenCalledWith([2, 1]);
   });
 
   it('blocks tutor role access', async () => {
     await expect(getTutorOptionsByIds('tutor', [1])).rejects.toThrow('forbidden');
-    expect(mockDbSelect).not.toHaveBeenCalled();
+    expect(mockGetTutorOptionRowsByIds).not.toHaveBeenCalled();
   });
 
   it('returns an empty array when ids are unusable', async () => {
     await expect(getTutorOptionsByIds('admin', [0, -1, 1.5])).resolves.toEqual([]);
-    expect(mockDbSelect).not.toHaveBeenCalled();
+    expect(mockGetTutorOptionRowsByIds).not.toHaveBeenCalled();
   });
 
   it('throws when the joined tutor options query fails', async () => {
-    const query = createSelectQuery([]);
-    query.then.mockImplementationOnce((_resolve, reject) =>
-      Promise.reject(new Error('db failed')).then(undefined, reject)
-    );
-    mockDbSelect.mockReturnValueOnce(query);
+    mockGetTutorOptionRowsByIds.mockRejectedValueOnce(new Error('db failed'));
 
     await expect(getTutorOptionsByIds('admin', [1])).rejects.toThrow(
       'Tutor options are temporarily unavailable. Please retry in a moment.'
@@ -130,7 +106,7 @@ describe('getTutorOptionsByIds', () => {
   });
 
   it('throws when joined tutor option rows fail validation', async () => {
-    const query = createSelectQuery([
+    mockGetTutorOptionRowsByIds.mockResolvedValueOnce([
       {
         id: 1,
         userId: 101,
@@ -145,7 +121,6 @@ describe('getTutorOptionsByIds', () => {
         endTime: '16:00',
       },
     ]);
-    mockDbSelect.mockReturnValueOnce(query);
 
     await expect(getTutorOptionsByIds('admin', [1])).rejects.toThrow(
       'Tutor options format is invalid. Please try again later.'
