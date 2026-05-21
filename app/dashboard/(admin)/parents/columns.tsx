@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import type { ParentRow } from '@/lib/data/parents';
+import type { ParentRow } from '@/features/parents/parents-service';
 import type { ColumnDef } from '@tanstack/react-table';
 
 export const columns: ColumnDef<ParentRow>[] = [

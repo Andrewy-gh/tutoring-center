@@ -3,7 +3,7 @@ import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { getParent } from '@/lib/data/parents';
+import { getParent } from '@/features/parents/parents-service';
 import { columns } from './columns';
 
 export default async function SingleParentPage({ params }: { params: Promise<{ id: string }> }) {
