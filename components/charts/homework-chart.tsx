@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { HomeworkDataPoint } from '@/lib/data/dashboard';
+import type { HomeworkDataPoint } from '@/features/parent-dashboard/parent-dashboard-service';
 import { HelpCircle } from 'lucide-react';
 import { Cell, Pie, PieChart, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 

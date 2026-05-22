@@ -1,10 +1,14 @@
 import { AdminDashboardContent } from '@/components/admin-dashboard/admin-dashboard-content';
 import { DataTable } from '@/components/data-table';
 import { ParentProgressDashboard } from '@/components/parent-progress-dashboard';
+import {
+  getParentDashboardData,
+  getStudentGrades,
+  type GradeDataPoint,
+} from '@/features/parent-dashboard/parent-dashboard-service';
 import { tutorSessionColumns } from '@/features/tutor-session/pending-session-columns';
 import { parseViewKey } from '@/lib/admin-dashboard-views';
 import { getCurrentUserName, getUserRole } from '@/lib/auth';
-import { getParentDashboardData, getStudentGrades, type GradeDataPoint } from '@/lib/data/dashboard';
 import { getTutorAssignedSessions } from '@/lib/data/sessions';
 import type { TutorAssignedSession } from '@/lib/data/sessions';
 

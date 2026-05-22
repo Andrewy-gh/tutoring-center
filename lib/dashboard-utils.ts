@@ -1,4 +1,8 @@
-import type { ConfidenceDataPoint, PerformanceDataPoint, StudentProgressData } from '@/lib/data/dashboard';
+import type {
+  ConfidenceDataPoint,
+  PerformanceDataPoint,
+  StudentProgressData,
+} from '@/features/parent-dashboard/parent-dashboard-service';
 
 export type DateRangeOption = 'all' | '30d' | '3m' | '6m';
 
