@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import {
   availability,
   CANCELED_SESSION_STATUS,
@@ -24,7 +25,36 @@ import { getTableName } from 'drizzle-orm';
 import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 describe('db schema exports', () => {
+  it('keeps every SQL migration represented in the Drizzle journal', () => {
+    const migrationDir = new URL('../../drizzle/', import.meta.url);
+    const migrationFiles = readdirSync(migrationDir)
+      .filter(file => file.endsWith('.sql'))
+      .map(file => file.replace(/\.sql$/, ''))
+      .sort();
+    const journal: unknown = JSON.parse(
+      readFileSync(new URL('../../drizzle/meta/_journal.json', import.meta.url), 'utf8')
+    );
+
+    if (!isRecord(journal) || !Array.isArray(journal.entries)) {
+      throw new Error('Drizzle journal must include migration entries.');
+    }
+
+    const journalTags = journal.entries.map(entry => {
+      if (!isRecord(entry) || typeof entry.tag !== 'string') {
+        throw new Error('Drizzle journal entries must include string tags.');
+      }
+
+      return entry.tag;
+    });
+
+    expect(journalTags.sort()).toEqual(migrationFiles);
+  });
+
   it('exposes the core enums used by booking and scheduling', () => {
     expect(sessionStatusEnum.enumValues).toEqual([
       'Scheduled',
