@@ -1,6 +1,6 @@
 import 'server-only';
-import { availability, tutors, users } from '@/db/schema';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { availability, tutors, tutorSubjects, users } from '@/db/schema';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 async function getDb() {
   return (await import('@/db/client')).db;
@@ -40,6 +40,16 @@ export type TutorOptionRow = {
   weekDay: typeof availability.$inferSelect.weekDay | null;
   startTime: string | null;
   endTime: string | null;
+};
+
+export type TutorAvailabilityRow = {
+  week_day: typeof availability.$inferSelect.weekDay;
+  start_time: string;
+  end_time: string;
+};
+
+export type TutorSubjectRow = {
+  id: number;
 };
 
 const tutorJoinSelect = {
@@ -114,4 +124,28 @@ export async function getTutorOptionRowsByIds(tutorIds: number[]) {
     .leftJoin(availability, eq(availability.tutorId, tutors.id))
     .where(inArray(tutors.id, tutorIds))
     .orderBy(asc(tutors.id), asc(availability.weekDay), asc(availability.startTime), asc(availability.endTime));
+}
+
+export async function getTutorSubjectRow(tutorId: number, subjectId: number) {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: tutorSubjects.id })
+    .from(tutorSubjects)
+    .where(and(eq(tutorSubjects.tutorId, tutorId), eq(tutorSubjects.subjectId, subjectId)))
+    .limit(1);
+
+  return row ?? null;
+}
+
+export async function getTutorAvailabilityRows(tutorId: number) {
+  const db = await getDb();
+
+  return db
+    .select({
+      week_day: availability.weekDay,
+      start_time: availability.startTime,
+      end_time: availability.endTime,
+    })
+    .from(availability)
+    .where(eq(availability.tutorId, tutorId));
 }

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/features/booking/available-sessions-service';
 import { USER_ROLE_COOKIE_NAME } from '@/lib/auth';
-import { AVAILABLE_SLOTS_ERROR_MESSAGES, getAvailableSlots } from '@/lib/data/available-sessions';
 import { AvailableSessionsQuerySchema } from '@/lib/validators/sessions';
 import { id } from '@/lib/validators/shared';
 import { z } from 'zod';
