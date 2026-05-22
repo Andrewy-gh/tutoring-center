@@ -2,14 +2,9 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getParentIdByUserId } from '@/db/queries/actors';
-import { sessions } from '@/db/schema';
+import { updateSessionStatus } from '@/features/sessions/session-status-service';
 import { isValidRole, USER_ID_COOKIE_NAME, USER_ROLE_COOKIE_NAME } from '@/lib/auth';
 import { SessionCreateSchema, SessionUpdateSchema } from '@/lib/validators/sessions';
-import { eq } from 'drizzle-orm';
-
-async function getDb() {
-  return (await import('@/db/client')).db;
-}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -110,22 +105,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const db = await getDb();
-    const [session] = await db
-      .update(sessions)
-      .set({ status: parsed.data.status })
-      .where(eq(sessions.id, parsed.data.id))
-      .returning({
-        id: sessions.id,
-        tutor_id: sessions.tutorId,
-        student_id: sessions.studentId,
-        subject_id: sessions.subjectId,
-        parent_id: sessions.parentId,
-        slot_units: sessions.slotUnits,
-        scheduled_at: sessions.scheduledAt,
-        ends_at: sessions.endsAt,
-        status: sessions.status,
-      });
+    const session = await updateSessionStatus(parsed.data);
 
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });

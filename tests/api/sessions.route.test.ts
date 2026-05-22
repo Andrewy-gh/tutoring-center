@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockCookies,
-  mockDbUpdate,
   mockGetParentIdByUserId,
   mockBookSession,
   mockRevalidatePath,
+  mockUpdateSessionStatus,
   MockCreditBalanceNotFoundError,
   MockInsufficientCreditsError,
   MockParentStudentMismatchError,
@@ -43,10 +43,10 @@ const {
 
   return {
     mockCookies: vi.fn(),
-    mockDbUpdate: vi.fn(),
     mockGetParentIdByUserId: vi.fn(),
     mockBookSession: vi.fn(),
     mockRevalidatePath: vi.fn(),
+    mockUpdateSessionStatus: vi.fn(),
     MockCreditBalanceNotFoundError,
     MockInsufficientCreditsError,
     MockParentStudentMismatchError,
@@ -62,14 +62,12 @@ vi.mock('next/headers', () => ({
   cookies: mockCookies,
 }));
 
-vi.mock('@/db/client', () => ({
-  db: {
-    update: mockDbUpdate,
-  },
-}));
-
 vi.mock('@/db/queries/actors', () => ({
   getParentIdByUserId: mockGetParentIdByUserId,
+}));
+
+vi.mock('@/features/sessions/session-status-service', () => ({
+  updateSessionStatus: mockUpdateSessionStatus,
 }));
 
 vi.mock('@/db/book-session', () => ({
@@ -105,16 +103,6 @@ function setCookies(role?: string, userId?: string) {
       return undefined;
     }),
   });
-}
-
-function createUpdateQuery(result: unknown) {
-  const query = {
-    set: vi.fn(() => query),
-    where: vi.fn(() => query),
-    returning: vi.fn().mockResolvedValue(result),
-  };
-
-  return query;
 }
 
 describe('POST /api/sessions', () => {
@@ -277,7 +265,7 @@ describe('PATCH /api/sessions', () => {
   });
 
   it('returns 404 when the session update affects no rows', async () => {
-    mockDbUpdate.mockReturnValueOnce(createUpdateQuery([]));
+    mockUpdateSessionStatus.mockResolvedValueOnce(null);
 
     const response = await PATCH(
       makeJsonRequest('https://example.test/api/sessions', 'PATCH', { id: 55, status: 'Completed' })
@@ -289,21 +277,17 @@ describe('PATCH /api/sessions', () => {
   });
 
   it('updates the session status and revalidates the dashboard', async () => {
-    mockDbUpdate.mockReturnValueOnce(
-      createUpdateQuery([
-        {
-          id: 55,
-          tutor_id: 11,
-          student_id: 22,
-          subject_id: 33,
-          parent_id: 44,
-          slot_units: 1,
-          scheduled_at: '2026-03-02T15:00:00.000Z',
-          ends_at: '2026-03-02T16:00:00.000Z',
-          status: 'Completed',
-        },
-      ])
-    );
+    mockUpdateSessionStatus.mockResolvedValueOnce({
+      id: 55,
+      tutor_id: 11,
+      student_id: 22,
+      subject_id: 33,
+      parent_id: 44,
+      slot_units: 1,
+      scheduled_at: '2026-03-02T15:00:00.000Z',
+      ends_at: '2026-03-02T16:00:00.000Z',
+      status: 'Completed',
+    });
 
     const response = await PATCH(
       makeJsonRequest('https://example.test/api/sessions', 'PATCH', { id: 55, status: 'Completed' })
@@ -324,6 +308,7 @@ describe('PATCH /api/sessions', () => {
         status: 'Completed',
       },
     });
+    expect(mockUpdateSessionStatus).toHaveBeenCalledWith({ id: 55, status: 'Completed' });
     expect(mockRevalidatePath).toHaveBeenCalledWith('/dashboard');
   });
 });
