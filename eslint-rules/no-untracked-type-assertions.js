@@ -59,8 +59,6 @@ const existingTypeAssertionEntries = [
   "tests/features/credits/credit-transactions-service.test.ts::'invalid' as UserRole",
   'tests/features/grades/add-grade.test.ts::new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string }',
   'tests/lib/data/available-sessions.test.ts::MONDAY_AVAILABILITY as never',
-  "tests/lib/data/student-dashboard.test.ts::'invalid' as UserRole",
-  'tests/lib/data/student-dashboard.test.ts::new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string }',
   'tests/lib/data/students.test.ts::new Error(NEXT_NOT_FOUND_DIGEST) as Error & { digest?: string }',
   'tests/db/book-session.test.ts::(draft.balance ? [{ id: 1 }] : []) as T',
   'tests/db/book-session.test.ts::(draft.overlap ? [{ id: 7001 }] : []) as T',
