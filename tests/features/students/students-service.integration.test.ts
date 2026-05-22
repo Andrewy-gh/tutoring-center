@@ -51,7 +51,7 @@ describeIfConfigured('getStudents integration', () => {
   });
 
   it('returns data from the real database for a newly inserted student', async () => {
-    const { getStudents } = await import('@/lib/data/students');
+    const { getStudents } = await import('@/features/students/students-service');
     const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const email = `students-int-${unique}@example.com`;
@@ -105,7 +105,7 @@ describeIfConfigured('getStudents integration', () => {
   });
 
   it('scopes parent role to only the current parent students', async () => {
-    const { getStudents } = await import('@/lib/data/students');
+    const { getStudents } = await import('@/features/students/students-service');
     const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 

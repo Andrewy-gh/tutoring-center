@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { type SelectedSubject, type SubjectTutorAssignment } from '@/lib/data/subjects';
+import { type SelectedSubject, type SubjectTutorAssignment } from '@/features/subjects/subjects-service';
 import { ChevronLeft } from 'lucide-react';
 import type { TutorOption } from './types';
 

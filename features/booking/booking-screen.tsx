@@ -15,8 +15,8 @@ import {
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits/add-credits';
 import { purchaseParentCredits } from '@/features/credits/add-credits/purchase-parent-credits';
 import { type CreditBalance } from '@/features/credits/credit-balances';
+import type { SubjectOption, SubjectSelection } from '@/features/subjects/subjects-service';
 import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
-import type { SubjectOption, SubjectSelection } from '@/lib/data/subjects';
 import { formatSessionDateTime } from '@/lib/date-utils';
 import { BookingStepCounter } from './booking-step-counter';
 import { BookingSuccessDetails } from './booking-success-details';

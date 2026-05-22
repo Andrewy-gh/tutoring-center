@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { SendMessageButton } from '@/components/send-message-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { SessionRow } from '@/lib/data/sessions';
+import type { SessionRow } from '@/features/sessions/sessions-service';
 import type { ColumnDef } from '@tanstack/react-table';
 import { format, parseISO } from 'date-fns';
 

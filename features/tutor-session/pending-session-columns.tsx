@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { TutorAssignedSession } from '@/lib/data/sessions';
+import type { TutorAssignedSession } from '@/features/sessions/sessions-service';
 import { ColumnDef } from '@tanstack/react-table';
 import { format, parseISO } from 'date-fns';
 

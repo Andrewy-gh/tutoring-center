@@ -7,8 +7,8 @@ import {
   getStudentGradeRows,
   type ParentDashboardSessionMetricsRow,
 } from '@/db/queries/parent-dashboard';
+import { getSubjectMapByIds } from '@/features/subjects/subjects-service';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { getSubjectMapByIds } from '@/lib/data/subjects';
 
 export type DateRange = {
   from: string | undefined;

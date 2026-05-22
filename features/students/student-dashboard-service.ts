@@ -7,9 +7,9 @@ import {
   type StudentDashboardCreditHistoryRow,
 } from '@/db/queries/students';
 import { getCreditTransactionSummary, getNetCreditDelta } from '@/features/credits/credit-ledger';
+import { getSubjectMapByIds } from '@/features/subjects/subjects-service';
 import { getTutorProfileMapByIds } from '@/features/tutors/tutors-service';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
-import { getSubjectMapByIds } from '@/lib/data/subjects';
 import type { SessionStatus } from '@/lib/validators/sessions';
 
 type AllowedRole = Exclude<UserRole, 'tutor'>;

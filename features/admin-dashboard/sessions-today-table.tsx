@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { SessionRow } from '@/lib/data/sessions';
+import type { SessionRow } from '@/features/sessions/sessions-service';
 import type { ColumnDef } from '@tanstack/react-table';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';

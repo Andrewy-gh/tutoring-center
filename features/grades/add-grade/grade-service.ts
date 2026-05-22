@@ -2,8 +2,8 @@ import { forbidden, notFound } from 'next/navigation';
 import { getParentIdByUserId } from '@/db/queries/actors';
 import { studentGrades, students, subjects, users } from '@/db/schema';
 import { GradeInputSchema, type GradeInput } from '@/features/grades/add-grade/grade-input';
+import type { SubjectForGradeForm } from '@/features/subjects/subjects-service';
 import { getCurrentUserID, type UserRole } from '@/lib/auth';
-import type { SubjectForGradeForm } from '@/lib/data/subjects';
 import { and, eq } from 'drizzle-orm';
 
 export type StudentForGradeForm = {
@@ -181,5 +181,5 @@ export async function addGrade(input: GradeInput) {
 }
 
 export async function getSubjectsForGradeForm() {
-  return (await import('@/lib/data/subjects')).getSubjectsForGradeForm();
+  return (await import('@/features/subjects/subjects-service')).getSubjectsForGradeForm();
 }

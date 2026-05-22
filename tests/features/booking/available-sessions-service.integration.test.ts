@@ -186,7 +186,7 @@ async function cleanupFixture(db: TestDb, fixture: Fixture) {
 
 describeIfConfigured('getAvailableSlots integration', () => {
   it('returns expected slots when canceled and boundary-touching sessions exist', async () => {
-    const { getAvailableSlots } = await import('@/lib/data/available-sessions');
+    const { getAvailableSlots } = await import('@/features/booking/available-sessions-service');
     const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const fixture = await createFixture({ db: client.db, unique, withAvailability: true });
@@ -216,7 +216,7 @@ describeIfConfigured('getAvailableSlots integration', () => {
   }, 10000);
 
   it('throws tutor-subject error when subject does not belong to tutor', async () => {
-    const { getAvailableSlots } = await import('@/lib/data/available-sessions');
+    const { getAvailableSlots } = await import('@/features/booking/available-sessions-service');
     const client = createTestDatabase();
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const fixture = await createFixture({ db: client.db, unique, withAvailability: true });
