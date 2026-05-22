@@ -92,6 +92,18 @@ describe('db schema exports', () => {
     );
   });
 
+  it('defines targeted indexes for admin dashboard query patterns', () => {
+    expect(getTableConfig(sessions).indexes.map(index => index.config.name)).toContain(
+      'sessions_status_scheduled_at_idx'
+    );
+    expect(getTableConfig(creditTransactions).indexes.map(index => index.config.name)).toContain(
+      'credit_transactions_type_session_id_idx'
+    );
+    expect(getTableConfig(creditBalances).indexes.map(index => index.config.name)).toContain(
+      'credit_balances_available_minutes_idx'
+    );
+  });
+
   it('tracks subject parent metadata needed for group-only parent enforcement', () => {
     expect(subjects.kind.name).toBe('kind');
     expect(subjects.parentSubjectId.name).toBe('parent_subject_id');

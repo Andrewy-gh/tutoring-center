@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   foreignKey,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -129,6 +130,7 @@ export const sessions = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   table => [
+    index('sessions_status_scheduled_at_idx').on(table.status, table.scheduledAt),
     foreignKey({
       columns: [table.studentId, table.parentId],
       foreignColumns: [students.id, students.parentId],

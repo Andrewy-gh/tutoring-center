@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, pgEnum, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgEnum, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 import { parents } from './core';
 import { sessions } from './scheduling';
 
@@ -26,6 +26,7 @@ export const creditBalances = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   table => [
+    index('credit_balances_available_minutes_idx').on(table.availableMinutes),
     unique('credit_balances_parent_id_unique').on(table.parentId),
     check('credit_balances_available_minutes_nonnegative', sql`${table.availableMinutes} >= 0`),
     check('credit_balances_pending_minutes_nonnegative', sql`${table.pendingMinutes} >= 0`),
@@ -50,6 +51,7 @@ export const creditTransactions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   },
   table => [
+    index('credit_transactions_type_session_id_idx').on(table.type, table.sessionId),
     unique('credit_transactions_idempotency_key_unique').on(table.idempotencyKey),
     check(
       'credit_transactions_nonzero_delta_minutes',
