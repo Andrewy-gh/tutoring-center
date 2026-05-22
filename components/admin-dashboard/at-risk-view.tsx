@@ -1,6 +1,6 @@
 import { SendMessageButton } from '@/components/send-message-button';
+import { AT_RISK_THRESHOLD, type AtRiskParent } from '@/features/admin-dashboard/admin-dashboard-service';
 import { formatHours } from '@/lib/billing-units';
-import { AT_RISK_THRESHOLD, type AtRiskParent } from '@/lib/data/admin-dashboard';
 
 export function AtRiskView({ title, parents }: { title: string; parents: AtRiskParent[] }) {
   return (

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 globalThis.React = React;
 
-vi.mock('@/lib/data/admin-dashboard', () => ({
+vi.mock('@/features/admin-dashboard/admin-dashboard-service', () => ({
   AT_RISK_THRESHOLD: 2,
   getAdminMetrics: vi.fn(async () => ({
     sessionsTodayCount: 3,
