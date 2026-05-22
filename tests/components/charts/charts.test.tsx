@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 import { HomeworkChart } from '@/components/charts/homework-chart';
 import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
-import type { ConfidenceDataPoint, HomeworkDataPoint, PerformanceDataPoint } from '@/lib/data/dashboard';
+import type {
+  ConfidenceDataPoint,
+  HomeworkDataPoint,
+  PerformanceDataPoint,
+} from '@/features/parent-dashboard/parent-dashboard-service';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/ui/card', () => ({

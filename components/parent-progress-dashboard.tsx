@@ -6,6 +6,13 @@ import { HomeworkChart } from '@/components/charts/homework-chart';
 import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type {
+  ConfidenceDataPoint,
+  GradeDataPoint,
+  HomeworkDataPoint,
+  PerformanceDataPoint,
+  StudentProgressData,
+} from '@/features/parent-dashboard/parent-dashboard-service';
 import {
   averageConfidenceByDate,
   averagePerformanceByDate,
@@ -13,13 +20,6 @@ import {
   getUniqueSubjectsFromStudentData,
   type DateRangeOption,
 } from '@/lib/dashboard-utils';
-import type {
-  ConfidenceDataPoint,
-  GradeDataPoint,
-  HomeworkDataPoint,
-  PerformanceDataPoint,
-  StudentProgressData,
-} from '@/lib/data/dashboard';
 import { isWithinInterval, parseISO, subDays, subMonths } from 'date-fns';
 
 interface ParentProgressDashboardProps {

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ConfidenceDataPoint, PerformanceDataPoint } from '@/lib/data/dashboard';
+import type { ConfidenceDataPoint, PerformanceDataPoint } from '@/features/parent-dashboard/parent-dashboard-service';
 import { format } from 'date-fns';
 import { HelpCircle } from 'lucide-react';
 import { Line, LineChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';

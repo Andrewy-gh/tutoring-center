@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { GradeDataPoint } from '@/lib/data/dashboard';
+import type { GradeDataPoint } from '@/features/parent-dashboard/parent-dashboard-service';
 import { letterGradeToNumber, numberToLetterGrade } from '@/lib/grade-utils';
 import { format } from 'date-fns';
 import { HelpCircle, Minus, TrendingDown, TrendingUp } from 'lucide-react';
