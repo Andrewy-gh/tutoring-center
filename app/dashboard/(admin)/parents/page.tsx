@@ -1,6 +1,6 @@
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
-import { getParents } from '@/lib/data/parents';
+import { getParents } from '@/features/parents/parents-service';
 import { columns } from './columns';
 
 export default async function ParentsPage() {
