@@ -29,7 +29,7 @@ vi.mock('@/lib/auth', async importOriginal => ({
   getCurrentUserID: mockGetCurrentUserID,
 }));
 
-vi.mock('@/lib/data/subjects', () => ({
+vi.mock('@/features/subjects/subjects-service', () => ({
   getSubjectMapByIds: mockGetSubjectMapByIds,
 }));
 

@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
+import { getSession } from '@/features/sessions/sessions-service';
 import { SessionMetricsForm } from '@/features/tutor-session/session-metrics-form';
 import { getUserRole } from '@/lib/auth';
-import { getSession } from '@/lib/data/sessions';
 
 export default async function SessionMetricsPage({ params }: { params: Promise<{ id: string }> }) {
   const role = await getUserRole();

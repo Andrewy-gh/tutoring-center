@@ -20,7 +20,7 @@ vi.mock('@/features/admin-dashboard/admin-dashboard-service', () => ({
   getDebitSessionIds: vi.fn(async () => new Set([101])),
 }));
 
-vi.mock('@/lib/data/sessions', () => ({
+vi.mock('@/features/sessions/sessions-service', () => ({
   getSessions: vi.fn(async () => [
     {
       id: 101,

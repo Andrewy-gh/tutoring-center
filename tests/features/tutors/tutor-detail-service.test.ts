@@ -1,4 +1,4 @@
-import { getTutor } from '@/lib/data/tutor-detail';
+import { getTutor } from '@/features/tutors/tutor-detail-service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetTutor } = vi.hoisted(() => ({

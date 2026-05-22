@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { getSession, getUserRole } from '@/features/sessions/sessions-service';
 import { ProgressReportForm } from '@/features/tutor-session/progress-report-form';
-import { getSession, getUserRole } from '@/lib/data/sessions';
 import { ArrowLeft } from 'lucide-react';
 
 export default async function ProgressReportPage({ params }: { params: Promise<{ id: string }> }) {

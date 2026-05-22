@@ -4,9 +4,9 @@ import {
   getAtRiskParents,
   getDebitSessionIds,
 } from '@/features/admin-dashboard/admin-dashboard-service';
+import { getSessions } from '@/features/sessions/sessions-service';
 import { ADMIN_DASHBOARD_VIEW_TITLES, type ViewKey } from '@/lib/admin-dashboard-views';
 import { formatHours } from '@/lib/billing-units';
-import { getSessions } from '@/lib/data/sessions';
 import type { Route } from 'next';
 import { AtRiskView } from './at-risk-view';
 import { MetricCard } from './metric-card';

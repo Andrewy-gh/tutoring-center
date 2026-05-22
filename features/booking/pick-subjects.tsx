@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { type SubjectOption, type SubjectSelection } from '@/lib/data/subjects';
+import { type SubjectOption, type SubjectSelection } from '@/features/subjects/subjects-service';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type PickSubjectProps = {

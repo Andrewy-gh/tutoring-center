@@ -1,5 +1,5 @@
 import { DataTable } from '@/components/data-table';
-import type { SessionRow } from '@/lib/data/sessions';
+import type { SessionRow } from '@/features/sessions/sessions-service';
 import { adminSessionColumns, adminSessionColumnsWithContact } from './admin-session-columns';
 
 export function SessionsView({

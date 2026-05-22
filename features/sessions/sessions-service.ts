@@ -2,13 +2,15 @@ import { notFound, redirect } from 'next/navigation';
 import { getParentIdByUserId, getTutorIdByUserId } from '@/db/queries/actors';
 import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/db/queries/sessions/list';
 import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/db/schema';
+import { getSubjectMapByIds } from '@/features/subjects/subjects-service';
 import { getTutorProfileMapByIds } from '@/features/tutors/tutors-service';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { slotUnitsToHours } from '@/lib/billing-units';
-import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { type SessionListQueryRow } from '@/lib/validators/sessions';
 import { and, desc, eq, lt, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
+export { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 
 export type SessionRow = {
   id: number;
@@ -497,3 +499,19 @@ export const sessionDataService = createSessionDataService({
   notFound,
   redirect,
 });
+
+export async function getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
+  return sessionDataService.getSessions(kind);
+}
+
+export async function getSession(id: number) {
+  return sessionDataService.getSession(id);
+}
+
+export async function getTutorAssignedSessions() {
+  return sessionDataService.getTutorAssignedSessions();
+}
+
+export async function getStudentRecentProgress(studentId: number, sessionIdToExclude: number, limit: number = 5) {
+  return sessionDataService.getStudentRecentProgress(studentId, sessionIdToExclude, limit);
+}

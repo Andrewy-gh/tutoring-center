@@ -1,5 +1,5 @@
+import { getStudentGrades, getStudentsWithProgress } from '@/features/dashboard/dashboard-service';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { getStudentGrades, getStudentsWithProgress } from '@/lib/data/dashboard';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockDbSelect, mockGetSubjectMapByIds } = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ vi.mock('@/db/client', () => ({
   },
 }));
 
-vi.mock('@/lib/data/subjects', () => ({
+vi.mock('@/features/subjects/subjects-service', () => ({
   getSubjectMapByIds: mockGetSubjectMapByIds,
 }));
 

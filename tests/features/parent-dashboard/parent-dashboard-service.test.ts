@@ -5,8 +5,8 @@ import {
   getStudentGradeRows,
 } from '@/db/queries/parent-dashboard';
 import { getStudentGrades, getStudentsWithProgress } from '@/features/parent-dashboard/parent-dashboard-service';
+import { getSubjectMapByIds } from '@/features/subjects/subjects-service';
 import { getCurrentUserID, getUserRole } from '@/lib/auth';
-import { getSubjectMapByIds } from '@/lib/data/subjects';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/auth', () => ({
@@ -25,7 +25,7 @@ vi.mock('@/db/queries/parent-dashboard', () => ({
   getStudentGradeRows: vi.fn(),
 }));
 
-vi.mock('@/lib/data/subjects', () => ({
+vi.mock('@/features/subjects/subjects-service', () => ({
   getSubjectMapByIds: vi.fn(),
 }));
 

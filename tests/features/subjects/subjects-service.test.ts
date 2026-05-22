@@ -1,4 +1,9 @@
-import { getSubjectMapByIds, getSubjects, getSubjectsForGradeForm, mapSubjectOptions } from '@/lib/data/subjects';
+import {
+  getSubjectMapByIds,
+  getSubjects,
+  getSubjectsForGradeForm,
+  mapSubjectOptions,
+} from '@/features/subjects/subjects-service';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
