@@ -1,4 +1,4 @@
-import { AdminDashboardContent } from '@/components/admin-dashboard/admin-dashboard-content';
+import { AdminDashboardContent } from '@/features/admin-dashboard/admin-dashboard-content';
 import { DataTable } from '@/components/data-table';
 import { ParentProgressDashboard } from '@/components/parent-progress-dashboard';
 import {

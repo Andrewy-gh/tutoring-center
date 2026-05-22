@@ -53,7 +53,7 @@ vi.mock('@/lib/data/sessions', () => ({
   ]),
 }));
 
-vi.mock('@/components/admin-dashboard/metric-card', () => ({
+vi.mock('@/features/admin-dashboard/metric-card', () => ({
   MetricCard: ({ label, value }: { label: string; value: string | number }) => (
     <div data-testid='metric-card'>
       {label}:{value}
@@ -61,13 +61,13 @@ vi.mock('@/components/admin-dashboard/metric-card', () => ({
   ),
 }));
 
-vi.mock('@/components/admin-dashboard/sessions-today-table', () => ({
+vi.mock('@/features/admin-dashboard/sessions-today-table', () => ({
   SessionsTodayTable: ({ sessions }: { sessions: Array<{ id: number }> }) => (
     <div data-testid='sessions-today'>sessions:{sessions.length}</div>
   ),
 }));
 
-vi.mock('@/components/admin-dashboard/sessions-view', () => ({
+vi.mock('@/features/admin-dashboard/sessions-view', () => ({
   SessionsView: ({
     title,
     sessions,
@@ -83,7 +83,7 @@ vi.mock('@/components/admin-dashboard/sessions-view', () => ({
   ),
 }));
 
-vi.mock('@/components/admin-dashboard/at-risk-view', () => ({
+vi.mock('@/features/admin-dashboard/at-risk-view', () => ({
   AtRiskView: ({ title, parents }: { title: string; parents: Array<{ parent_id: number }> }) => (
     <div data-testid='at-risk-view'>
       {title}:{parents.length}
@@ -93,7 +93,7 @@ vi.mock('@/components/admin-dashboard/at-risk-view', () => ({
 
 describe('AdminDashboardContent', () => {
   it('renders the pending notes detail view for admins', async () => {
-    const { AdminDashboardContent } = await import('@/components/admin-dashboard/admin-dashboard-content');
+    const { AdminDashboardContent } = await import('@/features/admin-dashboard/admin-dashboard-content');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
     const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'pending-notes' }));
@@ -104,7 +104,7 @@ describe('AdminDashboardContent', () => {
   });
 
   it('renders the at-risk accounts view', async () => {
-    const { AdminDashboardContent } = await import('@/components/admin-dashboard/admin-dashboard-content');
+    const { AdminDashboardContent } = await import('@/features/admin-dashboard/admin-dashboard-content');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
     const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'accounts-needing-attention' }));
