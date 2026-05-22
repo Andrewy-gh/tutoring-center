@@ -1,6 +1,11 @@
+import {
+  AT_RISK_THRESHOLD,
+  getAdminMetrics,
+  getAtRiskParents,
+  getDebitSessionIds,
+} from '@/features/admin-dashboard/admin-dashboard-service';
 import { ADMIN_DASHBOARD_VIEW_TITLES, type ViewKey } from '@/lib/admin-dashboard-views';
 import { formatHours } from '@/lib/billing-units';
-import { AT_RISK_THRESHOLD, getAdminMetrics, getAtRiskParents, getDebitSessionIds } from '@/lib/data/admin-dashboard';
 import { getSessions } from '@/lib/data/sessions';
 import type { Route } from 'next';
 import { AtRiskView } from './at-risk-view';

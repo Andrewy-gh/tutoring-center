@@ -1,68 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-const { mockDbSelect } = vi.hoisted(() => ({
-  mockDbSelect: vi.fn(),
-}));
+describe('admin dashboard data compatibility wrapper', () => {
+  it('re-exports the feature-owned admin dashboard service', async () => {
+    const wrapper = await import('@/lib/data/admin-dashboard');
+    const service = await import('@/features/admin-dashboard/admin-dashboard-service');
 
-vi.mock('@/db/client', () => ({
-  db: {
-    select: mockDbSelect,
-  },
-}));
-
-function createSelectQuery(result: unknown) {
-  const query = {
-    from: vi.fn(() => query),
-    innerJoin: vi.fn(() => query),
-    leftJoin: vi.fn(() => query),
-    where: vi.fn(() => query),
-    orderBy: vi.fn(() => query),
-    then: vi.fn((resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) =>
-      Promise.resolve(result).then(resolve, reject)
-    ),
-  };
-
-  return query;
-}
-
-describe('admin dashboard data', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
-
-  it('counts captured credits from session debits and leaked credits from completed sessions without them', async () => {
-    mockDbSelect
-      .mockReturnValueOnce(createSelectQuery([{ count: 3 }]))
-      .mockReturnValueOnce(
-        createSelectQuery([
-          { id: 201, slot_units: 2 },
-          { id: 202, slot_units: 1 },
-        ])
-      )
-      .mockReturnValueOnce(createSelectQuery([{ pending_delta_minutes: -60 }, { pending_delta_minutes: -30 }]))
-      .mockReturnValueOnce(
-        createSelectQuery([
-          { id: 301, slot_units: 2, debit_transaction_id: 1 },
-          { id: 302, slot_units: 1, debit_transaction_id: null },
-        ])
-      )
-      .mockReturnValueOnce(createSelectQuery([{ count: 4 }]));
-
-    const { getAdminMetrics } = await import('@/lib/data/admin-dashboard');
-    const result = await getAdminMetrics();
-
-    expect(result.sessionsTodayCount).toBe(3);
-    expect(result.pendingNotesCount).toBe(2);
-    expect(result.pendingNotesCreditsAtRisk).toBe(1.5);
-    expect(result.creditsCaptured).toBe(1.5);
-    expect(result.creditsLeaked).toBe(0.5);
-    expect(result.atRiskParentsCount).toBe(4);
-  }, 10000);
-
-  it('returns only session ids with session debit transactions', async () => {
-    mockDbSelect.mockReturnValueOnce(createSelectQuery([{ session_id: 10 }, { session_id: 12 }]));
-
-    const { getDebitSessionIds } = await import('@/lib/data/admin-dashboard');
-    await expect(getDebitSessionIds()).resolves.toEqual(new Set([10, 12]));
+    expect(wrapper.AT_RISK_THRESHOLD).toBe(service.AT_RISK_THRESHOLD);
+    expect(wrapper.getAdminMetrics).toBe(service.getAdminMetrics);
+    expect(wrapper.getAtRiskParents).toBe(service.getAtRiskParents);
+    expect(wrapper.getDebitSessionIds).toBe(service.getDebitSessionIds);
   }, 10000);
 });
