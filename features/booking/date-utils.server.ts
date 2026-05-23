@@ -1,6 +1,6 @@
 import 'server-only';
 import type { WeekDay } from '@/db/types';
-import { TIMEZONE } from '@/lib/constants';
+import { BOOKING_TIMEZONE } from '@/features/booking/constants';
 
 const WEEKDAY_NAME_BY_INDEX: WeekDay[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -9,7 +9,7 @@ function parseIsoDateParts(dateStr: string): [number, number, number] {
   return [Number(year), Number(month), Number(day)];
 }
 
-function getTzOffsetMs(utcDate: Date, timezone = TIMEZONE) {
+function getTzOffsetMs(utcDate: Date, timezone = BOOKING_TIMEZONE) {
   const dtParts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     year: 'numeric',
@@ -38,14 +38,14 @@ function getTzOffsetMs(utcDate: Date, timezone = TIMEZONE) {
   return utcDate.getTime() - tzComponentsAsUtcMs;
 }
 
-export function tzDateTimeToUtcIso(dateStr: string, hour: number, minute: number, timezone = TIMEZONE) {
+export function tzDateTimeToUtcIso(dateStr: string, hour: number, minute: number, timezone = BOOKING_TIMEZONE) {
   const [year, month, day] = parseIsoDateParts(dateStr);
   const unadjustedMs = Date.UTC(year, month - 1, day, hour, minute);
 
   return new Date(unadjustedMs + getTzOffsetMs(new Date(unadjustedMs), timezone)).toISOString();
 }
 
-export function tzDateToUtcIso(dateStr: string, timezone = TIMEZONE) {
+export function tzDateToUtcIso(dateStr: string, timezone = BOOKING_TIMEZONE) {
   return tzDateTimeToUtcIso(dateStr, 0, 0, timezone);
 }
 

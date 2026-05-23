@@ -39,10 +39,6 @@ vi.mock('@/lib/auth', () => ({
   getUserRole: vi.fn(),
 }));
 
-vi.mock('@/lib/constants', () => ({
-  TIMEZONE: 'America/New_York',
-}));
-
 vi.mock('@/features/sessions/date-formatters', () => ({
   formatSessionDay: vi.fn(() => 'Tue, Mar 10'),
   formatSessionTime: vi.fn((date: Date) => (date.getUTCHours() === 15 ? '10:00 AM' : '11:00 AM')),

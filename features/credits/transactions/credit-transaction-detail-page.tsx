@@ -8,11 +8,11 @@ import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import { formatSessionDay, formatSessionTime } from '@/features/sessions/date-formatters';
 import { getUserRole } from '@/lib/auth';
 import { formatHours, minutesToHours } from '@/lib/billing-units';
-import { TIMEZONE } from '@/lib/constants';
 import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
 import { getCreditTransaction } from './credit-transactions-service';
 
 const MISSING_VALUE = '—';
+const TRANSACTION_TIMEZONE = 'America/New_York';
 
 function getTypeBadgeVariant(type: TransactionType) {
   switch (type) {
@@ -36,7 +36,7 @@ function getTypeBadgeVariant(type: TransactionType) {
 
 function formatTransactionDateTime(dateString: string) {
   return `${new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone: TRANSACTION_TIMEZONE,
     month: 'long',
     day: 'numeric',
     year: 'numeric',
