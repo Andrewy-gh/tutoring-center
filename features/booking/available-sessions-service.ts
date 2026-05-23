@@ -2,7 +2,8 @@ import 'server-only';
 import { getBookedSessionRowsForAvailableSessions } from '@/db/queries/sessions/available-sessions';
 import { getTutorAvailabilityRows, getTutorSubjectRow } from '@/db/queries/tutors';
 import { type WeekDay } from '@/db/types';
-import { SLOT_DURATION_MINS, TIMEZONE } from '@/lib/constants';
+import { SLOT_DURATION_MINS } from '@/features/booking/constants';
+import { TIMEZONE } from '@/lib/constants';
 import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
 import type { AvailableSession } from '@/lib/validators/sessions';
 
