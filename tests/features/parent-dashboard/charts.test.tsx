@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { HomeworkChart } from '@/components/charts/homework-chart';
-import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
+import { HomeworkChart } from '@/features/parent-dashboard/charts/homework-chart';
+import { ConfidenceChart, PerformanceChart } from '@/features/parent-dashboard/charts/performance-chart';
 import type {
   ConfidenceDataPoint,
   HomeworkDataPoint,

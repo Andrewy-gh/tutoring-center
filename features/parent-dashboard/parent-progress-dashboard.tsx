@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { GradeChart } from '@/components/charts/grade-overview';
-import { HomeworkChart } from '@/components/charts/homework-chart';
-import { ConfidenceChart, PerformanceChart } from '@/components/charts/performance-chart';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GradeChart } from '@/features/parent-dashboard/charts/grade-overview';
+import { HomeworkChart } from '@/features/parent-dashboard/charts/homework-chart';
+import { ConfidenceChart, PerformanceChart } from '@/features/parent-dashboard/charts/performance-chart';
 import {
   averageConfidenceByDate,
   averagePerformanceByDate,
