@@ -1,5 +1,5 @@
+import { creditsToMinutes } from '@/features/credits/billing-units';
 import { type CreditBalance } from '@/features/credits/credit-balances';
-import { creditsToMinutes } from '@/lib/billing-units';
 
 export type CreditPurchaseResult = {
   balance: CreditBalance;

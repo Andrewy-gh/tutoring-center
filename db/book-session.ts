@@ -1,5 +1,5 @@
 import 'server-only';
-import { slotUnitsToMinutes } from '@/lib/billing-units';
+import { slotUnitsToMinutes } from '@/features/credits/billing-units';
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from './client';
 import { DEFAULT_SESSION_STATUS, FREE_SLOT_STATUSES, type SessionStatus } from './schema';

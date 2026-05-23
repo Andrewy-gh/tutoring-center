@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PackageOptions, type Package } from '@/features/credits/add-credits/package-options';
 import { PaymentForm } from '@/features/credits/add-credits/payment-form';
-import { formatHours } from '@/lib/billing-units';
+import { formatHours } from '@/features/credits/billing-units';
 import type { Route } from 'next';
 
 const PACKAGES: Package[] = [

@@ -14,10 +14,10 @@ import {
 } from '@/features/booking/booking-flow';
 import { AddCredits, generateConfirmationCode, type CreditsPurchase } from '@/features/credits/add-credits/add-credits';
 import { purchaseParentCredits } from '@/features/credits/add-credits/purchase-parent-credits';
+import { minutesToCredits, slotUnitsToMinutes } from '@/features/credits/billing-units';
 import { type CreditBalance } from '@/features/credits/credit-balances';
 import { formatSessionDateTime } from '@/features/sessions/date-formatters';
 import type { SubjectOption, SubjectSelection } from '@/features/subjects/subjects-service';
-import { minutesToCredits, slotUnitsToMinutes } from '@/lib/billing-units';
 import { BookingStepCounter } from './booking-step-counter';
 import { BookingSuccessDetails } from './booking-success-details';
 import { LowCreditsToast } from './low-credits-toast';

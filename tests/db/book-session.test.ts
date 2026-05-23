@@ -7,7 +7,7 @@ import {
   SessionOverlapError,
   type BookSessionInput,
 } from '@/db/book-session';
-import { slotUnitsToMinutes } from '@/lib/billing-units';
+import { slotUnitsToMinutes } from '@/features/credits/billing-units';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/db/client', () => ({

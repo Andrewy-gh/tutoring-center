@@ -4,10 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { formatHours, minutesToHours } from '@/features/credits/billing-units';
 import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import { formatSessionDay, formatSessionTime } from '@/features/sessions/date-formatters';
 import { getUserRole } from '@/lib/auth';
-import { formatHours, minutesToHours } from '@/lib/billing-units';
 import { formatTransactionTypeLabel, type TransactionType } from '@/lib/validators/transactions';
 import { getCreditTransaction } from './credit-transactions-service';
 

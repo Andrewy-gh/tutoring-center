@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { formatHours, minutesToHours } from '@/lib/billing-units';
+import { formatHours, minutesToHours } from '@/features/credits/billing-units';
 import { AlertCircle, X } from 'lucide-react';
 
 type LowCreditsToastProps = {

@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { formatHours } from '@/lib/billing-units';
+import { formatHours } from '@/features/credits/billing-units';
 import { cn } from '@/lib/utils';
 import { CircleCheck, Clock } from 'lucide-react';
 

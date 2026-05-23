@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { DataTable, DataTableFilter, DataTableToolbar } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatHours, minutesToHours } from '@/features/credits/billing-units';
 import { formatSignedCredits } from '@/features/credits/credit-ledger';
 import type { UserRole } from '@/lib/auth';
-import { formatHours, minutesToHours } from '@/lib/billing-units';
 import {
   formatTransactionTypeLabel,
   TRANSACTION_TYPE_FILTER_OPTIONS,

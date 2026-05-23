@@ -7,7 +7,7 @@ import {
   getPendingNoteSessionRows,
   getScheduledSessionsCountBetween,
 } from '@/db/queries/admin-dashboard';
-import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/lib/billing-units';
+import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/features/credits/billing-units';
 
 export type AdminMetrics = {
   sessionsTodayCount: number;

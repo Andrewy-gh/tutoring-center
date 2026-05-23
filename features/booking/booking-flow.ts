@@ -1,4 +1,4 @@
-import { slotUnitsToMinutes } from '@/lib/billing-units';
+import { slotUnitsToMinutes } from '@/features/credits/billing-units';
 import type { AvailableSession } from '@/lib/validators/sessions';
 import type { StudentOption, TutorOption } from './types';
 

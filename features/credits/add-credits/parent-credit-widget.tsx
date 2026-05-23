@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { creditsToMinutes, formatHours, minutesToHours } from '@/features/credits/billing-units';
 import { getCurrentParentBalance } from '@/features/credits/server';
-import { creditsToMinutes, formatHours, minutesToHours } from '@/lib/billing-units';
 import { AlertCircle, Coins } from 'lucide-react';
 
 const LOW_THRESHOLD_HOURS = 2;
