@@ -1,26 +1,124 @@
-ALTER TABLE credit_balances
-  RENAME COLUMN amount_available TO available_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_balances'
+      AND column_name = 'amount_available'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_balances'
+      AND column_name = 'available_minutes'
+  ) THEN
+    ALTER TABLE credit_balances RENAME COLUMN amount_available TO available_minutes;
+  END IF;
+END $$;
 
-ALTER TABLE credit_balances
-  RENAME COLUMN amount_pending TO pending_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_balances'
+      AND column_name = 'amount_pending'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_balances'
+      AND column_name = 'pending_minutes'
+  ) THEN
+    ALTER TABLE credit_balances RENAME COLUMN amount_pending TO pending_minutes;
+  END IF;
+END $$;
 
 ALTER TABLE credit_balances
   DROP CONSTRAINT IF EXISTS credit_balances_available_nonnegative,
   DROP CONSTRAINT IF EXISTS credit_balances_pending_nonnegative,
+  DROP CONSTRAINT IF EXISTS credit_balances_available_minutes_nonnegative,
+  DROP CONSTRAINT IF EXISTS credit_balances_pending_minutes_nonnegative,
   ADD CONSTRAINT credit_balances_available_minutes_nonnegative CHECK (available_minutes >= 0),
   ADD CONSTRAINT credit_balances_pending_minutes_nonnegative CHECK (pending_minutes >= 0);
 
-ALTER TABLE credit_transactions
-  RENAME COLUMN available_delta TO available_delta_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'available_delta'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'available_delta_minutes'
+  ) THEN
+    ALTER TABLE credit_transactions RENAME COLUMN available_delta TO available_delta_minutes;
+  END IF;
+END $$;
 
-ALTER TABLE credit_transactions
-  RENAME COLUMN pending_delta TO pending_delta_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'pending_delta'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'pending_delta_minutes'
+  ) THEN
+    ALTER TABLE credit_transactions RENAME COLUMN pending_delta TO pending_delta_minutes;
+  END IF;
+END $$;
 
-ALTER TABLE credit_transactions
-  RENAME COLUMN available_after TO available_after_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'available_after'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'available_after_minutes'
+  ) THEN
+    ALTER TABLE credit_transactions RENAME COLUMN available_after TO available_after_minutes;
+  END IF;
+END $$;
 
-ALTER TABLE credit_transactions
-  RENAME COLUMN pending_after TO pending_after_minutes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'pending_after'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'credit_transactions'
+      AND column_name = 'pending_after_minutes'
+  ) THEN
+    ALTER TABLE credit_transactions RENAME COLUMN pending_after TO pending_after_minutes;
+  END IF;
+END $$;
 
 ALTER TABLE credit_transactions
   DROP CONSTRAINT IF EXISTS credit_transactions_nonzero_delta,
