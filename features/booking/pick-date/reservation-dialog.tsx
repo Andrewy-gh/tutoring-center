@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatSessionDateTime } from '@/lib/date-utils';
+import { formatSessionDateTime } from '@/features/sessions/date-formatters';
 import type { AvailableSession } from '@/lib/validators/sessions';
 import { CalendarIcon, UserRoundIcon } from 'lucide-react';
 

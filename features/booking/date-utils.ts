@@ -1,7 +1,5 @@
 import { addDays, format, startOfDay, startOfWeek } from 'date-fns';
 
-const NY_TZ = 'America/New_York';
-
 export function getWeekStart(today: Date) {
   return startOfDay(startOfWeek(today, { weekStartsOn: 1 }));
 }
@@ -21,25 +19,4 @@ export function formatDateLabel(date: Date) {
 
 export function formatIsoDate(date: Date) {
   return format(date, 'yyyy-MM-dd');
-}
-
-export function formatSessionTime(date: Date) {
-  return date.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: NY_TZ });
-}
-
-export function formatSessionDay(date: Date) {
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: NY_TZ });
-}
-
-export function formatSessionDateTime(date: Date) {
-  return date.toLocaleString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: NY_TZ,
-  });
 }

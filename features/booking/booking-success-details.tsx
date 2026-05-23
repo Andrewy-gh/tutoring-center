@@ -1,5 +1,5 @@
 import { Separator } from '@/components/ui/separator';
-import { formatSessionDateTime } from '@/lib/date-utils';
+import { formatSessionDateTime } from '@/features/sessions/date-formatters';
 import type { Reservation } from './types';
 
 type BookingSuccessDetailsProps = {

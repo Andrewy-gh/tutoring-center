@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatDateLabel, formatIsoDate, formatWeekRange, getNextWeekStart, getWeekStart } from '@/lib/date-utils';
+import {
+  formatDateLabel,
+  formatIsoDate,
+  formatWeekRange,
+  getNextWeekStart,
+  getWeekStart,
+} from '@/features/booking/date-utils';
 import type { AvailableSession } from '@/lib/validators/sessions';
 import { addDays, startOfDay } from 'date-fns';
 import { ChevronLeft } from 'lucide-react';

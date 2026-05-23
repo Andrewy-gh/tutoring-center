@@ -3,8 +3,13 @@ import { getBookedSessionRowsForAvailableSessions } from '@/db/queries/sessions/
 import { getTutorAvailabilityRows, getTutorSubjectRow } from '@/db/queries/tutors';
 import { type WeekDay } from '@/db/types';
 import { SLOT_DURATION_MINS } from '@/features/booking/constants';
+import {
+  getIsoDateWeekday,
+  isoDatesInRange,
+  tzDateTimeToUtcIso,
+  tzDateToUtcIso,
+} from '@/features/booking/date-utils.server';
 import { TIMEZONE } from '@/lib/constants';
-import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
 import type { AvailableSession } from '@/lib/validators/sessions';
 
 function generateSlots(dateStr: string, startTime: string, endTime: string, timezone = TIMEZONE) {

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { formatSessionDay, formatSessionTime } from '@/lib/date-utils';
+import { formatSessionDay, formatSessionTime } from '@/features/sessions/date-formatters';
 import type { AvailableSession } from '@/lib/validators/sessions';
 
 type AvailableSessionsProps = {
