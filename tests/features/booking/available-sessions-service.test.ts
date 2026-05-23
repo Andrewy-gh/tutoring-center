@@ -56,11 +56,9 @@ describe('getAvailableSlots', () => {
     await expect(service.getAvailableSlots(3, 7, RANGE_FROM, RANGE_TO)).resolves.toEqual([]);
   });
 
-  it('defensively ignores free-slot statuses and out-of-range sessions', async () => {
+  it('removes slots that overlap booked session rows', async () => {
     listBookedSessionsMock.mockResolvedValueOnce([
-      { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Canceled' },
-      { scheduled_at: '2026-03-02T20:00:00.000Z', ends_at: '2026-03-02T21:00:00.000Z', status: 'Rescheduled' },
-      { scheduled_at: '2026-03-02T21:00:00.000Z', ends_at: '2026-03-02T22:00:00.000Z', status: 'Scheduled' },
+      { scheduled_at: '2026-03-02T21:00:00.000Z', ends_at: '2026-03-02T22:00:00.000Z' },
     ]);
     const service = createAvailableSessionsService(deps);
 
@@ -73,8 +71,8 @@ describe('getAvailableSlots', () => {
 
   it('uses half-open interval semantics: boundary-touching sessions do not block slots', async () => {
     listBookedSessionsMock.mockResolvedValueOnce([
-      { scheduled_at: '2026-03-02T19:00:00.000Z', ends_at: '2026-03-02T20:00:00.000Z', status: 'Scheduled' },
-      { scheduled_at: '2026-03-02T23:00:00.000Z', ends_at: '2026-03-03T00:00:00.000Z', status: 'Scheduled' },
+      { scheduled_at: '2026-03-02T19:00:00.000Z', ends_at: '2026-03-02T20:00:00.000Z' },
+      { scheduled_at: '2026-03-02T23:00:00.000Z', ends_at: '2026-03-03T00:00:00.000Z' },
     ]);
     const service = createAvailableSessionsService(deps);
 

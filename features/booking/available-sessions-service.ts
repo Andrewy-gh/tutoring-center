@@ -1,7 +1,7 @@
 import 'server-only';
 import { getBookedSessionRowsForAvailableSessions } from '@/db/queries/sessions/available-sessions';
 import { getTutorAvailabilityRows, getTutorSubjectRow } from '@/db/queries/tutors';
-import { FREE_SLOT_STATUSES, type FreeSlotStatus, type WeekDay } from '@/db/types';
+import { type WeekDay } from '@/db/types';
 import { SLOT_DURATION_MINS, TIMEZONE } from '@/lib/constants';
 import { getIsoDateWeekday, isoDatesInRange, tzDateTimeToUtcIso, tzDateToUtcIso } from '@/lib/date-utils.server';
 import type { AvailableSession } from '@/lib/validators/sessions';
@@ -36,7 +36,6 @@ function generateSlots(dateStr: string, startTime: string, endTime: string, time
 
 type AvailabilityRow = { week_day: WeekDay; start_time: string; end_time: string };
 type BookedRow = { scheduled_at: string; ends_at: string };
-type BookedRowWithStatus = BookedRow & { status?: string | null };
 
 export const AVAILABLE_SLOTS_ERROR_MESSAGES = {
   database: 'Available slots are temporarily unavailable. Please retry in a moment.',
@@ -48,7 +47,7 @@ type TutorSubjectRow = { id: number };
 export type AvailableSessionsServiceDeps = {
   findTutorSubject: (tutorId: number, subjectId: number) => Promise<TutorSubjectRow | null>;
   listAvailability: (tutorId: number) => Promise<AvailabilityRow[]>;
-  listBookedSessions: (tutorId: number, fromUtc: string, toUtc: string) => Promise<BookedRowWithStatus[]>;
+  listBookedSessions: (tutorId: number, fromUtc: string, toUtc: string) => Promise<BookedRow[]>;
 };
 
 export function buildAvailableSlots(
@@ -94,26 +93,6 @@ export function buildAvailableSlots(
   return slots.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
 }
 
-function filterActiveBookedSessions(rows: BookedRowWithStatus[] | null, fromUtc: string, toUtc: string) {
-  const fromMs = new Date(fromUtc).getTime();
-  const toMs = new Date(toUtc).getTime();
-
-  return (rows ?? [])
-    .filter(row => {
-      const scheduledAtMs = new Date(row.scheduled_at).getTime();
-      const endsAtMs = new Date(row.ends_at).getTime();
-
-      return (
-        !FREE_SLOT_STATUSES.some((status: FreeSlotStatus) => status === row.status) &&
-        Number.isFinite(scheduledAtMs) &&
-        Number.isFinite(endsAtMs) &&
-        scheduledAtMs < toMs &&
-        endsAtMs > fromMs
-      );
-    })
-    .map(({ scheduled_at, ends_at }) => ({ scheduled_at, ends_at }));
-}
-
 export function createAvailableSessionsService(deps: AvailableSessionsServiceDeps) {
   return {
     async getAvailableSlots(tutorId: number, subjectId: number, from: string, to: string, timezone = TIMEZONE) {
@@ -132,9 +111,9 @@ export function createAvailableSessionsService(deps: AvailableSessionsServiceDep
       }
 
       let availabilityRows: AvailabilityRow[];
-      let sessionRows: BookedRowWithStatus[];
+      let bookedRows: BookedRow[];
       try {
-        [availabilityRows, sessionRows] = await Promise.all([
+        [availabilityRows, bookedRows] = await Promise.all([
           deps.listAvailability(tutorId),
           deps.listBookedSessions(tutorId, fromUtc, toUtc),
         ]);
@@ -144,8 +123,7 @@ export function createAvailableSessionsService(deps: AvailableSessionsServiceDep
 
       if (!availabilityRows.length) return [];
 
-      const booked = filterActiveBookedSessions(sessionRows, fromUtc, toUtc);
-      return buildAvailableSlots(availabilityRows, booked, from, to, timezone);
+      return buildAvailableSlots(availabilityRows, bookedRows, from, to, timezone);
     },
   };
 }
