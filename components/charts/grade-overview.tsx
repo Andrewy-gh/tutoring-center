@@ -2,8 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { letterGradeToNumber, numberToLetterGrade } from '@/features/grades/grade-utils';
 import type { GradeDataPoint } from '@/features/parent-dashboard/parent-dashboard-service';
-import { letterGradeToNumber, numberToLetterGrade } from '@/lib/grade-utils';
 import { format } from 'date-fns';
 import { HelpCircle, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { Line, LineChart, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';
