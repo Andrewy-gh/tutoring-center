@@ -35,6 +35,18 @@ export async function getPendingNoteSessionRows() {
     .where(eq(sessions.status, 'Pending-Notes'));
 }
 
+export async function getPendingNoteSessionRowsSince(start: Date) {
+  const db = await getDb();
+
+  return db
+    .select({
+      id: sessions.id,
+      slot_units: sessions.slotUnits,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.status, 'Pending-Notes'), gte(sessions.scheduledAt, start.toISOString())));
+}
+
 export async function getDebitTransactionRows() {
   const db = await getDb();
 
@@ -45,6 +57,24 @@ export async function getDebitTransactionRows() {
     })
     .from(creditTransactions)
     .where(and(eq(creditTransactions.type, 'session_debit'), isNotNull(creditTransactions.sessionId)));
+}
+
+export async function getDebitTransactionRowsSince(start: Date) {
+  const db = await getDb();
+
+  return db
+    .select({
+      session_id: creditTransactions.sessionId,
+      pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+    })
+    .from(creditTransactions)
+    .where(
+      and(
+        eq(creditTransactions.type, 'session_debit'),
+        isNotNull(creditTransactions.sessionId),
+        gte(creditTransactions.createdAt, start.toISOString())
+      )
+    );
 }
 
 export async function getCompletedSessionDebitRows() {
@@ -62,6 +92,23 @@ export async function getCompletedSessionDebitRows() {
       and(eq(creditTransactions.sessionId, sessions.id), eq(creditTransactions.type, 'session_debit'))
     )
     .where(eq(sessions.status, 'Completed'));
+}
+
+export async function getCompletedSessionDebitRowsSince(start: Date) {
+  const db = await getDb();
+
+  return db
+    .select({
+      id: sessions.id,
+      slot_units: sessions.slotUnits,
+      debit_transaction_id: creditTransactions.id,
+    })
+    .from(sessions)
+    .leftJoin(
+      creditTransactions,
+      and(eq(creditTransactions.sessionId, sessions.id), eq(creditTransactions.type, 'session_debit'))
+    )
+    .where(and(eq(sessions.status, 'Completed'), gte(sessions.scheduledAt, start.toISOString())));
 }
 
 export async function getAtRiskParentCountRows(thresholdMinutes: number) {

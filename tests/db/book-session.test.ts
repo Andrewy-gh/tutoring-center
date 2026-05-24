@@ -198,7 +198,16 @@ describe('bookSession', () => {
     });
     expect(state.balance).toEqual({ available_minutes: 60, pending_minutes: 60 });
     expect(state.sessions).toHaveLength(1);
-    expect(state.creditTransactions).toHaveLength(1);
+    expect(state.creditTransactions).toEqual([
+      {
+        session_id: 9001,
+        available_delta_minutes: -60,
+        pending_delta_minutes: 60,
+        available_after_minutes: 60,
+        pending_after_minutes: 60,
+        type: 'reservation',
+      },
+    ]);
   });
 
   it('rolls back the inserted session when credits are insufficient', async () => {

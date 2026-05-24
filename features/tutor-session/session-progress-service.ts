@@ -1,6 +1,6 @@
+import { saveProgressReportAndCaptureRevenue } from '@/db/capture-session-revenue';
 import { getTutorIdByUserId } from '@/db/queries/actors';
 import { getSessionTutorId } from '@/db/queries/sessions/detail';
-import { sessionProgress } from '@/db/schema';
 import { getCurrentUserID, getUserRole, type UserRole } from '@/lib/auth';
 import { assertTutorOwnsSession } from './tutor-session-authorization';
 
@@ -14,7 +14,7 @@ type ProgressReportValues = {
 };
 
 export type ProgressReportWriter = {
-  saveProgressReport: (values: ProgressReportValues) => Promise<void>;
+  saveProgressReportAndCaptureRevenue: (values: ProgressReportValues) => Promise<{ captured: boolean }>;
 };
 
 export type ProgressReportFormData = {
@@ -33,28 +33,6 @@ export type SessionProgressServiceDeps = ProgressReportWriter & {
   now: () => string;
 };
 
-async function getDb() {
-  return (await import('@/db/client')).db;
-}
-
-async function saveProgressReport(values: ProgressReportValues) {
-  const db = await getDb();
-
-  await db
-    .insert(sessionProgress)
-    .values(values)
-    .onConflictDoUpdate({
-      target: sessionProgress.sessionId,
-      set: {
-        topics: values.topics,
-        homeworkAssigned: values.homeworkAssigned,
-        publicNotes: values.publicNotes,
-        internalNotes: values.internalNotes,
-        updatedAt: values.updatedAt,
-      },
-    });
-}
-
 export function createSessionProgressService(deps: SessionProgressServiceDeps) {
   return {
     async submitProgressReport(formData: ProgressReportFormData) {
@@ -70,7 +48,7 @@ export function createSessionProgressService(deps: SessionProgressServiceDeps) {
       });
 
       const updatedAt = deps.now();
-      await deps.saveProgressReport({
+      await deps.saveProgressReportAndCaptureRevenue({
         sessionId: formData.sessionId,
         topics: formData.topics || null,
         homeworkAssigned: formData.homeworkAssigned || null,
@@ -89,6 +67,6 @@ export const sessionProgressService = createSessionProgressService({
   getCurrentUserID,
   getTutorIdByUserId,
   getSessionTutorId,
-  saveProgressReport,
+  saveProgressReportAndCaptureRevenue,
   now: () => new Date().toISOString(),
 });
