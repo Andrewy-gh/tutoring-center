@@ -1,12 +1,12 @@
 import {
   AT_RISK_THRESHOLD,
+  BILLED_SESSIONS_LOOKBACK_DAYS,
+  getAdminDashboardSessions,
   getAdminMetrics,
   getAtRiskParents,
-  getDebitSessionIds,
 } from '@/features/admin-dashboard/admin-dashboard-service';
 import { ADMIN_DASHBOARD_VIEW_TITLES, type ViewKey } from '@/features/admin-dashboard/admin-dashboard-views';
 import { formatHours } from '@/features/credits/billing-units';
-import { getSessions } from '@/features/sessions/sessions-service';
 import type { Route } from 'next';
 import { AtRiskView } from './at-risk-view';
 import { MetricCard } from './metric-card';
@@ -14,27 +14,11 @@ import { SessionsTodayTable } from './sessions-today-table';
 import { SessionsView } from './sessions-view';
 
 export async function AdminDashboardContent({ view }: { view: ViewKey }) {
-  const now = new Date();
-
-  const [metrics, atRiskParents, sessions, debitSessionIds] = await Promise.all([
+  const [metrics, atRiskParents, sessions] = await Promise.all([
     getAdminMetrics(),
-    getAtRiskParents(),
-    getSessions('all'),
-    getDebitSessionIds(),
+    view === 'accounts-needing-attention' ? getAtRiskParents() : Promise.resolve([]),
+    getAdminDashboardSessions(view),
   ]);
-
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-
-  const sessionsTodayData = sessions.filter(session => {
-    const scheduledAt = new Date(session.scheduled_at);
-    return scheduledAt >= startOfToday && scheduledAt <= endOfToday;
-  });
-  const pendingNotesData = sessions.filter(session => session.status === 'Pending-Notes');
-  const capturedData = sessions.filter(session => debitSessionIds.has(session.id));
-  const leakedData = sessions.filter(session => session.status === 'Completed' && !debitSessionIds.has(session.id));
 
   const leakagePct = (metrics.leakageRate * 100).toFixed(1);
   const viewUrl = (nextView: ViewKey) => `/dashboard?view=${nextView}` as Route<string>;
@@ -79,6 +63,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-billed']}
             value={formatHours(metrics.creditsCaptured)}
+            sub={`last ${BILLED_SESSIONS_LOOKBACK_DAYS} days`}
             href={viewUrl('sessions-billed')}
             active={view === 'sessions-billed'}
             tooltip='Credits successfully debited for completed sessions.'
@@ -99,17 +84,17 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
         {view === 'sessions-today' && (
           <>
             <h2 className='text-xl font-semibold mb-4'>{ADMIN_DASHBOARD_VIEW_TITLES['sessions-today']}</h2>
-            <SessionsTodayTable sessions={sessionsTodayData} />
+            <SessionsTodayTable sessions={sessions} />
           </>
         )}
         {view === 'pending-notes' && (
-          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['pending-notes']} sessions={pendingNotesData} withContact />
+          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['pending-notes']} sessions={sessions} withContact />
         )}
         {view === 'sessions-billed' && (
-          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['sessions-billed']} sessions={capturedData} />
+          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['sessions-billed']} sessions={sessions} />
         )}
         {view === 'sessions-pending-billing' && (
-          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['sessions-pending-billing']} sessions={leakedData} />
+          <SessionsView title={ADMIN_DASHBOARD_VIEW_TITLES['sessions-pending-billing']} sessions={sessions} />
         )}
         {view === 'accounts-needing-attention' && (
           <AtRiskView title={ADMIN_DASHBOARD_VIEW_TITLES['accounts-needing-attention']} parents={atRiskParents} />

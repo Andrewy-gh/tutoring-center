@@ -3,15 +3,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   getAtRiskParentCountRows,
   getAtRiskParentRows,
+  getBilledDashboardSessionRowsSince,
   getCompletedSessionDebitRows,
+  getDashboardSessionRowsBetween,
   getDebitTransactionRows,
+  getDebitTransactionRowsSince,
+  getPendingBillingDashboardSessionRows,
+  getPendingNoteDashboardSessionRows,
   getPendingNoteSessionRows,
   getScheduledSessionsCountBetween,
 } = vi.hoisted(() => ({
   getAtRiskParentCountRows: vi.fn(),
   getAtRiskParentRows: vi.fn(),
+  getBilledDashboardSessionRowsSince: vi.fn(),
   getCompletedSessionDebitRows: vi.fn(),
+  getDashboardSessionRowsBetween: vi.fn(),
   getDebitTransactionRows: vi.fn(),
+  getDebitTransactionRowsSince: vi.fn(),
+  getPendingBillingDashboardSessionRows: vi.fn(),
+  getPendingNoteDashboardSessionRows: vi.fn(),
   getPendingNoteSessionRows: vi.fn(),
   getScheduledSessionsCountBetween: vi.fn(),
 }));
@@ -19,10 +29,28 @@ const {
 vi.mock('@/db/queries/admin-dashboard', () => ({
   getAtRiskParentCountRows,
   getAtRiskParentRows,
+  getBilledDashboardSessionRowsSince,
   getCompletedSessionDebitRows,
+  getDashboardSessionRowsBetween,
   getDebitTransactionRows,
+  getDebitTransactionRowsSince,
+  getPendingBillingDashboardSessionRows,
+  getPendingNoteDashboardSessionRows,
   getPendingNoteSessionRows,
   getScheduledSessionsCountBetween,
+}));
+
+const { getSubjectMapByIds, getTutorProfileMapByIds } = vi.hoisted(() => ({
+  getSubjectMapByIds: vi.fn(),
+  getTutorProfileMapByIds: vi.fn(),
+}));
+
+vi.mock('@/features/subjects/subjects-service', () => ({
+  getSubjectMapByIds,
+}));
+
+vi.mock('@/features/tutors/tutors-service', () => ({
+  getTutorProfileMapByIds,
 }));
 
 describe('admin dashboard service', () => {
@@ -36,7 +64,7 @@ describe('admin dashboard service', () => {
       { id: 201, slot_units: 2 },
       { id: 202, slot_units: 1 },
     ]);
-    getDebitTransactionRows.mockResolvedValue([
+    getDebitTransactionRowsSince.mockResolvedValue([
       { session_id: 301, pending_delta_minutes: -60 },
       { session_id: 302, pending_delta_minutes: -30 },
     ]);
@@ -55,6 +83,7 @@ describe('admin dashboard service', () => {
     expect(result.creditsCaptured).toBe(1.5);
     expect(result.creditsLeaked).toBe(0.5);
     expect(result.atRiskParentsCount).toBe(4);
+    expect(getDebitTransactionRowsSince).toHaveBeenCalled();
   }, 10000);
 
   it('returns only session ids with session debit transactions', async () => {
@@ -91,5 +120,58 @@ describe('admin dashboard service', () => {
 
     getAtRiskParentRows.mockRejectedValueOnce(new Error('database unavailable'));
     await expect(getAtRiskParents()).resolves.toEqual([]);
+  }, 10000);
+
+  it('loads only the active dashboard session view and maps rows for the table', async () => {
+    getPendingNoteDashboardSessionRows.mockResolvedValueOnce([
+      {
+        id: 102,
+        tutor_id: 2,
+        student_id: 12,
+        subject_id: 22,
+        parent_id: 32,
+        slot_units: 2,
+        scheduled_at: '2026-05-20T14:00:00.000Z',
+        ends_at: '2026-05-20T15:00:00.000Z',
+        status: 'Pending-Notes',
+        student_parent_id: 32,
+        student_learning_goals: null,
+        student_first_name: 'Student',
+        student_last_name: 'Two',
+        student_email: 'student@example.com',
+        parent_billing_address: null,
+        parent_notification_preferences: null,
+        parent_first_name: 'Pat',
+        parent_last_name: 'Parent',
+        parent_email: 'pat@example.com',
+      },
+    ]);
+    getSubjectMapByIds.mockResolvedValueOnce(new Map([[22, { name: 'Science' }]]));
+    getTutorProfileMapByIds.mockResolvedValueOnce(
+      new Map([[2, { name: 'Tutor Two', email: 'tutor2@example.com', phone: '555-0101' }]])
+    );
+
+    const { getAdminDashboardSessions } = await import('@/features/admin-dashboard/admin-dashboard-service');
+    await expect(getAdminDashboardSessions('pending-notes')).resolves.toEqual([
+      {
+        id: 102,
+        student_name: 'Student Two',
+        tutor_id: 2,
+        tutor_name: 'Tutor Two',
+        tutor_email: 'tutor2@example.com',
+        student_id: 12,
+        subject_id: 22,
+        subject_name: 'Science',
+        scheduled_at: '2026-05-20T14:00:00.000Z',
+        ends_at: '2026-05-20T15:00:00.000Z',
+        hours: 1,
+        status: 'Pending-Notes',
+      },
+    ]);
+
+    expect(getPendingNoteDashboardSessionRows).toHaveBeenCalledOnce();
+    expect(getDashboardSessionRowsBetween).not.toHaveBeenCalled();
+    expect(getBilledDashboardSessionRowsSince).not.toHaveBeenCalled();
+    expect(getPendingBillingDashboardSessionRows).not.toHaveBeenCalled();
   }, 10000);
 });
