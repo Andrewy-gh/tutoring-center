@@ -52,6 +52,7 @@ export const creditTransactions = pgTable(
   },
   table => [
     index('credit_transactions_type_session_id_idx').on(table.type, table.sessionId),
+    index('credit_transactions_type_created_at_session_id_idx').on(table.type, table.createdAt, table.sessionId),
     unique('credit_transactions_idempotency_key_unique').on(table.idempotencyKey),
     check(
       'credit_transactions_nonzero_delta_minutes',

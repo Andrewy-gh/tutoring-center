@@ -49,7 +49,9 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
       </section>
 
       <section>
-        <p className='text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3'>Revenue</p>
+        <p className='text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3'>
+          Revenue - last {BILLED_SESSIONS_LOOKBACK_DAYS} days
+        </p>
         <div className='grid grid-cols-3 gap-4'>
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['pending-notes']}
@@ -58,7 +60,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
             subColor={metrics.pendingNotesCreditsAtRisk > 0 ? 'text-amber-500' : undefined}
             href={viewUrl('pending-notes')}
             active={view === 'pending-notes'}
-            tooltip='Sessions where tutor notes have not been submitted yet.'
+            tooltip='Recent sessions where tutor notes have not been submitted yet.'
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-billed']}
@@ -66,7 +68,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
             sub={`last ${BILLED_SESSIONS_LOOKBACK_DAYS} days`}
             href={viewUrl('sessions-billed')}
             active={view === 'sessions-billed'}
-            tooltip='Credits successfully debited for completed sessions.'
+            tooltip='Credits successfully debited for recently completed sessions.'
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-pending-billing']}
@@ -75,7 +77,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
             subColor={metrics.creditsLeaked > 0 ? 'text-amber-500' : undefined}
             href={viewUrl('sessions-pending-billing')}
             active={view === 'sessions-pending-billing'}
-            tooltip='Completed sessions without a matching credit deduction.'
+            tooltip='Recently completed sessions without a matching credit deduction.'
           />
         </div>
       </section>

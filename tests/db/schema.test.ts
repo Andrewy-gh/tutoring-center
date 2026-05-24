@@ -129,6 +129,9 @@ describe('db schema exports', () => {
     expect(getTableConfig(creditTransactions).indexes.map(index => index.config.name)).toContain(
       'credit_transactions_type_session_id_idx'
     );
+    expect(getTableConfig(creditTransactions).indexes.map(index => index.config.name)).toContain(
+      'credit_transactions_type_created_at_session_id_idx'
+    );
     expect(getTableConfig(creditBalances).indexes.map(index => index.config.name)).toContain(
       'credit_balances_available_minutes_idx'
     );

@@ -69,6 +69,18 @@ export async function getPendingNoteSessionRows() {
     .where(eq(sessions.status, 'Pending-Notes'));
 }
 
+export async function getPendingNoteSessionRowsSince(start: Date) {
+  const db = await getDb();
+
+  return db
+    .select({
+      id: sessions.id,
+      slot_units: sessions.slotUnits,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.status, 'Pending-Notes'), gte(sessions.scheduledAt, start.toISOString())));
+}
+
 export async function getDebitTransactionRows() {
   const db = await getDb();
 
@@ -116,6 +128,24 @@ export async function getCompletedSessionDebitRows() {
     .where(eq(sessions.status, 'Completed'));
 }
 
+export async function getCompletedSessionDebitRowsSince(start: Date) {
+  const db = await getDb();
+
+  return db
+    .select({
+      id: sessions.id,
+      slot_units: sessions.slotUnits,
+      debit_transaction_id: creditTransactions.id,
+      pending_delta_minutes: creditTransactions.pendingDeltaMinutes,
+    })
+    .from(sessions)
+    .leftJoin(
+      creditTransactions,
+      and(eq(creditTransactions.sessionId, sessions.id), eq(creditTransactions.type, 'session_debit'))
+    )
+    .where(and(eq(sessions.status, 'Completed'), gte(sessions.scheduledAt, start.toISOString())));
+}
+
 export async function getAtRiskParentCountRows(thresholdMinutes: number) {
   const db = await getDb();
 
@@ -161,29 +191,41 @@ export async function getPendingNoteDashboardSessionRows() {
     .orderBy(desc(sessions.scheduledAt));
 }
 
-export async function getBilledDashboardSessionRowsSince(start: Date) {
+export async function getPendingNoteDashboardSessionRowsSince(start: Date) {
   const db = await getDb();
 
   return getAdminDashboardSessionSelect(db)
-    .where(
-      sql`exists (
-        select 1
-        from ${creditTransactions}
-        where ${creditTransactions.sessionId} = ${sessions.id}
-          and ${creditTransactions.type} = 'session_debit'
-          and ${creditTransactions.createdAt} >= ${start.toISOString()}
-      )`
-    )
+    .where(and(eq(sessions.status, 'Pending-Notes'), gte(sessions.scheduledAt, start.toISOString())))
     .orderBy(desc(sessions.scheduledAt));
 }
 
-export async function getPendingBillingDashboardSessionRows() {
+export async function getBilledDashboardSessionRowsSince(start: Date) {
   const db = await getDb();
 
   return getAdminDashboardSessionSelect(db)
     .where(
       and(
         eq(sessions.status, 'Completed'),
+        gte(sessions.scheduledAt, start.toISOString()),
+        sql`exists (
+          select 1
+          from ${creditTransactions}
+          where ${creditTransactions.sessionId} = ${sessions.id}
+            and ${creditTransactions.type} = 'session_debit'
+        )`
+      )
+    )
+    .orderBy(desc(sessions.scheduledAt));
+}
+
+export async function getPendingBillingDashboardSessionRowsSince(start: Date) {
+  const db = await getDb();
+
+  return getAdminDashboardSessionSelect(db)
+    .where(
+      and(
+        eq(sessions.status, 'Completed'),
+        gte(sessions.scheduledAt, start.toISOString()),
         sql`not exists (
           select 1
           from ${creditTransactions}

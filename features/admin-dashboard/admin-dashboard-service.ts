@@ -3,13 +3,12 @@ import {
   getAtRiskParentCountRows,
   getAtRiskParentRows,
   getBilledDashboardSessionRowsSince,
-  getCompletedSessionDebitRows,
+  getCompletedSessionDebitRowsSince,
   getDashboardSessionRowsBetween,
   getDebitTransactionRows,
-  getDebitTransactionRowsSince,
-  getPendingBillingDashboardSessionRows,
-  getPendingNoteDashboardSessionRows,
-  getPendingNoteSessionRows,
+  getPendingBillingDashboardSessionRowsSince,
+  getPendingNoteDashboardSessionRowsSince,
+  getPendingNoteSessionRowsSince,
   getScheduledSessionsCountBetween,
 } from '@/db/queries/admin-dashboard';
 import { parseSessionListRows } from '@/db/queries/sessions/list';
@@ -92,11 +91,10 @@ export async function getAdminMetrics() {
   const { startOfToday, endOfToday } = getTodayRange(now);
   const billedSessionsWindowStart = getBilledSessionsWindowStart(now);
 
-  const [sessionsTodayRows, pendingNotes, debitTransactions, completedSessionRows, atRiskRows] = await Promise.all([
+  const [sessionsTodayRows, pendingNotes, completedSessionRows, atRiskRows] = await Promise.all([
     getScheduledSessionsCountBetween(startOfToday, endOfToday),
-    getPendingNoteSessionRows(),
-    getDebitTransactionRowsSince(billedSessionsWindowStart),
-    getCompletedSessionDebitRows(),
+    getPendingNoteSessionRowsSince(billedSessionsWindowStart),
+    getCompletedSessionDebitRowsSince(billedSessionsWindowStart),
     getAtRiskParentCountRows(AT_RISK_THRESHOLD_MINUTES),
   ]);
 
@@ -104,27 +102,27 @@ export async function getAdminMetrics() {
     (sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slot_units)),
     0
   );
-  const creditsCaptured = debitTransactions.reduce(
-    (sum, tx) => sum + minutesToHours(Math.abs(tx.pending_delta_minutes)),
-    0
-  );
-  const completedSessions = new Map<number, { slotUnits: number; hasDebit: boolean }>();
+  const completedSessions = new Map<number, { slotUnits: number; debitMinutes: number }>();
 
   for (const row of completedSessionRows) {
     const existing = completedSessions.get(row.id);
     if (existing) {
-      existing.hasDebit ||= row.debit_transaction_id !== null;
+      existing.debitMinutes += Math.abs(row.pending_delta_minutes ?? 0);
       continue;
     }
 
     completedSessions.set(row.id, {
       slotUnits: row.slot_units,
-      hasDebit: row.debit_transaction_id !== null,
+      debitMinutes: Math.abs(row.pending_delta_minutes ?? 0),
     });
   }
 
+  const creditsCaptured = Array.from(completedSessions.values()).reduce(
+    (sum, session) => sum + minutesToHours(session.debitMinutes),
+    0
+  );
   const creditsLeaked = Array.from(completedSessions.values())
-    .filter(session => !session.hasDebit)
+    .filter(session => session.debitMinutes === 0)
     .reduce((sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slotUnits)), 0);
   const leakageRate = creditsCaptured + creditsLeaked > 0 ? creditsLeaked / (creditsCaptured + creditsLeaked) : 0;
 
@@ -170,7 +168,7 @@ export async function getAdminDashboardSessions(view: ViewKey) {
   }
 
   if (view === 'pending-notes') {
-    return mapDashboardSessionRows(await getPendingNoteDashboardSessionRows());
+    return mapDashboardSessionRows(await getPendingNoteDashboardSessionRowsSince(getBilledSessionsWindowStart(now)));
   }
 
   if (view === 'sessions-billed') {
@@ -178,7 +176,7 @@ export async function getAdminDashboardSessions(view: ViewKey) {
   }
 
   if (view === 'sessions-pending-billing') {
-    return mapDashboardSessionRows(await getPendingBillingDashboardSessionRows());
+    return mapDashboardSessionRows(await getPendingBillingDashboardSessionRowsSince(getBilledSessionsWindowStart(now)));
   }
 
   return [];
