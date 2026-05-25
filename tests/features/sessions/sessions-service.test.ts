@@ -10,6 +10,9 @@ let getSessionListRowsMock: Mock<SessionDataServiceDeps['getSessionListRows']>;
 let getSubjectMapByIdsMock: Mock<SessionDataServiceDeps['getSubjectMapByIds']>;
 let getTutorProfileMapByIdsMock: Mock<SessionDataServiceDeps['getTutorProfileMapByIds']>;
 let getSessionDetailMock: Mock<SessionDataServiceDeps['getSessionDetail']>;
+let sweepEndedScheduledSessionsToPendingNotesMock: Mock<
+  SessionDataServiceDeps['sweepEndedScheduledSessionsToPendingNotes']
+>;
 let getTutorAssignedSessionRowsMock: Mock<SessionDataServiceDeps['getTutorAssignedSessionRows']>;
 let getStudentRecentProgressRowsMock: Mock<SessionDataServiceDeps['getStudentRecentProgressRows']>;
 let notFoundMock: Mock<() => never>;
@@ -28,6 +31,9 @@ function createDeps() {
     .fn<SessionDataServiceDeps['getTutorProfileMapByIds']>()
     .mockResolvedValue(new Map([[101, { name: 'Jane Tutor', email: 'jane@example.com', phone: '555-1111' }]]));
   getSessionDetailMock = vi.fn<SessionDataServiceDeps['getSessionDetail']>().mockResolvedValue(null);
+  sweepEndedScheduledSessionsToPendingNotesMock = vi
+    .fn<SessionDataServiceDeps['sweepEndedScheduledSessionsToPendingNotes']>()
+    .mockResolvedValue();
   getTutorAssignedSessionRowsMock = vi
     .fn<SessionDataServiceDeps['getTutorAssignedSessionRows']>()
     .mockResolvedValue([]);
@@ -50,6 +56,7 @@ function createDeps() {
     getSubjectMapByIds: ids => getSubjectMapByIdsMock(ids),
     getTutorProfileMapByIds: ids => getTutorProfileMapByIdsMock(ids),
     getSessionDetail: id => getSessionDetailMock(id),
+    sweepEndedScheduledSessionsToPendingNotes: nowIso => sweepEndedScheduledSessionsToPendingNotesMock(nowIso),
     getTutorAssignedSessionRows: tutorId => getTutorAssignedSessionRowsMock(tutorId),
     getStudentRecentProgressRows: (studentId, sessionIdToExclude, limit, nowIso) =>
       getStudentRecentProgressRowsMock(studentId, sessionIdToExclude, limit, nowIso),
@@ -109,6 +116,10 @@ describe('getSessions', () => {
         status: 'Scheduled',
       },
     ]);
+    expect(sweepEndedScheduledSessionsToPendingNotesMock).toHaveBeenCalledWith('2026-03-21T12:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      getSessionListRowsMock.mock.invocationCallOrder[0]
+    );
   });
 
   it('filters sessions for parent users via parent lookup', async () => {
@@ -156,6 +167,10 @@ describe('getSession', () => {
     const service = createSessionDataService(deps);
     const session = await service.getSession(1);
 
+    expect(sweepEndedScheduledSessionsToPendingNotesMock).toHaveBeenCalledWith('2026-03-21T12:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      getSessionDetailMock.mock.invocationCallOrder[0]
+    );
     expect(session.id).toBe(1);
     expect(session.subject_name).toBe('Mathematics');
     expect(session.student.name).toBe('John Student');
@@ -205,7 +220,7 @@ describe('getTutorAssignedSessions', () => {
     deps = createDeps();
   });
 
-  it('returns only sessions missing progress or metrics', async () => {
+  it('sweeps ended scheduled sessions before reading tutor tasks', async () => {
     getUserRoleMock.mockResolvedValueOnce('tutor');
     getCurrentUserIDMock.mockResolvedValueOnce(44);
     getTutorIdByUserIdMock.mockResolvedValueOnce(101);
@@ -217,7 +232,7 @@ describe('getTutorAssignedSessions', () => {
         subject_id: 1,
         scheduled_at: '2026-04-01T10:00:00Z',
         ends_at: '2026-04-01T11:00:00Z',
-        status: 'Completed',
+        status: 'Pending-Notes',
         progress_id: null,
         metrics_id: 7,
         student_first_name: 'John',
@@ -249,11 +264,61 @@ describe('getTutorAssignedSessions', () => {
         subject_name: 'Mathematics',
         scheduled_at: '2026-04-01T10:00:00Z',
         ends_at: '2026-04-01T11:00:00Z',
-        status: 'Completed',
+        status: 'Pending-Notes',
         needsProgressReport: true,
         needsMetrics: false,
       },
     ]);
+    expect(sweepEndedScheduledSessionsToPendingNotesMock).toHaveBeenCalledWith('2026-03-21T12:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      getTutorAssignedSessionRowsMock.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not show progress-report actions for future scheduled sessions', async () => {
+    getUserRoleMock.mockResolvedValueOnce('tutor');
+    getTutorAssignedSessionRowsMock.mockResolvedValueOnce([
+      {
+        id: 3,
+        tutor_id: 101,
+        student_id: 203,
+        subject_id: 1,
+        scheduled_at: '2026-04-03T10:00:00Z',
+        ends_at: '2026-04-03T11:00:00Z',
+        status: 'Scheduled',
+        progress_id: null,
+        metrics_id: 10,
+        student_first_name: 'Future',
+        student_last_name: 'Student',
+      },
+    ]);
+
+    const service = createSessionDataService(deps);
+
+    await expect(service.getTutorAssignedSessions()).resolves.toEqual([]);
+  });
+
+  it('does not show progress-report actions for completed sessions missing progress', async () => {
+    getUserRoleMock.mockResolvedValueOnce('tutor');
+    getTutorAssignedSessionRowsMock.mockResolvedValueOnce([
+      {
+        id: 4,
+        tutor_id: 101,
+        student_id: 204,
+        subject_id: 1,
+        scheduled_at: '2026-04-04T10:00:00Z',
+        ends_at: '2026-04-04T11:00:00Z',
+        status: 'Completed',
+        progress_id: null,
+        metrics_id: 11,
+        student_first_name: 'Complete',
+        student_last_name: 'Student',
+      },
+    ]);
+
+    const service = createSessionDataService(deps);
+
+    await expect(service.getTutorAssignedSessions()).resolves.toEqual([]);
   });
 });
 

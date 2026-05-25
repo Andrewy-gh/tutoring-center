@@ -1,26 +1,9 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 globalThis.React = React;
 
-vi.mock('@/features/admin-dashboard/admin-dashboard-service', () => ({
-  AT_RISK_THRESHOLD: 2,
-  getAdminMetrics: vi.fn(async () => ({
-    sessionsTodayCount: 3,
-    pendingNotesCount: 2,
-    pendingNotesCreditsAtRisk: 2,
-    atRiskParentsCount: 1,
-    creditsCaptured: 4,
-    creditsLeaked: 0.5,
-    leakageRate: 0.5 / 4.5,
-  })),
-  getAtRiskParents: vi.fn(async () => [
-    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', available_minutes: 60, available_hours: '1' },
-  ]),
-  getDebitSessionIds: vi.fn(async () => new Set([101])),
-}));
-
-vi.mock('@/features/sessions/sessions-service', () => ({
+const { getSessions } = vi.hoisted(() => ({
   getSessions: vi.fn(async () => [
     {
       id: 101,
@@ -50,7 +33,42 @@ vi.mock('@/features/sessions/sessions-service', () => ({
       hours: 1,
       status: 'Pending-Notes',
     },
+    {
+      id: 103,
+      student_name: 'Student Three',
+      tutor_id: 3,
+      tutor_name: 'Tutor Three',
+      tutor_email: 'tutor3@example.com',
+      student_id: 13,
+      subject_id: 23,
+      subject_name: 'Writing',
+      scheduled_at: new Date().toISOString(),
+      ends_at: new Date().toISOString(),
+      hours: 1,
+      status: 'Scheduled',
+    },
   ]),
+}));
+
+vi.mock('@/features/admin-dashboard/admin-dashboard-service', () => ({
+  AT_RISK_THRESHOLD: 2,
+  getAdminMetrics: vi.fn(async () => ({
+    sessionsTodayCount: 1,
+    pendingNotesCount: 1,
+    pendingNotesCreditsAtRisk: 2,
+    atRiskParentsCount: 1,
+    creditsCaptured: 4,
+    creditsLeaked: 0.5,
+    leakageRate: 0.5 / 4.5,
+  })),
+  getAtRiskParents: vi.fn(async () => [
+    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', available_minutes: 60, available_hours: '1' },
+  ]),
+  getDebitSessionIds: vi.fn(async () => new Set([101])),
+}));
+
+vi.mock('@/features/sessions/sessions-service', () => ({
+  getSessions,
 }));
 
 vi.mock('@/features/admin-dashboard/metric-card', () => ({
@@ -92,15 +110,33 @@ vi.mock('@/features/admin-dashboard/at-risk-view', () => ({
 }));
 
 describe('AdminDashboardContent', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-24T15:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders the pending notes detail view for admins', async () => {
     const { AdminDashboardContent } = await import('@/features/admin-dashboard/admin-dashboard-content');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
     const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'pending-notes' }));
 
-    expect(markup).toContain('Sessions Today:3');
+    expect(markup).toContain('Sessions Today:1');
     expect(markup).toContain('Pending Notes:1:contact');
     expect(markup).toContain('Sessions Billed:4');
+  });
+
+  it('keeps same-day pending-note sessions out of the sessions-today view', async () => {
+    const { AdminDashboardContent } = await import('@/features/admin-dashboard/admin-dashboard-content');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+
+    const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'sessions-today' }));
+
+    expect(markup).toContain('sessions:1');
   });
 
   it('renders the at-risk accounts view', async () => {

@@ -30,7 +30,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
 
   const sessionsTodayData = sessions.filter(session => {
     const scheduledAt = new Date(session.scheduled_at);
-    return scheduledAt >= startOfToday && scheduledAt <= endOfToday;
+    return session.status === 'Scheduled' && scheduledAt >= startOfToday && scheduledAt <= endOfToday;
   });
   const pendingNotesData = sessions.filter(session => session.status === 'Pending-Notes');
   const capturedData = sessions.filter(session => debitSessionIds.has(session.id));
@@ -50,7 +50,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
             sub='scheduled for today'
             href={viewUrl('sessions-today')}
             active={view === 'sessions-today'}
-            tooltip='All sessions scheduled for today across all tutors. Mark no-shows or cancellations inline.'
+            tooltip='Scheduled sessions for today across all tutors. Mark no-shows or cancellations inline.'
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['accounts-needing-attention']}
