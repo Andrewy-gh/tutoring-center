@@ -68,7 +68,7 @@ export async function AdminDashboardContent({ view }: { view: ViewKey }) {
             sub={`last ${BILLED_SESSIONS_LOOKBACK_DAYS} days`}
             href={viewUrl('sessions-billed')}
             active={view === 'sessions-billed'}
-            tooltip='Credits successfully debited for recently completed sessions.'
+            tooltip='Credits captured when tutor notes were submitted.'
           />
           <MetricCard
             label={ADMIN_DASHBOARD_VIEW_TITLES['sessions-pending-billing']}

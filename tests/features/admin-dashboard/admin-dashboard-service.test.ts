@@ -3,37 +3,40 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   getAtRiskParentCountRows,
   getAtRiskParentRows,
-  getBilledDashboardSessionRowsSince,
-  getCompletedSessionDebitRowsSince,
+  getBilledDashboardSessionRowsBetween,
+  getCompletedSessionDebitRowsBetween,
   getDashboardSessionRowsBetween,
   getDebitTransactionRows,
-  getPendingBillingDashboardSessionRowsSince,
-  getPendingNoteDashboardSessionRowsSince,
-  getPendingNoteSessionRowsSince,
+  getDebitTransactionRowsBetween,
+  getPendingBillingDashboardSessionRowsBetween,
+  getPendingNoteDashboardSessionRowsBetween,
+  getPendingNoteSessionRowsBetween,
   getScheduledSessionsCountBetween,
 } = vi.hoisted(() => ({
   getAtRiskParentCountRows: vi.fn(),
   getAtRiskParentRows: vi.fn(),
-  getBilledDashboardSessionRowsSince: vi.fn(),
-  getCompletedSessionDebitRowsSince: vi.fn(),
+  getBilledDashboardSessionRowsBetween: vi.fn(),
+  getCompletedSessionDebitRowsBetween: vi.fn(),
   getDashboardSessionRowsBetween: vi.fn(),
   getDebitTransactionRows: vi.fn(),
-  getPendingBillingDashboardSessionRowsSince: vi.fn(),
-  getPendingNoteDashboardSessionRowsSince: vi.fn(),
-  getPendingNoteSessionRowsSince: vi.fn(),
+  getDebitTransactionRowsBetween: vi.fn(),
+  getPendingBillingDashboardSessionRowsBetween: vi.fn(),
+  getPendingNoteDashboardSessionRowsBetween: vi.fn(),
+  getPendingNoteSessionRowsBetween: vi.fn(),
   getScheduledSessionsCountBetween: vi.fn(),
 }));
 
 vi.mock('@/db/queries/admin-dashboard', () => ({
   getAtRiskParentCountRows,
   getAtRiskParentRows,
-  getBilledDashboardSessionRowsSince,
-  getCompletedSessionDebitRowsSince,
+  getBilledDashboardSessionRowsBetween,
+  getCompletedSessionDebitRowsBetween,
   getDashboardSessionRowsBetween,
   getDebitTransactionRows,
-  getPendingBillingDashboardSessionRowsSince,
-  getPendingNoteDashboardSessionRowsSince,
-  getPendingNoteSessionRowsSince,
+  getDebitTransactionRowsBetween,
+  getPendingBillingDashboardSessionRowsBetween,
+  getPendingNoteDashboardSessionRowsBetween,
+  getPendingNoteSessionRowsBetween,
   getScheduledSessionsCountBetween,
 }));
 
@@ -59,19 +62,19 @@ describe('admin dashboard service', () => {
     vi.useRealTimers();
   });
 
-  it('counts captured credits from session debits and leaked credits from completed sessions without them', async () => {
+  it('counts captured credits by debit date and leaked credits by recent completed sessions without debits', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-24T15:00:00.000Z'));
     getScheduledSessionsCountBetween.mockResolvedValue([{ count: 3 }]);
-    getPendingNoteSessionRowsSince.mockResolvedValue([
+    getPendingNoteSessionRowsBetween.mockResolvedValue([
       { id: 201, slot_units: 2 },
       { id: 202, slot_units: 1 },
     ]);
-    getCompletedSessionDebitRowsSince.mockResolvedValue([
-      { id: 301, slot_units: 2, debit_transaction_id: 1, pending_delta_minutes: -60 },
-      { id: 303, slot_units: 1, debit_transaction_id: 2, pending_delta_minutes: -30 },
-      { id: 302, slot_units: 1, debit_transaction_id: null, pending_delta_minutes: null },
+    getDebitTransactionRowsBetween.mockResolvedValue([
+      { session_id: 301, pending_delta_minutes: -60 },
+      { session_id: 303, pending_delta_minutes: -30 },
     ]);
+    getCompletedSessionDebitRowsBetween.mockResolvedValue([{ id: 302, slot_units: 1, debit_transaction_id: null }]);
     getAtRiskParentCountRows.mockResolvedValue([{ count: 4 }]);
 
     const { getAdminMetrics } = await import('@/features/admin-dashboard/admin-dashboard-service');
@@ -83,8 +86,18 @@ describe('admin dashboard service', () => {
     expect(result.creditsCaptured).toBe(1.5);
     expect(result.creditsLeaked).toBe(0.5);
     expect(result.atRiskParentsCount).toBe(4);
-    expect(getPendingNoteSessionRowsSince).toHaveBeenCalledWith(new Date('2026-04-24T15:00:00.000Z'));
-    expect(getCompletedSessionDebitRowsSince).toHaveBeenCalledWith(new Date('2026-04-24T15:00:00.000Z'));
+    expect(getPendingNoteSessionRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
+    expect(getDebitTransactionRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
+    expect(getCompletedSessionDebitRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
   }, 10000);
 
   it('returns only session ids with session debit transactions', async () => {
@@ -126,7 +139,7 @@ describe('admin dashboard service', () => {
   it('loads only the active dashboard session view and maps rows for the table', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-24T15:00:00.000Z'));
-    getPendingNoteDashboardSessionRowsSince.mockResolvedValueOnce([
+    getPendingNoteDashboardSessionRowsBetween.mockResolvedValueOnce([
       {
         id: 102,
         tutor_id: 2,
@@ -172,20 +185,40 @@ describe('admin dashboard service', () => {
       },
     ]);
 
-    expect(getPendingNoteDashboardSessionRowsSince).toHaveBeenCalledWith(new Date('2026-04-24T15:00:00.000Z'));
+    expect(getPendingNoteDashboardSessionRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
     expect(getDashboardSessionRowsBetween).not.toHaveBeenCalled();
-    expect(getBilledDashboardSessionRowsSince).not.toHaveBeenCalled();
-    expect(getPendingBillingDashboardSessionRowsSince).not.toHaveBeenCalled();
+    expect(getBilledDashboardSessionRowsBetween).not.toHaveBeenCalled();
+    expect(getPendingBillingDashboardSessionRowsBetween).not.toHaveBeenCalled();
   }, 10000);
 
   it('loads pending billing sessions inside the shared revenue window', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-24T15:00:00.000Z'));
-    getPendingBillingDashboardSessionRowsSince.mockResolvedValueOnce([]);
+    getPendingBillingDashboardSessionRowsBetween.mockResolvedValueOnce([]);
 
     const { getAdminDashboardSessions } = await import('@/features/admin-dashboard/admin-dashboard-service');
     await expect(getAdminDashboardSessions('sessions-pending-billing')).resolves.toEqual([]);
 
-    expect(getPendingBillingDashboardSessionRowsSince).toHaveBeenCalledWith(new Date('2026-04-24T15:00:00.000Z'));
+    expect(getPendingBillingDashboardSessionRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
+  }, 10000);
+
+  it('loads billed sessions inside the debit transaction window', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-24T15:00:00.000Z'));
+    getBilledDashboardSessionRowsBetween.mockResolvedValueOnce([]);
+
+    const { getAdminDashboardSessions } = await import('@/features/admin-dashboard/admin-dashboard-service');
+    await expect(getAdminDashboardSessions('sessions-billed')).resolves.toEqual([]);
+
+    expect(getBilledDashboardSessionRowsBetween).toHaveBeenCalledWith(
+      new Date('2026-04-24T15:00:00.000Z'),
+      new Date('2026-05-24T15:00:00.000Z')
+    );
   }, 10000);
 });

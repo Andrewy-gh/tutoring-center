@@ -82,6 +82,7 @@ describe('AdminDashboardContent', () => {
 
     const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'pending-notes' }));
 
+    expect(markup).toContain('Revenue - last 30 days');
     expect(markup).toContain('Sessions Today:3');
     expect(markup).toContain('Pending Notes:1:contact');
     expect(markup).toContain('Sessions Billed:4');

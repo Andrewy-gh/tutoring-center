@@ -5,21 +5,23 @@ import {
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 let deps: SessionProgressServiceDeps;
-let saveProgressReportMock: Mock<SessionProgressServiceDeps['saveProgressReport']>;
+let saveProgressReportAndCaptureRevenueMock: Mock<SessionProgressServiceDeps['saveProgressReportAndCaptureRevenue']>;
 let getUserRoleMock: Mock<SessionProgressServiceDeps['getUserRole']>;
 let getCurrentUserIDMock: Mock<SessionProgressServiceDeps['getCurrentUserID']>;
 let getTutorIdByUserIdMock: Mock<SessionProgressServiceDeps['getTutorIdByUserId']>;
 let getSessionTutorIdMock: Mock<SessionProgressServiceDeps['getSessionTutorId']>;
 
 function createDeps() {
-  saveProgressReportMock = vi.fn<SessionProgressServiceDeps['saveProgressReport']>().mockResolvedValue(undefined);
+  saveProgressReportAndCaptureRevenueMock = vi
+    .fn<SessionProgressServiceDeps['saveProgressReportAndCaptureRevenue']>()
+    .mockResolvedValue({ captured: true });
   getUserRoleMock = vi.fn<SessionProgressServiceDeps['getUserRole']>().mockResolvedValue('tutor');
   getCurrentUserIDMock = vi.fn<SessionProgressServiceDeps['getCurrentUserID']>().mockResolvedValue(44);
   getTutorIdByUserIdMock = vi.fn<SessionProgressServiceDeps['getTutorIdByUserId']>().mockResolvedValue(9);
   getSessionTutorIdMock = vi.fn<SessionProgressServiceDeps['getSessionTutorId']>().mockResolvedValue(9);
 
   const nextDeps: SessionProgressServiceDeps = {
-    saveProgressReport: values => saveProgressReportMock(values),
+    saveProgressReportAndCaptureRevenue: values => saveProgressReportAndCaptureRevenueMock(values),
     getUserRole: () => getUserRoleMock(),
     getCurrentUserID: () => getCurrentUserIDMock(),
     getTutorIdByUserId: userId => getTutorIdByUserIdMock(userId),
@@ -48,7 +50,7 @@ describe('submitProgressReport', () => {
       })
     ).resolves.toEqual({ success: true });
 
-    expect(saveProgressReportMock).toHaveBeenCalledWith({
+    expect(saveProgressReportAndCaptureRevenueMock).toHaveBeenCalledWith({
       sessionId: 22,
       topics: null,
       homeworkAssigned: 'Worksheet 3',
@@ -75,6 +77,6 @@ describe('submitProgressReport', () => {
       })
     ).rejects.toThrow('You are not assigned to this session');
 
-    expect(saveProgressReportMock).not.toHaveBeenCalled();
+    expect(saveProgressReportAndCaptureRevenueMock).not.toHaveBeenCalled();
   });
 });

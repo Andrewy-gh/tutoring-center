@@ -2,13 +2,14 @@ import 'server-only';
 import {
   getAtRiskParentCountRows,
   getAtRiskParentRows,
-  getBilledDashboardSessionRowsSince,
-  getCompletedSessionDebitRowsSince,
+  getBilledDashboardSessionRowsBetween,
+  getCompletedSessionDebitRowsBetween,
   getDashboardSessionRowsBetween,
   getDebitTransactionRows,
-  getPendingBillingDashboardSessionRowsSince,
-  getPendingNoteDashboardSessionRowsSince,
-  getPendingNoteSessionRowsSince,
+  getDebitTransactionRowsBetween,
+  getPendingBillingDashboardSessionRowsBetween,
+  getPendingNoteDashboardSessionRowsBetween,
+  getPendingNoteSessionRowsBetween,
   getScheduledSessionsCountBetween,
 } from '@/db/queries/admin-dashboard';
 import { parseSessionListRows } from '@/db/queries/sessions/list';
@@ -49,11 +50,12 @@ function getTodayRange(now: Date) {
   return { startOfToday, endOfToday };
 }
 
-function getBilledSessionsWindowStart(now: Date) {
+function getRevenueWindow(now: Date) {
   const start = new Date(now);
   start.setDate(start.getDate() - BILLED_SESSIONS_LOOKBACK_DAYS);
+  const end = new Date(now);
 
-  return start;
+  return { start, end };
 }
 
 async function mapDashboardSessionRows(rows: Awaited<ReturnType<typeof getDashboardSessionRowsBetween>>) {
@@ -89,12 +91,13 @@ async function mapDashboardSessionRows(rows: Awaited<ReturnType<typeof getDashbo
 export async function getAdminMetrics() {
   const now = new Date();
   const { startOfToday, endOfToday } = getTodayRange(now);
-  const billedSessionsWindowStart = getBilledSessionsWindowStart(now);
+  const revenueWindow = getRevenueWindow(now);
 
-  const [sessionsTodayRows, pendingNotes, completedSessionRows, atRiskRows] = await Promise.all([
+  const [sessionsTodayRows, pendingNotes, debitTransactions, completedSessionRows, atRiskRows] = await Promise.all([
     getScheduledSessionsCountBetween(startOfToday, endOfToday),
-    getPendingNoteSessionRowsSince(billedSessionsWindowStart),
-    getCompletedSessionDebitRowsSince(billedSessionsWindowStart),
+    getPendingNoteSessionRowsBetween(revenueWindow.start, revenueWindow.end),
+    getDebitTransactionRowsBetween(revenueWindow.start, revenueWindow.end),
+    getCompletedSessionDebitRowsBetween(revenueWindow.start, revenueWindow.end),
     getAtRiskParentCountRows(AT_RISK_THRESHOLD_MINUTES),
   ]);
 
@@ -102,28 +105,29 @@ export async function getAdminMetrics() {
     (sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slot_units)),
     0
   );
-  const completedSessions = new Map<number, { slotUnits: number; debitMinutes: number }>();
+  const capturedSessions = new Map<number, number>();
 
-  for (const row of completedSessionRows) {
-    const existing = completedSessions.get(row.id);
-    if (existing) {
-      existing.debitMinutes += Math.abs(row.pending_delta_minutes ?? 0);
+  for (const row of debitTransactions) {
+    if (row.session_id === null) {
       continue;
     }
 
-    completedSessions.set(row.id, {
-      slotUnits: row.slot_units,
-      debitMinutes: Math.abs(row.pending_delta_minutes ?? 0),
-    });
+    const existing = capturedSessions.get(row.session_id);
+    if (existing) {
+      capturedSessions.set(row.session_id, existing + Math.abs(row.pending_delta_minutes));
+      continue;
+    }
+
+    capturedSessions.set(row.session_id, Math.abs(row.pending_delta_minutes));
   }
 
-  const creditsCaptured = Array.from(completedSessions.values()).reduce(
-    (sum, session) => sum + minutesToHours(session.debitMinutes),
+  const creditsCaptured = Array.from(capturedSessions.values()).reduce(
+    (sum, minutes) => sum + minutesToHours(minutes),
     0
   );
-  const creditsLeaked = Array.from(completedSessions.values())
-    .filter(session => session.debitMinutes === 0)
-    .reduce((sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slotUnits)), 0);
+  const creditsLeaked = completedSessionRows
+    .filter(session => session.debit_transaction_id === null)
+    .reduce((sum, session) => sum + minutesToHours(slotUnitsToMinutes(session.slot_units)), 0);
   const leakageRate = creditsCaptured + creditsLeaked > 0 ? creditsLeaked / (creditsCaptured + creditsLeaked) : 0;
 
   return {
@@ -162,21 +166,26 @@ export async function getDebitSessionIds() {
 export async function getAdminDashboardSessions(view: ViewKey) {
   const now = new Date();
   const { startOfToday, endOfToday } = getTodayRange(now);
+  const revenueWindow = getRevenueWindow(now);
 
   if (view === 'sessions-today') {
     return mapDashboardSessionRows(await getDashboardSessionRowsBetween(startOfToday, endOfToday));
   }
 
   if (view === 'pending-notes') {
-    return mapDashboardSessionRows(await getPendingNoteDashboardSessionRowsSince(getBilledSessionsWindowStart(now)));
+    return mapDashboardSessionRows(
+      await getPendingNoteDashboardSessionRowsBetween(revenueWindow.start, revenueWindow.end)
+    );
   }
 
   if (view === 'sessions-billed') {
-    return mapDashboardSessionRows(await getBilledDashboardSessionRowsSince(getBilledSessionsWindowStart(now)));
+    return mapDashboardSessionRows(await getBilledDashboardSessionRowsBetween(revenueWindow.start, revenueWindow.end));
   }
 
   if (view === 'sessions-pending-billing') {
-    return mapDashboardSessionRows(await getPendingBillingDashboardSessionRowsSince(getBilledSessionsWindowStart(now)));
+    return mapDashboardSessionRows(
+      await getPendingBillingDashboardSessionRowsBetween(revenueWindow.start, revenueWindow.end)
+    );
   }
 
   return [];
