@@ -181,4 +181,21 @@ describe('saveProgressReportAndCaptureRevenue', () => {
     expect(state.progressReports).toEqual([]);
     expect(state.transactions).toEqual([]);
   });
+
+  it('rolls back notes and billing when the session is not pending notes', async () => {
+    const state: CaptureState = {
+      balance: { available_minutes: 60, pending_minutes: 60 },
+      session: { id: 12, parent_id: 7, slot_units: 2, status: 'Scheduled' },
+      transactions: [],
+      progressReports: [],
+    };
+
+    await expect(
+      saveProgressReportAndCaptureRevenue(PROGRESS_REPORT, createCaptureDatabase(state))
+    ).rejects.toBeInstanceOf(SessionRevenueCaptureError);
+    expect(state.balance).toEqual({ available_minutes: 60, pending_minutes: 60 });
+    expect(state.session.status).toBe('Scheduled');
+    expect(state.progressReports).toEqual([]);
+    expect(state.transactions).toEqual([]);
+  });
 });

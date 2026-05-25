@@ -37,11 +37,13 @@ async function getDefaultDatabase() {
 }
 
 const ExistingDebitRowsSchema = z.array(z.object({ id: z.number() }));
+const NOTE_SUBMISSION_REVENUE_CAPTURE_STATUS = 'Pending-Notes';
 const SessionRowsSchema = z.array(
   z.object({
     id: z.number(),
     parent_id: z.number(),
     slot_units: z.number(),
+    status: z.string(),
   })
 );
 const BalanceRowsSchema = z.array(
@@ -83,7 +85,7 @@ async function captureSessionRevenue(tx: SqlExecutor, sessionId: number) {
   const idempotencyKey = `session_debit:${sessionId}`;
   const [session] = SessionRowsSchema.parse(
     await tx.execute(sql`
-    select id, parent_id, slot_units
+    select id, parent_id, slot_units, status
     from sessions
     where id = ${sessionId}
     for update
@@ -109,6 +111,11 @@ async function captureSessionRevenue(tx: SqlExecutor, sessionId: number) {
 
   if (existingDebit.length > 0) {
     return false;
+  }
+
+  // Product rule: pending credits become earned revenue when the tutor submits notes.
+  if (session.status !== NOTE_SUBMISSION_REVENUE_CAPTURE_STATUS) {
+    throw new SessionRevenueCaptureError('Session is not ready for progress notes');
   }
 
   const sessionMinutes = slotUnitsToMinutes(session.slot_units);
