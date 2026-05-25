@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getParentIdByUserId, getTutorIdByUserId } from '@/db/queries/actors';
+import { sweepEndedScheduledSessionsToPendingNotes } from '@/db/queries/sessions/lifecycle';
 import { buildSessionListFilters, getSessionListRows, parseSessionListRows } from '@/db/queries/sessions/list';
 import { parents, sessionMetrics, sessionProgress, sessions, students, users } from '@/db/schema';
 import { slotUnitsToHours } from '@/features/credits/billing-units';
@@ -137,6 +138,7 @@ export type SessionDataServiceDeps = {
   getSubjectMapByIds: (ids: number[]) => Promise<Map<number, SubjectSummary>>;
   getTutorProfileMapByIds: (ids: number[]) => Promise<Map<number, TutorSummary>>;
   getSessionDetail: (id: number) => Promise<SessionDetailRow | null>;
+  sweepEndedScheduledSessionsToPendingNotes: (nowIso: string) => Promise<void>;
   getTutorAssignedSessionRows: (tutorId: number) => Promise<TutorAssignedSessionRow[]>;
   getStudentRecentProgressRows: (
     studentId: number,
@@ -444,6 +446,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
         return [];
       }
 
+      await deps.sweepEndedScheduledSessionsToPendingNotes(deps.now());
       const rows = await deps.getTutorAssignedSessionRows(tutorId);
       if (rows.length === 0) {
         return [];
@@ -461,7 +464,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
           scheduled_at: row.scheduled_at,
           ends_at: row.ends_at,
           status: row.status,
-          needsProgressReport: row.progress_id === null,
+          needsProgressReport: row.status === 'Pending-Notes' && row.progress_id === null,
           needsMetrics: row.metrics_id === null,
         }))
         .filter(session => session.needsProgressReport || session.needsMetrics);
@@ -493,6 +496,7 @@ export const sessionDataService = createSessionDataService({
   getSubjectMapByIds,
   getTutorProfileMapByIds,
   getSessionDetail,
+  sweepEndedScheduledSessionsToPendingNotes,
   getTutorAssignedSessionRows,
   getStudentRecentProgressRows,
   now: () => new Date().toISOString(),

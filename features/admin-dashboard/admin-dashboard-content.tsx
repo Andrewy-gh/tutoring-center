@@ -1,3 +1,4 @@
+import { sweepEndedScheduledSessionsToPendingNotes } from '@/db/queries/sessions/lifecycle';
 import {
   AT_RISK_THRESHOLD,
   getAdminMetrics,
@@ -15,6 +16,7 @@ import { SessionsView } from './sessions-view';
 
 export async function AdminDashboardContent({ view }: { view: ViewKey }) {
   const now = new Date();
+  await sweepEndedScheduledSessionsToPendingNotes(now.toISOString());
 
   const [metrics, atRiskParents, sessions, debitSessionIds] = await Promise.all([
     getAdminMetrics(),

@@ -8,6 +8,7 @@ const {
   getDebitTransactionRowsSince,
   getPendingNoteSessionRowsSince,
   getScheduledSessionsCountBetween,
+  sweepEndedScheduledSessionsToPendingNotes,
 } = vi.hoisted(() => ({
   getAtRiskParentCountRows: vi.fn(),
   getAtRiskParentRows: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getDebitTransactionRowsSince: vi.fn(),
   getPendingNoteSessionRowsSince: vi.fn(),
   getScheduledSessionsCountBetween: vi.fn(),
+  sweepEndedScheduledSessionsToPendingNotes: vi.fn(),
 }));
 
 vi.mock('@/db/queries/admin-dashboard', () => ({
@@ -26,6 +28,10 @@ vi.mock('@/db/queries/admin-dashboard', () => ({
   getDebitTransactionRowsSince,
   getPendingNoteSessionRowsSince,
   getScheduledSessionsCountBetween,
+}));
+
+vi.mock('@/db/queries/sessions/lifecycle', () => ({
+  sweepEndedScheduledSessionsToPendingNotes,
 }));
 
 describe('admin dashboard service', () => {
@@ -55,6 +61,10 @@ describe('admin dashboard service', () => {
     const { getAdminMetrics } = await import('@/features/admin-dashboard/admin-dashboard-service');
     const result = await getAdminMetrics();
 
+    expect(sweepEndedScheduledSessionsToPendingNotes).toHaveBeenCalledWith('2026-05-24T15:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotes.mock.invocationCallOrder[0]).toBeLessThan(
+      getPendingNoteSessionRowsSince.mock.invocationCallOrder[0]
+    );
     expect(result.sessionsTodayCount).toBe(3);
     expect(result.pendingNotesCount).toBe(2);
     expect(result.pendingNotesCreditsAtRisk).toBe(1.5);

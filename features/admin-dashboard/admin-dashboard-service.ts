@@ -8,6 +8,7 @@ import {
   getPendingNoteSessionRowsSince,
   getScheduledSessionsCountBetween,
 } from '@/db/queries/admin-dashboard';
+import { sweepEndedScheduledSessionsToPendingNotes } from '@/db/queries/sessions/lifecycle';
 import { creditsToMinutes, formatHours, minutesToHours, slotUnitsToMinutes } from '@/features/credits/billing-units';
 
 export type AdminMetrics = {
@@ -41,6 +42,8 @@ function getBilledSessionsWindowStart(now: Date) {
 
 export async function getAdminMetrics() {
   const now = new Date();
+  await sweepEndedScheduledSessionsToPendingNotes(now.toISOString());
+
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(now);

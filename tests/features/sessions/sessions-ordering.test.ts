@@ -20,6 +20,7 @@ function createDeps() {
     getSubjectMapByIds: ids => getSubjectMapByIdsMock(ids),
     getTutorProfileMapByIds: ids => getTutorProfileMapByIdsMock(ids),
     getSessionDetail: async () => null,
+    sweepEndedScheduledSessionsToPendingNotes: async () => {},
     getTutorAssignedSessionRows: async () => [],
     getStudentRecentProgressRows: async () => [],
     now: () => '2026-03-21T12:00:00.000Z',
