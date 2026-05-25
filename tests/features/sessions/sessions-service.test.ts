@@ -116,6 +116,10 @@ describe('getSessions', () => {
         status: 'Scheduled',
       },
     ]);
+    expect(sweepEndedScheduledSessionsToPendingNotesMock).toHaveBeenCalledWith('2026-03-21T12:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      getSessionListRowsMock.mock.invocationCallOrder[0]
+    );
   });
 
   it('filters sessions for parent users via parent lookup', async () => {
@@ -163,6 +167,10 @@ describe('getSession', () => {
     const service = createSessionDataService(deps);
     const session = await service.getSession(1);
 
+    expect(sweepEndedScheduledSessionsToPendingNotesMock).toHaveBeenCalledWith('2026-03-21T12:00:00.000Z');
+    expect(sweepEndedScheduledSessionsToPendingNotesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      getSessionDetailMock.mock.invocationCallOrder[0]
+    );
     expect(session.id).toBe(1);
     expect(session.subject_name).toBe('Mathematics');
     expect(session.student.name).toBe('John Student');

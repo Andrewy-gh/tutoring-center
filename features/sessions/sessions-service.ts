@@ -308,6 +308,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
   return {
     async getSessions(kind: 'all' | 'upcoming' | 'past' = 'all') {
       const role = await deps.getUserRole();
+      const nowIso = deps.now();
 
       let parentId: number | undefined;
       let tutorId: number | undefined;
@@ -329,7 +330,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
 
       const filters = buildSessionListFilters({
         kind,
-        nowIso: deps.now(),
+        nowIso,
         parentId,
         tutorId,
         excludeCompletedForUpcoming: true,
@@ -337,6 +338,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
 
       let rows;
       try {
+        await deps.sweepEndedScheduledSessionsToPendingNotes(nowIso);
         rows = await deps.getSessionListRows(filters);
       } catch {
         throw new Error(SESSION_ERROR_MESSAGES[role].database);
@@ -355,6 +357,7 @@ export function createSessionDataService(deps: SessionDataServiceDeps) {
 
     async getSession(id: number) {
       const role = await deps.getUserRole();
+      await deps.sweepEndedScheduledSessionsToPendingNotes(deps.now());
       const data = await deps.getSessionDetail(id);
 
       if (!data) {
