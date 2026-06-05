@@ -5,37 +5,8 @@ globalThis.React = React;
 
 vi.mock('@/features/admin-dashboard/admin-dashboard-service', () => ({
   AT_RISK_THRESHOLD: 2,
-  getAdminMetrics: vi.fn(async () => ({
-    sessionsTodayCount: 3,
-    pendingNotesCount: 2,
-    pendingNotesCreditsAtRisk: 2,
-    atRiskParentsCount: 1,
-    creditsCaptured: 4,
-    creditsLeaked: 0.5,
-    leakageRate: 0.5 / 4.5,
-  })),
-  getAtRiskParents: vi.fn(async () => [
-    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', available_minutes: 60, available_hours: '1' },
-  ]),
-  getDebitSessionIds: vi.fn(async () => new Set([101])),
-}));
-
-vi.mock('@/features/sessions/sessions-service', () => ({
-  getSessions: vi.fn(async () => [
-    {
-      id: 101,
-      student_name: 'Student One',
-      tutor_id: 1,
-      tutor_name: 'Tutor One',
-      tutor_email: 'tutor1@example.com',
-      student_id: 11,
-      subject_id: 21,
-      subject_name: 'Mathematics',
-      scheduled_at: new Date().toISOString(),
-      ends_at: new Date().toISOString(),
-      hours: 1,
-      status: 'Completed',
-    },
+  BILLED_SESSIONS_LOOKBACK_DAYS: 30,
+  getAdminDashboardSessions: vi.fn(async () => [
     {
       id: 102,
       student_name: 'Student Two',
@@ -50,6 +21,18 @@ vi.mock('@/features/sessions/sessions-service', () => ({
       hours: 1,
       status: 'Pending-Notes',
     },
+  ]),
+  getAdminMetrics: vi.fn(async () => ({
+    sessionsTodayCount: 3,
+    pendingNotesCount: 2,
+    pendingNotesCreditsAtRisk: 2,
+    atRiskParentsCount: 1,
+    creditsCaptured: 4,
+    creditsLeaked: 0.5,
+    leakageRate: 0.5 / 4.5,
+  })),
+  getAtRiskParents: vi.fn(async () => [
+    { parent_id: 7, name: 'Pat Parent', email: 'pat@example.com', available_minutes: 60, available_hours: '1' },
   ]),
 }));
 
@@ -94,13 +77,16 @@ vi.mock('@/features/admin-dashboard/at-risk-view', () => ({
 describe('AdminDashboardContent', () => {
   it('renders the pending notes detail view for admins', async () => {
     const { AdminDashboardContent } = await import('@/features/admin-dashboard/admin-dashboard-content');
+    const { getAdminDashboardSessions } = await import('@/features/admin-dashboard/admin-dashboard-service');
     const { renderToStaticMarkup } = await import('react-dom/server');
 
     const markup = renderToStaticMarkup(await AdminDashboardContent({ view: 'pending-notes' }));
 
+    expect(markup).toContain('Revenue - last 30 days');
     expect(markup).toContain('Sessions Today:3');
     expect(markup).toContain('Pending Notes:1:contact');
     expect(markup).toContain('Sessions Billed:4');
+    expect(getAdminDashboardSessions).toHaveBeenCalledWith('pending-notes');
   });
 
   it('renders the at-risk accounts view', async () => {
