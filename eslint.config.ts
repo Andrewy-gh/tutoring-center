@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import { FlatCompat } from '@eslint/eslintrc'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { noInvalidUseServerExports } from './eslint-rules/no-invalid-use-server-exports.js'
 import eslintConfigPrettier from 'eslint-config-prettier'
 import { noUntrackedTypeAssertions } from './eslint-rules/no-untracked-type-assertions.js'
 
@@ -31,12 +32,14 @@ const eslintConfig = defineConfig(
     plugins: {
       local: {
         rules: {
+          'no-invalid-use-server-exports': noInvalidUseServerExports,
           'no-untracked-type-assertions': noUntrackedTypeAssertions,
         },
       },
     },
     rules: {
       'no-console': 'warn' as const,
+      'local/no-invalid-use-server-exports': 'error',
       'local/no-untracked-type-assertions': 'error',
     },
   },
