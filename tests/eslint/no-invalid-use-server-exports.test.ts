@@ -27,6 +27,34 @@ describe('no-invalid-use-server-exports', () => {
         `
           'use server';
 
+          export type { FormData } from './service';
+        `,
+        `
+          'use server';
+
+          export { type FormData } from './service';
+        `,
+        `
+          'use server';
+
+          export type * from './service';
+        `,
+        `
+          'use server';
+
+          export type * as ServiceTypes from './service';
+        `,
+        `
+          'use server';
+
+          type FormData = { id: number };
+          const submit = async () => {};
+
+          export { type FormData, submit };
+        `,
+        `
+          'use server';
+
           export const submit = async () => {};
         `,
         `
@@ -71,7 +99,17 @@ describe('no-invalid-use-server-exports', () => {
           code: `
             'use server';
 
-            export type { FormData } from './service';
+            export async function* stream() {}
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            const stream = async function* () {};
+
+            export { stream };
           `,
           errors: [{ messageId: 'invalidExport' }],
         },

@@ -7,11 +7,13 @@ function hasModuleUseServerDirective(program) {
 }
 
 function isAsyncFunctionDeclaration(node) {
-  return node?.type === 'FunctionDeclaration' && node.async;
+  return node?.type === 'FunctionDeclaration' && node.async && !node.generator;
 }
 
 function isAsyncFunctionExpression(node) {
-  return (node?.type === 'FunctionExpression' || node?.type === 'ArrowFunctionExpression') && node.async;
+  return (
+    (node?.type === 'FunctionExpression' || node?.type === 'ArrowFunctionExpression') && node.async && !node.generator
+  );
 }
 
 function isAsyncFunctionVariableDeclaration(declaration) {
@@ -51,17 +53,29 @@ function isValueExportSpecifier(specifier) {
   return specifier.exportKind !== 'type';
 }
 
+function isTypeOnlyExport(node) {
+  return (
+    (node.type === 'ExportAllDeclaration' && node.exportKind === 'type') ||
+    (node.type === 'ExportNamedDeclaration' &&
+      (node.exportKind === 'type' ||
+        (node.specifiers.length > 0 && node.specifiers.every(specifier => specifier.exportKind === 'type'))))
+  );
+}
+
+function isAllowedNamedExportSpecifier(specifier, asyncFunctionBindings) {
+  if (!isValueExportSpecifier(specifier)) {
+    return true;
+  }
+
+  return specifier.local.type === 'Identifier' && asyncFunctionBindings.has(specifier.local.name);
+}
+
 function isAllowedNamedExportSpecifiers(node, asyncFunctionBindings) {
   return (
     node.source === null &&
     node.exportKind !== 'type' &&
     node.specifiers.length > 0 &&
-    node.specifiers.every(
-      specifier =>
-        isValueExportSpecifier(specifier) &&
-        specifier.local.type === 'Identifier' &&
-        asyncFunctionBindings.has(specifier.local.name)
-    )
+    node.specifiers.every(specifier => isAllowedNamedExportSpecifier(specifier, asyncFunctionBindings))
   );
 }
 
@@ -109,6 +123,7 @@ export const noInvalidUseServerExports = {
         for (const node of program.body) {
           if (
             !isExportDeclaration(node) ||
+            isTypeOnlyExport(node) ||
             isAllowedExport(node) ||
             isAllowedNamedExportSpecifiers(node, asyncFunctionBindings)
           ) {
