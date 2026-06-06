@@ -55,21 +55,26 @@ describe('no-invalid-use-server-exports', () => {
         `
           'use server';
 
-          export const submit = async () => {};
+          export const saveMetrics = async () => {};
         `,
         `
           'use server';
 
-          export const submit = async () => {};
-
-          export { submit as submitSession };
+          export let saveMetrics = async () => {};
         `,
         `
           'use server';
 
-          export async function submit() {}
+          export const sendProgressReport = async () => {};
 
-          export { submit as submitSession };
+          export { sendProgressReport as submitSession };
+        `,
+        `
+          'use server';
+
+          export async function approveSession() {}
+
+          export { approveSession };
         `,
         `
           'use server';
@@ -84,6 +89,63 @@ describe('no-invalid-use-server-exports', () => {
           const submit = async function () {};
 
           export { submit as submitSession };
+        `,
+        `
+          'use server';
+
+          const saveMetrics = async () => {};
+
+          export default saveMetrics;
+        `,
+        `
+          'use server';
+
+          async function saveMetrics() {}
+
+          export default saveMetrics;
+        `,
+        `
+          'use server';
+
+          async function action() {}
+
+          export default action;
+
+          action = 'not exported';
+        `,
+        `
+          'use server';
+
+          async function action() {}
+          function reset() {
+            action = 'not exported';
+          }
+
+          export default action;
+        `,
+        `
+          'use server';
+
+          async function action() {}
+          const helper = {
+            run() {
+              helper.run();
+            },
+          };
+          helper.run();
+
+          export default action;
+        `,
+        `
+          'use server';
+
+          async function action() {}
+          function helper() {
+            let action = 'x';
+            action = 'y';
+          }
+
+          export { action };
         `,
         `
           export async function login() {
@@ -136,6 +198,151 @@ describe('no-invalid-use-server-exports', () => {
             const actionName = 'submit';
 
             export { actionName };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            let alias;
+            alias = action = 'submit';
+
+            export { action };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            const replace = {
+              run() {
+                action = 'submit';
+              },
+            };
+            replace.run();
+
+            export default action;
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            const replace = () => {
+              action = 'submit';
+            };
+            replace();
+
+            export default action;
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            function replace() {
+              action = 'submit';
+            }
+            replace();
+
+            export { action };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            ({ action } = { action: 'submit' });
+
+            export { action };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            for (action of ['submit']) {}
+
+            export { action };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            function replace() {
+              action = 'submit';
+            }
+            replace();
+
+            export default action;
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            action = 'submit';
+
+            export { action };
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            async function action() {}
+            action = 'submit';
+
+            export default action;
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            export default action;
+
+            const action = async () => {};
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            let action = async () => {};
+            action = 'submit';
+
+            export default action;
+          `,
+          errors: [{ messageId: 'invalidExport' }],
+        },
+        {
+          code: `
+            'use server';
+
+            const actionName = 'submit';
+
+            export default actionName;
           `,
           errors: [{ messageId: 'invalidExport' }],
         },
