@@ -14,9 +14,60 @@ function isAsyncFunctionExpression(node) {
   return (node?.type === 'FunctionExpression' || node?.type === 'ArrowFunctionExpression') && node.async;
 }
 
+function isAsyncFunctionVariableDeclaration(declaration) {
+  return declaration?.id?.type === 'Identifier' && isAsyncFunctionExpression(declaration.init);
+}
+
+function isAllowedVariableDeclaration(node) {
+  return node?.type === 'VariableDeclaration' && node.declarations.every(isAsyncFunctionVariableDeclaration);
+}
+
+function collectAsyncFunctionBindings(program) {
+  const bindings = new Set();
+
+  for (const node of program.body) {
+    const declaration = node.type === 'ExportNamedDeclaration' ? node.declaration : node;
+
+    if (isAsyncFunctionDeclaration(declaration) && declaration.id?.name) {
+      bindings.add(declaration.id.name);
+      continue;
+    }
+
+    if (declaration?.type !== 'VariableDeclaration') {
+      continue;
+    }
+
+    for (const variableDeclaration of declaration.declarations) {
+      if (isAsyncFunctionVariableDeclaration(variableDeclaration)) {
+        bindings.add(variableDeclaration.id.name);
+      }
+    }
+  }
+
+  return bindings;
+}
+
+function isValueExportSpecifier(specifier) {
+  return specifier.exportKind !== 'type';
+}
+
+function isAllowedNamedExportSpecifiers(node, asyncFunctionBindings) {
+  return (
+    node.source === null &&
+    node.exportKind !== 'type' &&
+    node.specifiers.length > 0 &&
+    node.specifiers.every(
+      specifier =>
+        isValueExportSpecifier(specifier) &&
+        specifier.local.type === 'Identifier' &&
+        asyncFunctionBindings.has(specifier.local.name)
+    )
+  );
+}
+
 function isAllowedExport(node) {
   if (node.type === 'ExportNamedDeclaration') {
-    return isAsyncFunctionDeclaration(node.declaration);
+    return isAsyncFunctionDeclaration(node.declaration) || isAllowedVariableDeclaration(node.declaration);
   }
 
   if (node.type === 'ExportDefaultDeclaration') {
@@ -27,7 +78,11 @@ function isAllowedExport(node) {
 }
 
 function isExportDeclaration(node) {
-  return node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration' || node.type === 'ExportAllDeclaration';
+  return (
+    node.type === 'ExportNamedDeclaration' ||
+    node.type === 'ExportDefaultDeclaration' ||
+    node.type === 'ExportAllDeclaration'
+  );
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -49,8 +104,14 @@ export const noInvalidUseServerExports = {
           return;
         }
 
+        const asyncFunctionBindings = collectAsyncFunctionBindings(program);
+
         for (const node of program.body) {
-          if (!isExportDeclaration(node) || isAllowedExport(node)) {
+          if (
+            !isExportDeclaration(node) ||
+            isAllowedExport(node) ||
+            isAllowedNamedExportSpecifiers(node, asyncFunctionBindings)
+          ) {
             continue;
           }
 
